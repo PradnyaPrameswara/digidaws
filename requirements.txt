@@ -1,10 +1,11 @@
 Flask
 Flask-SQLAlchemy
-SQLAlchemy
+Flask-Login
 google-generativeai
 pandas
 PyPDF2
 python-docx
 mammoth
 Werkzeug
-Flask-Login
+pdfkit
+xhtml2pdf
