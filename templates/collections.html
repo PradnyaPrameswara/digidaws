@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Koleksi Soal Pilihan Ganda</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        /* Gaya dasar untuk opsi jawaban */
+        .option-badge {
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 5px;
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+        /* Informasi pengguna di navbar */
+        .user-info {
+            color: white;
+            margin-right: 15px;
+        }
+        /* Penanda untuk jawaban benar */
+        .correct-answer {
+            font-weight: bold;
+            background-color: #d1e7dd; /* Light green */
+            border: 1px solid #badbcc;
+            color: #0f5132;
+        }
+        /* Gaya untuk navbar brand */
+        .navbar-brand {
+            font-weight: bold;
+        }
+        /* Gaya untuk kartu soal */
+        .question-card {
+            border-left: 4px solid #0d6efd; /* Blue border */
+            margin-bottom: 15px;
+            transition: transform 0.2s; /* Efek hover */
+        }
+        /* Efek hover pada kartu soal */
+        .question-card:hover {
+            transform: translateY(-3px);
+        }
+        /* Header kartu soal */
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        /* Item riwayat versi yang bisa diklik */
+        .version-history-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        /* Efek hover pada item riwayat versi */
+        .version-history-item:hover {
+            background-color: #f8f9fa; /* Light grey */
+        }
+        /* Gaya untuk teks yang ditambahkan dalam diff */
+        .diff-added {
+            background-color: #d4edda; /* Light green */
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        /* Gaya untuk teks yang dihapus dalam diff */
+        .diff-removed {
+            background-color: #f8d7da; /* Light red */
+            padding: 2px 4px;
+            border-radius: 3px;
+            text-decoration: line-through; /* Garis coret */
+        }
+        /* Grup input opsi jawaban */
+        .option-input-group {
+            margin-bottom: 8px;
+        }
+        /* Spinner loading */
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            vertical-align: text-bottom;
+            border: 0.2em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border 0.75s linear infinite;
+        }
+        /* Animasi spinner */
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+        /* Opsi koleksi yang transparan saat tidak di-hover */
+        .collection-options {
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+        }
+        /* Opsi koleksi menjadi penuh opacity saat kartu di-hover */
+        .card:hover .collection-options {
+            opacity: 1;
+        }
+        /* Daftar siswa dengan scroll */
+        .student-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        /* Item siswa dengan efek transisi */
+        .student-item {
+            transition: all 0.2s;
+        }
+        /* Efek hover pada item siswa */
+        .student-item:hover {
+            background-color: #f8f9fa;
+        }
+        /* Badge siswa yang bisa diklik */
+        .student-badge {
+            cursor: default; /* Default cursor */
+            transition: all 0.2s;
+        }
+        /* Efek hover pada badge siswa */
+        .student-badge:hover {
+            background-color: #dc3545 !important; /* Red */
+            color: white !important;
+        }
+        /* Tombol hapus siswa yang tersembunyi */
+        .remove-student {
+            visibility: hidden;
+            opacity: 0;
+            transition: all 0.2s;
+        }
+        /* Tombol hapus siswa muncul saat badge di-hover */
+        .student-badge:hover .remove-student {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Gaya untuk soal yang sudah divalidasi */
+        .question-card[data-validated="true"] {
+            border-color: #198754; /* Green border for validated questions */
+        }
+        .btn-validated {
+            background-color: #198754 !important; /* Green background */
+            color: white !important;
+            border-color: #198754 !important;
+        }
+        .btn-validated:hover {
+            background-color: #157347 !important; /* Darker green on hover */
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">Sistem Tes Diagnostik</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/guru">Dashboard Guru</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/guru/collections">Koleksi Soal</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span class="user-info">
+                        <i class="bi bi-person-circle"></i> Guru
+                    </span>
+                    <a href="/logout" class="btn btn-outline-light">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-journal-bookmark"></i> Koleksi Soal</h2>
+            <button id="createCollectionBtn" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Buat Baru
+            </button>
+        </div>
+        
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="collectionsContainer">
+            <div class="col">
+                <div class="card h-100 placeholder-glow">
+                    <div class="card-body">
+                        <span class="placeholder col-6"></span>
+                        <span class="placeholder w-75"></span>
+                        <span class="placeholder" style="width: 25%;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="collectionDetail" class="mt-4" style="display: none;">
+            <div class="card border-0 shadow">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0" id="collectionTitle"></h4>
+                        <div class="d-flex gap-2">
+                            <button id="manageStudentsBtn" class="btn btn-sm btn-success">
+                                <i class="bi bi-people-fill"></i> Kelola Siswa
+                            </button>
+                            <button id="closeCollectionBtn" class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-arrow-left"></i> Kembali
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <p class="text-muted" id="collectionDescription"></p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="bi bi-info-circle"></i> Informasi Koleksi</h6>
+                                    <div class="d-flex justify-content-between mt-3">
+                                        <span>Jumlah Soal:</span>
+                                        <span id="questionCount" class="fw-bold">0</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <span>Jumlah Siswa:</span>
+                                        <span id="studentCount" class="fw-bold">0</span>
+                                    </div>
+                                    <div class="mt-3">
+                                        <h6 class="mb-2">Siswa dengan Akses:</h6>
+                                        <div id="assignedStudentBadges" class="d-flex flex-wrap gap-1"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="collectionQuestions" class="row g-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editQuestionModal" tabindex="-1" aria-labelledby="editQuestionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editQuestionModalLabel">Edit Soal</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-4">
+                        <div class="col-lg-6 border-end pe-4">
+                            <h5 class="mb-3">Edit Versi Terkini</h5>
+                            <form id="editQuestionForm">
+                                <input type="hidden" name="questionId" value="">
+                                <div class="mb-3">
+                                    <label for="editSoal" class="form-label">Pertanyaan</label>
+                                    <textarea class="form-control" id="editSoal" name="soal" rows="3" required></textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Opsi Jawaban</label>
+                                    <div id="optionsContainer" class="mb-2"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="addOption">
+                                        <i class="bi bi-plus-circle"></i> Tambah Opsi
+                                    </button>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="editJawabanBenar" class="form-label">Jawaban Benar</label>
+                                    <select class="form-select" id="editJawabanBenar" name="jawaban_benar" required></select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="editExplanation" class="form-label">Penjelasan</label>
+                                    <textarea class="form-control" id="editExplanation" name="explanation" rows="3"></textarea>
+                                </div>
+                                
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label for="editP" class="form-label">Tingkat Kesulitan (p)</label>
+                                        <input type="number" class="form-control" id="editP" name="p" step="0.01" min="0" max="1" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="editVersion" class="form-label">Versi Saat Ini</label>
+                                        <input type="text" class="form-control" id="editVersion" name="version" readonly>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <div class="col-lg-6 ps-4">
+                            <h5 class="mb-3">Riwayat Perubahan</h5>
+                            <div id="versionHistory" class="list-group overflow-auto" style="max-height: 60vh;">
+                                </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-outline-info" id="validateQuestionModalBtn">
+                        <i class="bi bi-check-circle"></i> Validasi Soal
+                    </button>
+                    <button type="button" class="btn btn-danger" id="deleteQuestionBtn">
+                        <i class="bi bi-trash"></i> Hapus Soal
+                    </button>
+                    <button type="button" class="btn btn-primary" id="saveQuestionChanges">
+                        <i class="bi bi-save"></i> Simpan Perubahan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="manageStudentsModal" tabindex="-1" aria-labelledby="manageStudentsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="manageStudentsModalLabel">Kelola Akses Siswa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="classToAddSelect" class="form-label">Tambahkan Semua Siswa dari Kelas</label>
+                            <select class="form-select mb-2" id="classToAddSelect">
+                                <option value="">-- Pilih Kelas --</option>
+                                </select>
+                            <button class="btn btn-primary w-100" id="addStudentsByClassBtn">
+                                <i class="bi bi-person-plus-fill"></i> Tambahkan Semua Siswa di Kelas Ini
+                            </button>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h6 class="mb-3">Siswa dengan Akses Koleksi Ini</h6>
+                            <div class="input-group mb-3">
+                                <input type="text" id="assignedStudentSearch" class="form-control" placeholder="Cari siswa yang sudah ditugaskan...">
+                                <button class="btn btn-outline-secondary" type="button">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <div id="assignedStudents" class="list-group student-list">
+                                <div class="text-center py-4 text-muted">
+                                    <i class="bi bi-people" style="font-size: 2rem;"></i>
+                                    <p class="mt-2">Memuat siswa...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let currentCollection = null;
+        let questionsCache = {};
+        let versionsCache = {};
+        let studentsCache = []; // Cache for all students (from /api/siswa)
+        let assignedStudentsCache = []; // Cache for students assigned to the current collection
+        let editQuestionModal = null;
+        let manageStudentsModal = null;
+        let availableClassesForAdd = []; // To store unique classes for the "add by class" dropdown
+
+        // Initial Load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCollections();
+            setupEventListeners();
+            
+            editQuestionModal = new bootstrap.Modal(document.getElementById('editQuestionModal'));
+            manageStudentsModal = new bootstrap.Modal(document.getElementById('manageStudentsModal'));
+        });
+
+        function setupEventListeners() {
+            document.getElementById('createCollectionBtn').addEventListener('click', showCreateModal);
+            
+            document.getElementById('closeCollectionBtn').addEventListener('click', () => {
+                document.getElementById('collectionDetail').style.display = 'none';
+                document.getElementById('collectionsContainer').style.display = 'flex';
+            });
+            
+            document.getElementById('manageStudentsBtn').addEventListener('click', () => {
+                if (currentCollection) {
+                    showManageStudentsModal();
+                }
+            });
+            
+            // Search for assigned students
+            document.getElementById('assignedStudentSearch').addEventListener('input', (e) => {
+                filterAssignedStudentList(e.target.value);
+            });
+            
+            // Event listener for "Add Students by Class" button
+            document.getElementById('addStudentsByClassBtn').addEventListener('click', async () => {
+                const classToAdd = document.getElementById('classToAddSelect').value;
+                if (!classToAdd) {
+                    showError("Pilih kelas yang ingin ditambahkan!");
+                    return;
+                }
+                if (currentCollection) {
+                    await addStudentsByClass(currentCollection.id, classToAdd);
+                }
+            });
+
+            document.addEventListener('click', async (e) => {
+                if (e.target.closest('.view-collection-btn')) {
+                    const btn = e.target.closest('.view-collection-btn');
+                    const collectionId = btn.getAttribute('data-id');
+                    
+                    if (collectionId) {
+                        loadCollectionDetail(collectionId);
+                    }
+                }
+                
+                if (e.target.closest('.btn-revisi')) { 
+                    const card = e.target.closest('.question-card');
+                    if (card && card.dataset.id) {
+                        try {
+                            const questionId = parseInt(card.dataset.id);
+                            const questionData = questionsCache[questionId]; 
+                            
+                            if (!questionData) {
+                                throw new Error("Data soal tidak ditemukan dalam cache");
+                            }
+                            
+                            let versions = versionsCache[questionId] || [];
+                            
+                            if (versions.length === 0) {
+                                try {
+                                    const fetchedVersions = await fetchVersions(questionId);
+                                    if (fetchedVersions && fetchedVersions.length > 0) {
+                                        versions = fetchedVersions;
+                                        versionsCache[questionId] = versions;
+                                    }
+                                } catch (versionErr) {
+                                    console.warn("Tidak dapat memuat riwayat versi:", versionErr);
+                                }
+                            }
+                            
+                            showEditModal(questionData, versions);
+                        } catch (error) {
+                            showError('Gagal memuat data soal: ' + error.message);
+                        }
+                    }
+                }
+
+                if (e.target.closest('.btn-delete-collection')) { 
+                    const btn = e.target.closest('.btn-delete-collection');
+                    const collectionId = btn.getAttribute('data-id');
+                    
+                    if (collectionId) {
+                        handleDeleteCollection(collectionId);
+                    }
+                }
+                
+                if (e.target.closest('.version-item')) {
+                    handlePreviewVersion(e);
+                }
+                
+                if (e.target.closest('.btn-remove-option')) {
+                    removeOption(e);
+                }
+                
+                if (e.target.closest('.remove-student-btn')) {
+                    const btn = e.target.closest('.remove-student-btn');
+                    const studentId = parseInt(btn.getAttribute('data-id'));
+                    
+                    if (studentId && currentCollection) {
+                        await removeStudentFromCollection(currentCollection.id, studentId);
+                    }
+                }
+                
+                if (e.target.closest('.student-badge')) {
+                    const badge = e.target.closest('.student-badge');
+                    const studentId = parseInt(badge.getAttribute('data-id'));
+                    
+                    if (studentId && currentCollection && badge.classList.contains('remove-enabled')) {
+                        const studentName = badge.getAttribute('data-name');
+                        
+                        Swal.fire({
+                            title: 'Hapus akses?',
+                            text: `Apakah Anda yakin ingin menghapus akses untuk siswa ${studentName}?`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#d33',
+                            cancelButtonColor: '#3085d6',
+                            confirmButtonText: 'Ya, Hapus',
+                            cancelButtonText: 'Batal'
+                        }).then(async (result) => {
+                            if (result.isConfirmed) {
+                                await removeStudentFromCollection(currentCollection.id, studentId);
+                            }
+                        });
+                    }
+                }
+
+                if (e.target.closest('.btn-delete-question')) {
+                    const btn = e.target.closest('.btn-delete-question');
+                    const questionId = parseInt(btn.getAttribute('data-id'));
+                    
+                    if (questionId) {
+                        handleDeleteQuestionFromModal(questionId);
+                    }
+                }
+
+                if (e.target.closest('.btn-validate')) {
+                    const btn = e.target.closest('.btn-validate');
+                    const questionId = parseInt(btn.getAttribute('data-id'));
+                    if (questionId) {
+                        handleValidateQuestion(questionId);
+                    }
+                }
+            });
+
+            document.getElementById('addOption').addEventListener('click', addNewOption);
+            
+            document.getElementById('saveQuestionChanges').addEventListener('click', saveQuestionChanges);
+
+            document.getElementById('validateQuestionModalBtn').addEventListener('click', () => { 
+                const questionId = parseInt(document.querySelector('#editQuestionForm [name="questionId"]').value);
+                handleValidateQuestion(questionId);
+            });
+
+            document.getElementById('deleteQuestionBtn').addEventListener('click', () => {
+                const questionId = parseInt(document.querySelector('#editQuestionForm [name="questionId"]').value);
+                handleDeleteQuestionFromModal(questionId);
+            });
+        }
+
+        async function loadCollections() {
+            try {
+                const container = document.getElementById('collectionsContainer');
+                container.innerHTML = `
+                    <div class="col-12 text-center p-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2">Memuat koleksi...</p>
+                    </div>
+                `;
+                
+                const response = await fetch('/api/collections');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                const collectionsWithCount = await Promise.all(
+                    result.collections.map(async col => {
+                        const countResponse = await fetch(`/api/collections/${col.id}/student-count`);
+                        const countData = await countResponse.json();
+                        return { ...col, student_count: countData.count };
+                    })
+                );
+                
+                if (result.success && collectionsWithCount) {
+                    renderCollections(collectionsWithCount);
+                } else {
+                    throw new Error(result.message || 'Gagal memuat koleksi');
+                }
+            } catch (error) {
+                console.error('Error loading collections:', error);
+                const container = document.getElementById('collectionsContainer');
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Gagal memuat koleksi: ${error.message}
+                            <button class="btn btn-outline-danger mt-2" onclick="loadCollections()">
+                                <i class="bi bi-arrow-clockwise"></i> Coba Lagi
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderCollections(collections) {
+            const container = document.getElementById('collectionsContainer');
+            
+            if (!collections.length) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Belum ada koleksi soal.
+                            <p class="mt-2">Klik tombol "Buat Baru" untuk membuat koleksi pertama Anda.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = collections.map(col => `
+                <div class="col">
+                    <div class="card h-100 shadow-sm" data-id="${col.id}">
+                        <div class="card-body">
+                            <h5 class="card-title">${escapeHtml(col.name)}</h5>
+                            <p class="card-text text-muted small">${escapeHtml(col.description) || 'Tidak ada deskripsi'}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-primary">${col.question_count} Soal</span>
+                                    <span class="badge bg-success">${col.student_count || 0} Siswa</span>
+                                </div>
+                                <div class="collection-options">
+                                    <button class="btn btn-sm btn-outline-danger btn-delete-collection" data-id="${col.id}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent border-top d-flex justify-content-between">
+                            <button class="btn btn-link text-decoration-none view-collection-btn" data-id="${col.id}">
+                                Lihat Detail <i class="bi bi-arrow-right"></i>
+                            </button>
+                            <a href="/collection-analytics/${col.id}" class="btn btn-sm btn-outline-info" data-id="${col.id}">
+                                <i class="bi bi-graph-up"></i> Analisis
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('a[href^="/collection-analytics/"]')) {
+                e.preventDefault();
+                const link = e.target.closest('a[href^="/collection-analytics/"]');
+                const collectionId = link.getAttribute('data-id');
+                window.location.href = `/collection-analytics/${collectionId}`;
+            }
+        });
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function showEditModal(question, versions) {
+            const form = document.getElementById('editQuestionForm');
+            const validateButtonModal = document.getElementById('validateQuestionModalBtn');
+            
+            form.questionId.value = question.id;
+            form.soal.value = question.soal;
+            form.explanation.value = question.explanation || '';
+            form.p.value = question.p;
+            form.version.value = question.version || '1';
+
+            if (question.is_validated) {
+                validateButtonModal.classList.add('btn-validated');
+                validateButtonModal.classList.remove('btn-outline-info');
+                validateButtonModal.innerHTML = '<i class="bi bi-check-circle-fill"></i> Tervalidasi';
+            } else {
+                validateButtonModal.classList.remove('btn-validated');
+                validateButtonModal.classList.add('btn-outline-info');
+                validateButtonModal.innerHTML = '<i class="bi bi-check-circle"></i> Validasi Soal';
+            }
+
+            const options = Array.isArray(question.options) ? question.options : 
+                            (typeof question.options === 'string' ? JSON.parse(question.options) : []);
+            renderOptions(options);
+            updateAnswerOptions(options, question.jawaban_benar);
+
+            renderVersionHistory(versions);
+
+            editQuestionModal.show();
+        }
+
+        function renderOptions(options) {
+            const container = document.getElementById('optionsContainer');
+            container.innerHTML = options.map((opt, i) => `
+                <div class="input-group option-input-group">
+                    <span class="input-group-text">${String.fromCharCode(65 + i)}</span>
+                    <input type="text" class="form-control" value="${escapeHtml(opt)}">
+                    <button class="btn btn-outline-danger btn-remove-option" type="button">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function updateAnswerOptions(options, correctAnswer) {
+            const select = document.querySelector('[name="jawaban_benar"]');
+            select.innerHTML = options.map((opt, i) => `
+                <option value="${escapeHtml(opt)}" ${opt === correctAnswer ? 'selected' : ''}>
+                    ${String.fromCharCode(65 + i)}. ${escapeHtml(opt)}
+                </option>
+            `).join('');
+        }
+
+        function renderVersionHistory(versions) {
+            const container = document.getElementById('versionHistory');
+            
+            if (!versions || versions.length === 0) {
+                container.innerHTML = '<div class="text-muted p-3">Belum ada riwayat perubahan</div>';
+                return;
+            }
+            
+            container.innerHTML = versions.map(v => `
+                <button class="list-group-item list-group-item-action version-item" data-version='${JSON.stringify(v)}'>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <strong>Versi ${v.version}</strong>
+                            <div class="text-muted small">${new Date(v.created_at).toLocaleString()}</div>
+                        </div>
+                        <i class="bi bi-eye"></i>
+                    </div>
+                    <div class="small text-truncate">${escapeHtml(v.soal).substring(0, 50)}...</div>
+                </button>
+            `).join('');
+        }
+
+        async function handlePreviewVersion(e) {
+            const versionItem = e.target.closest('.version-item');
+            if (!versionItem || !versionItem.dataset.version) {
+                return;
+            }
+            
+            try {
+                const version = JSON.parse(versionItem.dataset.version);
+                const currentQuestionId = document.querySelector('[name="questionId"]').value;
+                const currentQuestion = questionsCache[currentQuestionId];
+                
+                if (!currentQuestion) {
+                    throw new Error("Data soal saat ini tidak ditemukan");
+                }
+                
+                const diffHtml = generateDiffHtml(currentQuestion, version);
+                
+                Swal.fire({
+                    title: `Versi ${version.version}`,
+                    html: `
+                        <div class="text-start">
+                            <div class="mb-3">
+                                <small class="text-muted">${new Date(version.created_at).toLocaleString()}</small>
+                            </div>
+                            ${diffHtml}
+                        </div>
+                    `,
+                    confirmButtonText: 'Tutup',
+                    width: '800px'
+                });
+            } catch (error) {
+                console.error('Error previewing version:', error);
+                showError('Gagal menampilkan riwayat versi');
+            }
+        }
+
+        function generateDiffHtml(current, oldVersion) {
+            const fields = [
+                { name: 'soal', label: 'Pertanyaan' },
+                { name: 'options', label: 'Opsi Jawaban', format: v => Array.isArray(v) ? v.join(' | ') : 
+                                                                typeof v === 'string' ? JSON.parse(v).join(' | ') : '-' },
+                { name: 'jawaban_benar', label: 'Jawaban Benar' },
+                { name: 'explanation', label: 'Penjelasan' },
+                { name: 'p', label: 'Tingkat Kesulitan' }
+            ];
+
+            return fields.map(({ name, label, format }) => {
+                let currentVal = current[name];
+                let oldVal = oldVersion[name];
+                
+                if (format) {
+                    try {
+                        currentVal = format(currentVal);
+                        oldVal = format(oldVal);
+                    } catch (e) {
+                        console.error(`Error formatting ${name}:`, e);
+                        currentVal = String(currentVal || '-');
+                        oldVal = String(oldVal || '-');
+                    }
+                } else {
+                    currentVal = String(currentVal || '-');
+                    oldVal = String(oldVal || '-');
+                }
+                
+                if (currentVal !== oldVal) {
+                    return `
+                        <div class="mb-3">
+                            <h6 class="fw-bold">${label}</h6>
+                            <div class="alert alert-danger p-2">
+                                <div class="diff-removed">${escapeHtml(oldVal)}</div>
+                            </div>
+                            <div class="alert alert-success p-2">
+                                <div class="diff-added">${escapeHtml(currentVal)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                return '';
+            }).join('');
+        }
+
+        async function saveQuestionChanges() {
+            const saveBtn = document.getElementById('saveQuestionChanges');
+            const originalBtnText = saveBtn.innerHTML;
+            
+            try {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<div class="loading-spinner me-2"></div> Menyimpan...';
+                
+                const form = document.getElementById('editQuestionForm');
+                const questionId = parseInt(form.questionId.value);
+                
+                const updatedQuestion = {
+                    soal: form.soal.value,
+                    options: Array.from(document.querySelectorAll('#optionsContainer input')).map(i => i.value),
+                    jawaban_benar: form.jawaban_benar.value,
+                    explanation: form.explanation.value,
+                    p: parseFloat(form.p.value)
+                };
+
+                const response = await fetch(`/api/questions/${questionId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedQuestion)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    questionsCache[questionId] = { ...questionsCache[questionId], ...result.question };
+                    
+                    showSuccess('Perubahan berhasil disimpan');
+                    editQuestionModal.hide();
+                    
+                    if (currentCollection && currentCollection.id) {
+                        await loadCollectionDetail(currentCollection.id);
+                    }
+                } else {
+                    throw new Error(result.message || "Gagal menyimpan perubahan");
+                }
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                showError(`Gagal menyimpan perubahan: ${error.message}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnText;
+            }
+        }
+
+        function addNewOption() {
+            const options = Array.from(document.querySelectorAll('#optionsContainer input'))
+                               .map(i => i.value);
+            options.push('Opsi Baru');
+            renderOptions(options);
+            updateAnswerOptions(options, document.querySelector('[name="jawaban_benar"]').value);
+        }
+
+        function removeOption(e) {
+            const inputGroup = e.target.closest('.input-group');
+            if (inputGroup) {
+                inputGroup.remove();
+                updateAnswerOptionsAfterRemoval();
+            }
+        }
+
+        function updateAnswerOptionsAfterRemoval() {
+            const options = Array.from(document.querySelectorAll('#optionsContainer input'))
+                               .map(i => i.value);
+            const currentAnswer = document.querySelector('[name="jawaban_benar"]').value;
+            updateAnswerOptions(options, options.includes(currentAnswer) ? currentAnswer : options[0]);
+        }
+
+        function showSuccess(message) {
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'Berhasil', 
+                text: message,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        }
+
+        function showError(message) {
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Gagal', 
+                text: message 
+            });
+        }
+
+        async function showCreateModal() {
+            const { value: formData } = await Swal.fire({
+                title: 'Buat Koleksi Baru',
+                html: `
+                    <input type="text" id="name" class="swal2-input" placeholder="Nama Koleksi" required>
+                    <textarea id="description" class="swal2-textarea" placeholder="Deskripsi (opsional)"></textarea>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                cancelButtonText: 'Batal',
+                preConfirm: () => {
+                    const name = document.getElementById('name').value;
+                    if (!name.trim()) {
+                        Swal.showValidationMessage('Nama koleksi harus diisi');
+                        return false;
+                    }
+                    return {
+                        name: name.trim(),
+                        description: document.getElementById('description').value.trim()
+                    }
+                }
+            });
+
+            if (formData) {
+                try {
+                    const response = await fetch('/api/collections', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Error ${response.status}: ${errorText}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showSuccess('Koleksi berhasil dibuat');
+                        await loadCollections();
+                    } else {
+                        throw new Error(result.message || 'Gagal membuat koleksi');
+                    }
+                }
+                catch (error) { 
+                    console.error('Error creating collection:', error);
+                    showError(`Gagal membuat koleksi: ${error.message}`);
+                }
+            }
+        }
+
+        async function handleDeleteCollection(collectionId) {
+            const { isConfirmed } = await Swal.fire({
+                title: 'Hapus Koleksi?',
+                text: "Semua soal yang ada dalam koleksi ini akan tetap tersedia di database (jika tidak terkait dengan koleksi lain), tetapi relasinya dengan koleksi ini akan terhapus. Aksi ini tidak dapat dibatalkan!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus',
+                cancelButtonText: 'Batal'
+            });
+
+            if (isConfirmed) {
+                try {
+                    const response = await fetch(`/api/collections/${collectionId}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showSuccess('Koleksi berhasil dihapus');
+                        await loadCollections();
+                    } else {
+                        throw new Error(result.message || 'Gagal menghapus koleksi');
+                    }
+                } catch (error) {
+                    console.error('Error deleting collection:', error);
+                    showError(`Gagal menghapus koleksi: ${error.message}`);
+                }
+            }
+        }
+
+        async function loadCollectionDetail(collectionId) {
+            try {
+                const questionsContainer = document.getElementById('collectionQuestions');
+                questionsContainer.innerHTML = `
+                    <div class="col-12 text-center p-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2">Memuat detail koleksi...</p>
+                    </div>
+                `;
+
+                document.getElementById('collectionsContainer').style.display = 'none';
+                document.getElementById('collectionDetail').style.display = 'block';
+
+                const response = await fetch(`/api/collections/${collectionId}/questions`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.message || 'Gagal memuat detail koleksi');
+                }
+
+                currentCollection = result.collection;
+                document.getElementById('collectionTitle').textContent = currentCollection.name;
+                document.getElementById('collectionDescription').textContent = currentCollection.description || 'Tidak ada deskripsi';
+                document.getElementById('questionCount').textContent = result.questions ? result.questions.length : 0;
+                
+                if (result.questions && Array.isArray(result.questions)) {
+                    questionsCache = {}; 
+                    result.questions.forEach(question => {
+                        question._collectionId = currentCollection.id; 
+                        questionsCache[question.id] = question;
+                    });
+                }
+                
+                // Panggil loadAssignedStudents setelah questionsCache terisi
+                await loadAssignedStudents(collectionId); 
+                
+                renderQuestions(Object.values(questionsCache));
+            } catch (error) {
+                console.error('Error loading collection detail:', error);
+                
+                const questionsContainer = document.getElementById('collectionQuestions');
+                questionsContainer.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Gagal memuat detail koleksi: ${error.message}
+                            <button class="btn btn-outline-danger mt-2" onclick="loadCollectionDetail('${collectionId}')">
+                                <i class="bi bi-arrow-clockwise"></i> Coba Lagi
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadAssignedStudents(collectionId) {
+            try {
+                const response = await fetch(`/api/collections/${collectionId}/students`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    assignedStudentsCache = result.students || [];
+                    document.getElementById('studentCount').textContent = assignedStudentsCache.length;
+                    renderAssignedStudentBadges(assignedStudentsCache);
+                } else {
+                    throw new Error(result.message || 'Gagal memuat daftar siswa yang ditugaskan');
+                }
+            } catch (error) {
+                console.error('Error loading assigned students:', error);
+                document.getElementById('assignedStudentBadges').innerHTML = `
+                    <span class="badge bg-danger">Error: ${error.message}</span>
+                `;
+            }
+        }
+
+        function renderAssignedStudentBadges(students) {
+            const container = document.getElementById('assignedStudentBadges');
+            
+            if (!students || students.length === 0) {
+                container.innerHTML = `
+                    <span class="text-muted small">Belum ada siswa yang dipilih</span>
+                `;
+                return;
+            }
+            
+            container.innerHTML = students.map(student => `
+                <span class="badge bg-light text-dark border student-badge remove-enabled"
+                        data-id="${student.id}" 
+                        data-name="${escapeHtml(student.nama)}">
+                    ${escapeHtml(student.nama)}
+                    <i class="bi bi-x-circle ms-1 text-danger remove-student"></i>
+                </span>
+            `).join('');
+        }
+
+        async function showManageStudentsModal() {
+            // Reset input pencarian
+            document.getElementById('assignedStudentSearch').value = '';
+            
+            // Clear available students section as it's no longer used for individual adds
+            // This div is now effectively unused in this new modal design
+            // Removed for a cleaner UI, as it's not showing individual students to add
+            // document.getElementById('availableStudents').innerHTML = '';
+
+            // Clear and show loading for assigned students
+            document.getElementById('assignedStudents').innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Memuat siswa...</p>
+                </div>
+            `;
+            
+            manageStudentsModal.show();
+            
+            try {
+                // Load assigned students (always reload to ensure latest status)
+                await loadAssignedStudents(currentCollection.id);
+                
+                // Load all students and their available classes
+                // We fetch all students to get the unique class list from the backend
+                const allStudentsResponse = await fetch('/api/siswa');
+                if (!allStudentsResponse.ok) {
+                    throw new Error(`HTTP error! Status: ${allStudentsResponse.status}`);
+                }
+                const allStudentsResult = await allStudentsResponse.json();
+                
+                if (allStudentsResult.success) {
+                    // Update the global studentsCache with all students
+                    studentsCache = allStudentsResult.students || [];
+                    // Populate the class selection dropdown for adding students
+                    availableClassesForAdd = allStudentsResult.available_classes || [];
+                    populateClassSelectForAdd(availableClassesForAdd);
+                } else {
+                    throw new Error(allStudentsResult.message || 'Gagal memuat daftar siswa');
+                }
+
+                // Render assigned students (always show updated list)
+                renderAssignedStudentList(assignedStudentsCache);
+                
+            } catch (error) {
+                console.error('Error loading students for management:', error);
+                showError(`Gagal memuat data siswa untuk manajemen: ${error.message}`);
+            }
+        }
+
+        // NEW: Function to populate class select for adding students
+        function populateClassSelectForAdd(classes) {
+            const select = document.getElementById('classToAddSelect');
+            select.innerHTML = '<option value="">-- Pilih Kelas --</option>'; // Default option
+            // Sort classes alphabetically
+            const sortedClasses = [...classes].sort();
+            sortedClasses.forEach(cls => {
+                const option = document.createElement('option');
+                option.value = cls;
+                option.textContent = cls;
+                select.appendChild(option);
+            });
+        }
+        
+        function renderAssignedStudentList(students) {
+            const container = document.getElementById('assignedStudents');
+            
+            if (!students || students.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-people" style="font-size: 2rem;"></i>
+                        <p class="mt-2">Belum ada siswa yang dipilih</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = students.map(student => `
+                <div class="list-group-item d-flex justify-content-between align-items-center student-item">
+                    <div>
+                        <strong>${escapeHtml(student.nama)}</strong>
+                        <div class="text-muted small">${escapeHtml(student.kelas || '-')}</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger remove-student-btn" data-id="${student.id}">
+                        <i class="bi bi-trash"></i> Hapus
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function addStudentsByClass(collectionId, className) {
+            const addBtn = document.getElementById('addStudentsByClassBtn');
+            const originalBtnText = addBtn.innerHTML;
+            try {
+                addBtn.disabled = true;
+                addBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menambahkan...';
+
+                const response = await fetch(`/api/collections/${collectionId}/add_students_by_class`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ class_name: className })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status} - ${errorText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    // Reload assigned students to reflect changes
+                    await loadAssignedStudents(collectionId); // Reload assignedStudentsCache
+                    // Update global student count on collection card
+                    const countBadge = document.querySelector(`.card[data-id="${collectionId}"] .badge.bg-success`);
+                    if (countBadge) {
+                        const newCount = (parseInt(countBadge.textContent) || 0) + result.added_count;
+                        countBadge.textContent = `${newCount} Siswa`;
+                    }
+                    // Re-render assigned student list in modal (using updated assignedStudentsCache)
+                    renderAssignedStudentList(assignedStudentsCache); 
+                } else {
+                    throw new Error(result.message || 'Gagal menambahkan siswa berdasarkan kelas');
+                }
+            } catch (error) {
+                console.error('Error adding students by class:', error);
+                showError(`Gagal menambahkan siswa: ${error.message}`);
+            } finally {
+                addBtn.disabled = false;
+                addBtn.innerHTML = originalBtnText;
+            }
+        }
+
+        async function removeStudentFromCollection(collectionId, studentId) {
+            try {
+                const response = await fetch(`/api/collections/${collectionId}/students/${studentId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    assignedStudentsCache = assignedStudentsCache.filter(s => s.id != studentId);
+                    
+                    document.getElementById('studentCount').textContent = assignedStudentsCache.length;
+                    renderAssignedStudentBadges(assignedStudentsCache);
+                    
+                    if (document.getElementById('manageStudentsModal').classList.contains('show')) {
+                        renderAssignedStudentList(assignedStudentsCache);
+                    }
+                    
+                    showSuccess('Siswa berhasil dihapus dari koleksi');
+
+                    const countBadge = document.querySelector(`.card[data-id="${collectionId}"] .badge.bg-success`);
+                    if (countBadge) {
+                        const newCount = (parseInt(countBadge.textContent) || 0) - 1;
+                        countBadge.textContent = `${newCount} Siswa`;
+                    }
+                } else {
+                    throw new Error(result.message || 'Gagal menghapus siswa');
+                }
+            } catch (error) {
+                console.error('Error removing student:', error);
+                showError(`Gagal menghapus siswa: ${error.message}`);
+            }
+        }
+
+        // filterAssignedStudentList now only applies to assigned students list
+        function filterAssignedStudentList(searchText) {
+            const container = document.getElementById('assignedStudents');
+            
+            if (!searchText) {
+                renderAssignedStudentList(assignedStudentsCache); // Use the full assigned cache
+                return;
+            }
+            
+            const searchLower = searchText.toLowerCase();
+            const filtered = assignedStudentsCache.filter(student => 
+                student.nama.toLowerCase().includes(searchLower) || 
+                (student.kelas && student.kelas.toLowerCase().includes(searchLower))
+            );
+            
+            renderAssignedStudentList(filtered);
+        }
+
+        function renderQuestions(questions) {
+            const container = document.getElementById('collectionQuestions');
+            
+            if (!questions || questions.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Belum ada soal dalam koleksi ini
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const sortedQuestions = [...questions].sort((a, b) => (a.level || 0) - (b.level || 0));
+            container.innerHTML = sortedQuestions.map((q, i) => renderQuestionCard(q, i)).join('');
+        }
+
+        function renderQuestionCard(question, index) {
+            const options = Array.isArray(question.options) ? question.options : 
+                            (typeof question.options === 'string' ? JSON.parse(question.options) : []);
+            const difficulty = calculateDifficulty(question.p);
+            
+            const isQuestionValidated = question.is_validated;
+
+            const validateButtonClass = isQuestionValidated ? 'btn-validated' : 'btn-outline-secondary';
+            const validateButtonIcon = isQuestionValidated ? 'bi-check-circle-fill' : 'bi-check-circle';
+            const validateButtonText = isQuestionValidated ? 'Tervalidasi' : 'Validasi';
+
+            return `
+                <div class="col-12">
+                    <div class="card question-card shadow-sm" data-id="${question.id}" data-validated="${isQuestionValidated}">
+                        <div class="card-body">
+                            <div class="question-header">
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="badge bg-primary">level ${question.level || 'N/A'}</span>
+                                    <span class="badge ${difficulty.class}">${difficulty.text}</span>
+                                    <span class="text-muted small">ID: ${question.id}</span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm ${validateButtonClass} btn-validate" data-id="${question.id}">
+                                        <i class="bi ${validateButtonIcon}"></i> ${validateButtonText}
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger btn-delete-question" data-id="${question.id}">
+                                        <i class="bi bi-trash"></i> Hapus
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary btn-revisi" data-id="${question.id}">
+                                        <i class="bi bi-pencil"></i> Revisi
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <h5 class="mt-3">${escapeHtml(question.soal)}</h5>
+                            
+                            <div class="options-container mt-2">
+                                ${options.map((opt, i) => `
+                                    <span class="option-badge ${opt === question.jawaban_benar ? 'correct-answer' : ''}">
+                                        ${String.fromCharCode(65 + i)}. ${escapeHtml(opt)}
+                                        ${opt === question.jawaban_benar ? '<i class="bi bi-check2"></i>' : ''}
+                                    </span>
+                                `).join('')}
+                            </div>
+                            
+                            ${question.explanation ? `
+                                <div class="explanation mt-3">
+                                    <p class="text-muted small mb-0"><strong>Penjelasan:</strong> ${escapeHtml(question.explanation)}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function calculateDifficulty(p) {
+            if (p === null || p === undefined) return { class: 'bg-secondary', text: 'Tidak Diketahui' };
+            if (p > 0.8) return { class: 'bg-success', text: 'Mudah' };
+            if (p > 0.5) return { class: 'bg-warning text-dark', text: 'Sedang' };
+            return { class: 'bg-danger', text: 'Sulit' };
+        }
+
+        async function fetchVersions(id) {
+            if (versionsCache[id] && versionsCache[id].length > 0) {
+                return versionsCache[id];
+            }
+            
+            try {
+                const response = await fetch(`/api/questions/${id}/versions`);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        return [];
+                    }
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                const versions = result.versions || [];
+                
+                versionsCache[id] = versions;
+                
+                return versions;
+            } catch (error) {
+                console.error('Error fetching versions:', error);
+                return [];
+            }
+        }
+
+        async function handleValidateQuestion(questionId) {
+            const questionData = questionsCache[questionId];
+            if (!questionData) {
+                showError("Data soal tidak ditemukan dalam cache untuk validasi.");
+                return;
+            }
+
+            const isCurrentlyValidated = questionData.is_validated;
+            const newValidationStatus = !isCurrentlyValidated;
+
+            try {
+                const response = await fetch(`/api/questions/${questionId}/set_validation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_validated: newValidationStatus })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Error server: ${errorText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(`Soal ID ${questionId} berhasil ${newValidationStatus ? 'divalidasi' : 'dibatalkan validasinya'}.`);
+                    questionsCache[questionId].is_validated = newValidationStatus;
+
+                    const questionCardElement = document.querySelector(`.question-card[data-id="${questionId}"]`);
+                    if (questionCardElement) {
+                        questionCardElement.dataset.validated = newValidationStatus;
+                    }
+                    updateValidationButtons(questionId, newValidationStatus);
+
+                } else {
+                    throw new Error(result.message || 'Gagal mengubah status validasi.');
+                }
+
+            } catch (error) {
+                console.error('Error validating question:', error);
+                showError(`Gagal mengubah status validasi: ${error.message}`);
+            }
+        }
+
+        function updateValidationButtons(questionId, isValidated) {
+            const questionCardElement = document.querySelector(`.question-card[data-id="${questionId}"]`);
+            const validateButtonCard = questionCardElement ? questionCardElement.querySelector('.btn-validate') : null;
+            const validateButtonModal = document.getElementById('validateQuestionModalBtn');
+
+            const buttonClass = isValidated ? 'btn-validated' : 'btn-outline-secondary';
+            const buttonIcon = isValidated ? 'bi-check-circle-fill' : 'bi-check-circle';
+            const buttonText = isValidated ? 'Tervalidasi' : 'Validasi';
+
+            if (validateButtonCard) {
+                validateButtonCard.classList.remove('btn-validated', 'btn-outline-secondary');
+                validateButtonCard.classList.add(buttonClass);
+                validateButtonCard.innerHTML = `<i class="bi ${buttonIcon}"></i> ${buttonText}`;
+            }
+            if (validateButtonModal) {
+                validateButtonModal.classList.remove('btn-validated', 'btn-outline-info');
+                validateButtonModal.classList.add(buttonClass);
+                validateButtonModal.innerHTML = `<i class="bi ${buttonIcon}"></i> ${buttonText}`;
+            }
+        }
+
+        async function handleDeleteQuestionFromModal(questionId) {
+            const { isConfirmed } = await Swal.fire({
+                title: 'Hapus Soal Ini?',
+                html: `
+                    <p>Soal ini akan dihapus dari koleksi <strong>"${escapeHtml(currentCollection.name)}"</strong>.</p>
+                    <p class="text-danger small">Jika soal ini tidak terkait dengan koleksi lain, soal ini juga akan dihapus permanen dari database.</p>
+                    <p class="fw-bold text-danger">Aksi ini tidak dapat dibatalkan!</p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus Sekarang',
+                cancelButtonText: 'Batal'
+            });
+
+            if (isConfirmed) {
+                try {
+                    editQuestionModal.hide();
+
+                    const removeResponse = await fetch(`/api/collections/${currentCollection.id}/questions/${questionId}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!removeResponse.ok) {
+                        const errorText = await removeResponse.text();
+                        throw new Error(`Error server saat menghapus dari koleksi: ${removeResponse.status} - ${errorText}`);
+                    }
+
+                    const removeResult = await removeResponse.json();
+
+                    if (removeResult.success) {
+                        showSuccess(removeResult.message || 'Soal berhasil dihapus.');
+                        
+                        delete questionsCache[questionId];
+                        
+                        if (currentCollection && currentCollection.id) {
+                            await loadCollectionDetail(currentCollection.id);
+                        } else {
+                            await loadCollections();
+                        }
+
+                    } else {
+                        throw new Error(removeResult.message || 'Gagal menghapus soal.');
+                    }
+                } catch (error) {
+                    console.error('Error deleting question:', error);
+                    showError(`Gagal menghapus soal: ${error.message}`);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guru - Generate Soal Pilihan Ganda</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        /* Styles untuk tampilan umum */
+        .option-badge {
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 5px;
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+
+        .correct-answer {
+            font-weight: bold;
+            background-color: #d1e7dd;
+            border: 1px solid #badbcc;
+            color: #0f5132;
+        }
+
+        .question-card {
+            border-left: 4px solid #0d6efd;
+            margin-bottom: 15px;
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .question-info {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Selector lebih spesifik untuk badge */
+        .badge.level-1, span.badge.level-1, .progress-bar.level-1 {
+            background-color: #198754 !important;
+        }
+
+        .badge.level-2, span.badge.level-2, .progress-bar.level-2 {
+            background-color: #28a745 !important;
+        }
+
+        .badge.level-3, span.badge.level-3, .progress-bar.level-3 {
+            background-color: #ffc107 !important;
+        }
+
+        .badge.level-4, span.badge.level-4, .progress-bar.level-4 {
+            background-color: #fd7e14 !important;
+        }
+
+        .badge.level-5, span.badge.level-5, .progress-bar.level-5 {
+            background-color: #c35144 !important;
+        }
+
+        .badge.level-6, span.badge.level-6, .progress-bar.level-6 {
+            background-color: #e74c3c !important;
+        }
+
+        .badge.level-7, span.badge.level-7, .progress-bar.level-7 {
+            background-color: #dc3545 !important;
+        }
+
+        /* Navbar styles */
+        .navbar {
+            background-color: #0d6efd;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+        }
+
+        .user-info {
+            color: white;
+            margin-right: 15px;
+        }
+
+        /* Loading spinner */
+        .spinner-container {
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.2em;
+        }
+
+        /* Style untuk soal dalam collection */
+        .in-collection {
+            border-left: 4px solid #28a745 !important;
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+
+        .collection-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 0.25rem 0.5rem;
+            border-bottom-left-radius: 0.25rem;
+            background-color: #28a745;
+            color: white;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Sistem Tes Diagnostik</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/guru">Dashboard Guru</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/guru/collections">Koleksi Soal</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span class="user-info">
+                        <i class="bi bi-person-circle"></i> Guru
+                    </span>
+                    <a href="/logout" class="btn btn-outline-light">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h2 class="text-center">Generate Soal Pilihan Ganda</h2>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <label for="fileInput" class="form-label">Pilih File (doc/pdf)</label>
+                    <input type="file" id="fileInput" name="file" class="form-control mb-3" accept=".doc, .docx, .pdf" required>
+                    <div class="alert alert-info">
+                        <strong>Informasi:</strong> Sistem akan menghasilkan soal pilihan ganda berdasarkan konten dari file yang diunggah
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-file-earmark-arrow-up"></i> Upload & Generate Soal Pilihan Ganda
+                    </button>
+                </form>
+
+                <div id="statusMessage" class="mt-3"></div>
+
+                <button type="button" id="checkDbButton" class="btn btn-outline-secondary mt-3">
+                    <i class="bi bi-database-check"></i> Periksa Database
+                </button>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Statistik Soal per Level</h4>
+            </div>
+            <div class="card-body">
+                <div id="levelStatistics" class="mt-3">
+                    <div class="row" id="levelStatCharts">
+                        <div class="col-12 text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>Memuat statistik level...</p>
+                        </div>
+                    </div>
+                    <table class="table table-striped mt-3">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Level <i class="bi bi-info-circle-fill ms-1" style="cursor: pointer;" id="levelInfoTableHead"></i></th>
+                                <th>Jumlah Soal</th>
+                                <th>Tingkat Kesulitan Rata-rata</th>
+                            </tr>
+                        </thead>
+                        <tbody id="levelSummaryBody">
+                            <tr>
+                                <td colspan="3" class="text-center">Memuat data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Soal Pilihan Ganda yang Dihasilkan</h4>
+                <span id="selectionCounter" class="badge bg-light text-dark">0 soal dipilih</span>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <div class="btn-group">
+                        <button id="selectAllBtn" class="btn btn-outline-primary">
+                            <i class="bi bi-check-all"></i> Pilih Semua
+                        </button>
+                        <button id="unselectAllBtn" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg"></i> Hapus Pilihan
+                        </button>
+                    </div>
+                    <button id="saveSelectedBtn" class="btn btn-success" disabled>
+                        <i class="bi bi-save"></i> Simpan Soal Terpilih
+                    </button>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label for="levelFilter" class="form-label">Filter berdasarkan level:</label>
+                        <select id="levelFilter" class="form-select">
+                            <option value="all">Semua level</option>
+                            <option value="1">level 1</option>
+                            <option value="2">level 2</option>
+                            <option value="3">level 3</option>
+                            <option value="4">level 4</option>
+                            <option value="5">level 5</option>
+                            <option value="6">level 6</option>
+                            <option value="7">level 7</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="difficultyFilter" class="form-label">Filter berdasarkan Kesulitan:</label>
+                        <select id="difficultyFilter" class="form-select">
+                            <option value="all">Semua Tingkat</option>
+                            <option value="very_easy">Sangat Mudah (0.91 < p ≤ 0.95)</option>
+                            <option value="easy">Mudah (0.81 < p ≤ 0.90)</option>
+                            <option value="medium">Sedang (0.21 < p ≤ 0.80)</option>
+                            <option value="hard">Sulit (p ≤ 0.20)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="collectionFilter" class="form-label">Status Collection:</label>
+                        <select id="collectionFilter" class="form-select">
+                            <option value="not_in_collection">Belum Dalam Collection</option>
+                            <option value="all">Semua Soal</option>
+                            <option value="in_collection">Sudah Dalam Collection</option>
+
+                        </select>
+                    </div>
+                </div>
+
+                <div id="questionList" class="position-relative">
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Memuat soal pilihan ganda...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4 mb-5">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">Reset Database</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-danger">Perhatian: Tindakan ini akan menghapus semua soal dan jawaban pengguna dari database!</p>
+                <button id="resetDbButton" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Reset Database
+                </button>
+                <div id="resetMessage" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let allGeneratedQuestions = [];
+        let selectedQuestions = [];
+        let selectionCounterElement = null;
+
+        // Objek untuk menyimpan penjelasan setiap level
+        const levelExplanations = {
+            1: {
+                title: "Level 1: Kesadaran Teknologi",
+                competency: "Pemahaman dasar tentang konsep dan istilah teknologi (knowledge that)",
+                example: "Mengenali, mengidentifikasi, menyebutkan.",
+                difficulty: "Sangat mudah (p = 0.95)"
+            },
+            2: {
+                title: "Level 2: Literasi Teknologi",
+                competency: "Komprehensi dan kemampuan menjelaskan konsep teknologi (knowledge that) yang lebih mendalam.",
+                example: "Menjelaskan, membandingkan, mengklasifikasi.",
+                difficulty: "Mudah (p = 0.90)"
+            },
+            3: {
+                title: "Level 3: Kemampuan Teknologi Dasar",
+                competency: "Aplikasi pengetahuan dalam konteks praktis untuk peserta kemampuan rendah-menengah (knowledge that dan how).",
+                example: "Menerapkan, menggunakan, mendemonstrasikan (tingkat dasar).",
+                difficulty: "Sedang (p = 0.75)"
+            },
+            4: {
+                title: "Level 4: Kemampuan Teknologi Lanjut",
+                competency: "Aplikasi pengetahuan dalam konteks praktis untuk peserta kemampuan menengah-tinggi (knowledge that dan how).",
+                example: "Menerapkan, menggunakan, mendemonstrasikan (tingkat lanjut).",
+                difficulty: "Sedang-Sulit (p = 0.67)"
+            },
+            5: {
+                title: "Level 5: Kreativitas Teknologi Dasar",
+                competency: "Invensi dan pengembangan solusi teknologi tingkat dasar, untuk peserta kemampuan rendah dari level 3.",
+                example: "Membuat solusi sederhana, merancang dasar.",
+                difficulty: "Sulit (p = 0.20)"
+            },
+            6: {
+                title: "Level 6: Kreativitas Teknologi Menengah",
+                competency: "Invensi dan pengembangan solusi teknologi tingkat menengah, untuk peserta kemampuan menengah dari level 3 atau 4.",
+                example: "Mengembangkan, memodifikasi, mengadaptasi solusi.",
+                difficulty: "Sangat Sulit (p = 0.17)"
+            },
+            7: {
+                title: "Level 7: Kritik Teknologi",
+                competency: "Penilaian kritis dan evaluasi mendalam, untuk peserta kemampuan tinggi dari level 4 (knowledge that, how, dan why).",
+                example: "Mengevaluasi, menganalisis, membandingkan secara kritis, menciptakan solusi kompleks.",
+                difficulty: "Sangat Sulit (p = 0.15)"
+            }
+        };
+
+        document.addEventListener("DOMContentLoaded", async function() {
+            try {
+                console.log("Halaman dimuat, mengambil data soal...");
+                await fetchQuestions(3);
+
+                initializeQuestionSelection();
+
+                // Setup event listener untuk pop-up info level pada tabel header
+                document.getElementById('levelInfoTableHead').addEventListener('click', () => {
+                    showLevelExplanationPopup('all'); // Menampilkan semua penjelasan level
+                });
+
+                // Setup event listener untuk ikon info di setiap baris level tabel
+                document.getElementById('levelSummaryBody').addEventListener('click', (event) => {
+                    const target = event.target.closest('.level-info-icon');
+                    if (target && target.dataset.level) {
+                        showLevelExplanationPopup(parseInt(target.dataset.level));
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error pada inisialisasi utama:", error);
+                document.getElementById("questionList").innerHTML =
+                    `<div class='alert alert-danger'>Terjadi kesalahan saat inisialisasi: ${error.message}</div>`;
+            }
+        });
+
+        // Fungsi untuk menampilkan pop-up penjelasan level
+        function showLevelExplanationPopup(level = null) {
+            let title = "Taksonomi Kompetensi Teknologi (Level Soal)";
+            let htmlContent = '';
+
+            if (level === 'all') {
+                htmlContent += `<p class="fw-bold">Berikut adalah panduan level soal berdasarkan Taksonomi Kompetensi Teknologi:</p>`;
+                for (let i = 1; i <= 7; i++) {
+                    const info = levelExplanations[i];
+                    if (info) {
+                        htmlContent += `
+                            <div class="mb-3 border-bottom pb-2">
+                                <h6>${info.title}</h6>
+                                <p class="mb-1"><strong>Kompetensi:</strong> ${info.competency}</p>
+                                <p class="mb-1"><strong>Contoh Kata Kerja:</strong> ${info.example}</p>
+                                <p class="mb-0"><strong>Tingkat Kesulitan:</strong> ${info.difficulty}</p>
+                            </div>
+                        `;
+                    }
+                }
+            } else if (levelExplanations[level]) {
+                const info = levelExplanations[level];
+                title = info.title;
+                htmlContent = `
+                    <p><strong>Kompetensi:</strong> ${info.competency}</p>
+                    <p><strong>Contoh Kata Kerja:</strong> ${info.example}</p>
+                    <p><strong>Tingkat Kesulitan:</strong> ${info.difficulty}</p>
+                `;
+            } else {
+                title = "Informasi Level Tidak Tersedia";
+                htmlContent = "<p>Penjelasan untuk level ini tidak ditemukan.</p>";
+            }
+
+            Swal.fire({
+                title: title,
+                html: htmlContent,
+                icon: 'info',
+                confirmButtonText: 'Tutup',
+                width: 'auto', // Lebar otomatis agar responsif
+                customClass: {
+                    container: 'level-info-swal' // Class kustom jika perlu styling tambahan
+                }
+            });
+        }
+
+
+        function initializeQuestionSelection() {
+            setupCheckboxHandlers();
+            setupSelectAllButtons();
+            setupSaveSelectedButton();
+            console.log("Fitur pemilihan soal berhasil diinisialisasi");
+        }
+
+        async function fetchQuestions(retries = 3) {
+            let attempt = 0;
+            while (attempt < retries) {
+                try {
+                    attempt++;
+                    console.log(`Mengambil data soal (percobaan ${attempt})...`);
+                    const timestamp = new Date().getTime();
+                    const fetchUrl = `/get_questions?show_all=true&debug=true&t=${timestamp}`;
+                    console.log(`Workspaceing URL: ${fetchUrl}`);
+
+                    const response = await fetch(fetchUrl);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`Server returned error: ${response.status} ${response.statusText}`);
+                        console.error(`Error details: ${errorText}`);
+                        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                    }
+
+                    const responseText = await response.text();
+                    console.log("Raw response length:", responseText.length);
+                    console.log("Response preview:", responseText.substring(0, 200) + "...");
+
+                    try {
+                        localStorage.setItem('lastQuestionResponse', responseText.substring(0, 5000));
+                    } catch (e) {
+                        console.warn("Couldn't save to localStorage:", e);
+                    }
+
+                    let result;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        console.error("Gagal parse JSON:", e);
+                        console.error("Raw response yang tidak bisa di-parse:", responseText);
+                        throw new Error("Invalid JSON response from server");
+                    }
+
+                    console.log(`Data soal berhasil diambil: ${result.data ? result.data.length : 0} soal`);
+
+                    if (result.data && Array.isArray(result.data)) {
+                        const levelDistribution = {};
+                        result.data.forEach(q => {
+                            const level = q.level;
+                            levelDistribution[level] = (levelDistribution[level] || 0) + 1;
+                        });
+                        console.log("Distribusi soal per level:", levelDistribution);
+
+                        if (result.data.length > 0) {
+                            console.log("Contoh soal pertama:", result.data[0]);
+                        }
+
+                        allGeneratedQuestions = result.data;
+                        console.log(`Berhasil memuat ${allGeneratedQuestions.length} soal`);
+
+                        updatelevelStatistics(result.data);
+                        filterAndDisplayQuestions();
+                        return;
+                    } else {
+                        console.warn("Format data tidak valid:", result);
+                        document.getElementById("questionList").innerHTML =
+                            "<div class='alert alert-warning'>Format data tidak valid. Silakan hubungi administrator.</div>";
+                        document.getElementById("levelSummaryBody").innerHTML =
+                            "<tr><td colspan='3' class='text-center'>Format data tidak valid</td></tr>";
+                    }
+                } catch (error) {
+                    console.error(`Error mengambil soal (percobaan ${attempt}):`, error);
+
+                    if (attempt < retries) {
+                        console.log(`Mencoba lagi dalam ${attempt * 2} detik...`);
+                        document.getElementById("questionList").innerHTML =
+                            `<div class='alert alert-info'>
+                                <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                Mencoba ulang mengambil data (${attempt}/${retries})...
+                            </div>`;
+
+                        await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+                    } else {
+                        document.getElementById("questionList").innerHTML =
+                            `<div class='alert alert-danger'>
+                                <h5>Gagal memuat soal setelah ${retries} percobaan:</h5>
+                                <p>${error.message}</p>
+                                <p>Coba periksa koneksi database dan pastikan soal telah dibuat.</p>
+                                <button class="btn btn-primary mt-2" onclick="checkDatabaseStatus()">Periksa Database</button>
+                                <button class="btn btn-outline-primary mt-2 ms-2" onclick="window.location.reload()">Refresh Halaman</button>
+                            </div>`;
+                        document.getElementById("levelSummaryBody").innerHTML =
+                            "<tr><td colspan='3' class='text-center'>Gagal memuat data</td></tr>";
+                        document.getElementById("levelStatCharts").innerHTML = "";
+                    }
+                }
+            }
+        }
+
+        function checkDatabaseStatus() {
+            document.getElementById("questionList").innerHTML =
+                `<div class='alert alert-info'>
+                    <div class="spinner-border text-primary me-2" role="status"></div>
+                    Memeriksa database...
+                </div>`;
+
+            fetch('/api/db_check?t=' + new Date().getTime())
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById("questionList").innerHTML =
+                            `<div class='alert alert-info'>
+                                <h5>Status Database:</h5>
+                                <p>Total soal di database: <strong>${data.total_questions}</strong></p>
+                                <p>Distribusi per level: ${JSON.stringify(data.per_level)}</p>
+                                <div class="mt-3">
+                                    <button class="btn btn-primary" onclick="fetchQuestions(1)">Coba Ambil Soal Lagi</button>
+                                    <button class="btn btn-outline-secondary ms-2" onclick="window.location.reload()">Refresh Halaman</button>
+                                </div>
+                            </div>`;
+                    } else {
+                        document.getElementById("questionList").innerHTML =
+                            `<div class='alert alert-danger'>
+                                <h5>Gagal memeriksa database:</h5>
+                                <p>${data.message}</p>
+                            </div>`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById("questionList").innerHTML =
+                        `<div class='alert alert-danger'>
+                            <h5>Error memeriksa database:</h5>
+                            <p>${error.message}</p>
+                        </div>`;
+                });
+        }
+
+        document.getElementById("levelFilter").addEventListener("change", function() {
+            filterAndDisplayQuestions();
+        });
+
+        document.getElementById("difficultyFilter").addEventListener("change", function() {
+            filterAndDisplayQuestions();
+        });
+
+        function filterAndDisplayQuestions() {
+            const selectedLevel = document.getElementById("levelFilter").value;
+            const selectedDifficulty = document.getElementById("difficultyFilter").value;
+            const selectedCollectionStatus = document.getElementById("collectionFilter").value;
+
+            let questionList = document.getElementById("questionList");
+            questionList.innerHTML = "";
+
+            console.log(`Memfilter soal: ${allGeneratedQuestions.length} total soal`);
+            console.log(`Kriteria filter - level: ${selectedLevel}, Kesulitan: ${selectedDifficulty}, Collection: ${selectedCollectionStatus}`);
+
+            if (!allGeneratedQuestions.length) {
+                questionList.innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
+                return;
+            }
+
+            let filteredQuestions = selectedLevel === "all" ?
+                [...allGeneratedQuestions] :
+                allGeneratedQuestions.filter(q => String(q.level) === selectedLevel);
+
+            console.log(`Setelah filter level: ${filteredQuestions.length} soal`);
+
+            if (selectedDifficulty !== "all") {
+                if (selectedDifficulty === "very_easy") {
+                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) > 0.90 && parseFloat(q.p) <= 0.95);
+                } else if (selectedDifficulty === "easy") {
+                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) <= 0.90 && parseFloat(q.p) > 0.80);
+                } else if (selectedDifficulty === "medium") {
+                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) <= 0.80 && parseFloat(q.p) > 0.20);
+                } else if (selectedDifficulty === "hard") {
+                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) <= 0.20);
+                }
+            }
+            if (selectedCollectionStatus !== "all") {
+                if (selectedCollectionStatus === "in_collection") {
+                    filteredQuestions = filteredQuestions.filter(q => questionsInCollection.includes(q.id));
+                } else if (selectedCollectionStatus === "not_in_collection") {
+                    filteredQuestions = filteredQuestions.filter(q => !questionsInCollection.includes(q.id));
+                }
+            }
+            console.log(`Setelah semua filter: ${filteredQuestions.length} soal`);
+
+            console.log(`Setelah filter kesulitan: ${filteredQuestions.length} soal`);
+
+            if (filteredQuestions.length === 0) {
+                questionList.innerHTML = `<div class='alert alert-info'>Tidak ada soal yang sesuai dengan filter</div>`;
+                return;
+            }
+
+            filteredQuestions.sort((a, b) => {
+                if (a.level !== b.level) {
+                    return a.level - b.level;
+                }
+                return parseFloat(b.p) - parseFloat(a.p);
+            });
+
+            const levelCountsDebug = {};
+            filteredQuestions.forEach(q => {
+                levelCountsDebug[q.level] = (levelCountsDebug[q.level] || 0) + 1;
+            });
+            console.log("Soal yang telah difilter berdasarkan level:", levelCountsDebug);
+
+            questionList.innerHTML = `
+                <div class="alert alert-primary mb-3">
+                    Menampilkan ${filteredQuestions.length} soal dari total ${allGeneratedQuestions.length} soal
+                </div>
+            `;
+
+            selectedQuestions = [];
+
+            filteredQuestions.forEach((q, index) => {
+                const card = document.createElement("div");
+                card.className = `card question-card mb-3 ${questionsInCollection.includes(q.id) ? 'in-collection' : ''}`;
+
+                let optionsHtml = '';
+
+                try {
+                    let options = q.options;
+                    if (typeof q.options === 'string') {
+                        try {
+                            options = JSON.parse(q.options);
+                        } catch (e) {
+                            console.error("Error parsing options string:", q.options);
+                            options = [];
+                        }
+                    }
+
+                    if (options && Array.isArray(options)) {
+                        optionsHtml = '<div class="mt-2">';
+                        options.forEach(option => {
+                            const isCorrect = option === q.jawaban_benar;
+                            optionsHtml += `
+                                <span class="option-badge ${isCorrect ? 'correct-answer' : ''}">
+                                    ${option}
+                                    ${isCorrect ? '<i class="bi bi-check"></i>' : ''}
+                                </span>
+                            `;
+                        });
+                        optionsHtml += '</div>';
+                    }
+                } catch (e) {
+                    console.error("Error parsing options for question:", q.id, e);
+                    optionsHtml = '<div class="alert alert-warning">Error menampilkan opsi jawaban</div>';
+                }
+
+                let levelText = `Level ${q.level}`;
+                switch(parseInt(q.level)) {
+                    case 1: levelText += " - Kesadaran Teknologi"; break;
+                    case 2: levelText += " - Literasi Teknologi"; break;
+                    case 3: levelText += " - Kemampuan Teknologi Dasar"; break;
+                    case 4: levelText += " - Kemampuan Teknologi Lanjut"; break;
+                    case 5: levelText += " - Kreativitas Teknologi Dasar"; break;
+                    case 6: levelText += " - Kreativitas Teknologi Menengah"; break;
+                    case 7: levelText += " - Kritik Teknologi"; break;
+                }
+
+                const levelClass = `level-${q.level}`;
+                console.log("Menerapkan kelas:", levelClass, "untuk level:", q.level);
+
+                let collectionBadgeHtml = '';
+                if (questionsInCollection.includes(q.id)) {
+                    collectionBadgeHtml = '<span class="collection-badge">Dalam Koleksi</span>';
+                }
+
+                card.innerHTML = `
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input question-checkbox" type="checkbox" value="${q.id}" id="check-${q.id}" ${selectedQuestions.includes(q.id) ? 'checked' : ''}>
+                                <label class="form-check-label" for="check-${q.id}">Pilih soal ini</label>
+                            </div>
+                            <div class="question-info position-relative">
+                                <span class="badge ${levelClass}">${levelText}</span>
+                                <span class="badge bg-secondary">p: ${q.p}</span>
+                                ${collectionBadgeHtml}
+                            </div>
+                        </div>
+                        <h5 class="card-title">${q.soal || 'Tidak ada teks soal'}</h5>
+                        ${optionsHtml}
+                        <div class="mt-3">
+                            <p class="text-muted mb-0"><strong>Jawaban Benar:</strong> ${q.jawaban_benar || 'Tidak ada jawaban'}</p>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted"><strong>Penjelasan:</strong> ${q.explanation || 'Tidak ada penjelasan'}</small>
+                        </div>
+                    </div>
+                `;
+
+                questionList.appendChild(card);
+            });
+
+            setupCheckboxHandlers();
+            updateSelectedCount();
+        }
+
+        function updatelevelStatistics(questions) {
+            const levelCounts = {};
+            const levelDifficulties = {};
+
+            for (let i = 1; i <= 7; i++) {
+                levelCounts[i] = 0;
+                levelDifficulties[i] = [];
+            }
+
+            questions.forEach(q => {
+                const level = parseInt(q.level);
+                if (levelCounts[level] !== undefined) {
+                    levelCounts[level]++;
+                    levelDifficulties[level].push(parseFloat(q.p));
+                }
+            });
+
+            const levelAvgDifficulties = {};
+            for (let level in levelDifficulties) {
+                const difficulties = levelDifficulties[level];
+                levelAvgDifficulties[level] = difficulties.length > 0 ?
+                    difficulties.reduce((sum, p) => sum + p, 0) / difficulties.length : 0;
+            }
+
+            const tbody = document.getElementById("levelSummaryBody");
+            tbody.innerHTML = "";
+
+            const levelStatCharts = document.getElementById("levelStatCharts");
+            levelStatCharts.innerHTML = '';
+
+            Object.keys(levelCounts).forEach(level => {
+                const tr = document.createElement("tr");
+                const levelDisplay = level !== 'Total' ? `Level ${level} <i class="bi bi-info-circle-fill ms-1 level-info-icon" data-level="${level}" style="cursor: pointer;"></i>` : `<strong>Total</strong>`;
+
+                tr.innerHTML = `
+                    <td>${levelDisplay}</td>
+                    <td>${levelCounts[level]}</td>
+                    <td>${levelAvgDifficulties[level].toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+
+                const chartCol = document.createElement("div");
+                chartCol.className = "col-md-3 mb-3";
+
+                let barColor = "";
+                let levelName = "";
+
+                switch(parseInt(level)) {
+                    case 1: barColor = "#198754"; levelName = "Kesadaran Teknologi"; break;
+                    case 2: barColor = "#28a745"; levelName = "Literasi Teknologi"; break;
+                    case 3: barColor = "#ffc107"; levelName = "Kemampuan Teknologi Dasar"; break;
+                    case 4: barColor = "#fd7e14"; levelName = "Kemampuan Teknologi Lanjut"; break;
+                    case 5: barColor = "#c35144"; levelName = "Kreativitas Teknologi Dasar"; break;
+                    case 6: barColor = "#e74c3c"; levelName = "Kreativitas Teknologi Menengah"; break;
+                    case 7: barColor = "#dc3545"; levelName = "Kritik Teknologi"; break;
+                    default: barColor = "#6c757d"; levelName = "Tidak Diketahui";
+                }
+
+                chartCol.innerHTML = `
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5>Level ${level}</h5>
+                            <div class="progress mb-2" style="height: 25px;">
+                                <div class="progress-bar" role="progressbar" style="width: 100%; background-color: ${barColor};"
+                                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                                    ${levelCounts[level]} soal
+                                </div>
+                            </div>
+                            <p class="mb-0">${levelName}</p>
+                        </div>
+                    </div>
+                `;
+
+                levelStatCharts.appendChild(chartCol);
+            });
+
+            const totalRow = document.createElement("tr");
+            totalRow.className = "table-primary";
+            const total = Object.values(levelCounts).reduce((sum, count) => sum + count, 0);
+            const avgDifficulty = total > 0 ?
+                Object.values(levelAvgDifficulties).reduce((sum, diff) => sum + diff, 0) / 7 : 0;
+
+            totalRow.innerHTML = `
+                <td><strong>Total</strong></td>
+                <td><strong>${total}</strong></td>
+                <td><strong>${avgDifficulty.toFixed(2)}</strong></td>
+            `;
+            tbody.appendChild(totalRow);
+        }
+
+        document.getElementById("uploadForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            let fileInput = document.getElementById("fileInput");
+            let statusMessage = document.getElementById("statusMessage");
+
+            if (!fileInput.files.length) {
+                statusMessage.innerHTML = "<div class='alert alert-danger'>Pilih file terlebih dahulu.</div>";
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            statusMessage.innerHTML = `
+                <div class='alert alert-info'>
+                    <div class="spinner-container">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    Mengunggah file dan membuat soal pilihan ganda...
+                </div>
+            `;
+
+            try {
+                let response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        const errorJson = await response.json();
+                        errorText = errorJson.message || "Unknown error";
+                    } catch {
+                        errorText = await response.text();
+                    }
+                    throw new Error("Server error: " + errorText);
+                }
+
+                let result = await response.json();
+                statusMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
+
+                if (result.data && Array.isArray(result.data)) {
+                    allGeneratedQuestions = result.data;
+
+                    updatelevelStatistics(result.data);
+
+                    filterAndDisplayQuestions();
+
+                    selectedQuestions = [];
+                    updateSelectedCount();
+                } else {
+                    document.getElementById("questionList").innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
+                    document.getElementById("levelSummaryBody").innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
+                    document.getElementById("levelStatCharts").innerHTML = "";
+                }
+
+            } catch (error) {
+                statusMessage.innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
+                console.error("Fetch error:", error);
+            }
+        });
+
+        document.getElementById("checkDbButton").addEventListener("click", async function() {
+            try {
+                const statusMessage = document.getElementById("statusMessage");
+                statusMessage.innerHTML = `
+                    <div class='alert alert-info'>
+                        <div class="spinner-container">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        Memeriksa database secara langsung...
+                    </div>
+                `;
+                console.log("Memanggil endpoint /api/check_questions_count");
+
+                const timestamp = new Date().getTime();
+                const response = await fetch(`/api/check_questions_count?t=${timestamp}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`Server returned error: ${response.status}`, errorText);
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const responseText = await response.text();
+                console.log("Raw response:", responseText);
+
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    console.error("Failed to parse JSON:", e);
+                    throw new Error("Invalid JSON response from server");
+                }
+
+                if (result.success) {
+                    statusMessage.innerHTML = `
+                        <div class='alert alert-success'>
+                            <h5>Hasil Pemeriksaan Database:</h5>
+                            <ul>
+                                <li>Total soal: ${result.totalQuestions}</li>
+                                <li>Soal per level: ${JSON.stringify(result.levelDistribution)}</li>
+                            </ul>
+                            <button class="btn btn-sm btn-primary mt-2" id="refreshQuestionsBtn">Reload Soal dari Database</button>
+                        </div>
+                    `;
+
+                    document.getElementById("refreshQuestionsBtn").addEventListener("click", function() {
+                        fetchQuestions(1);
+                    });
+                } else {
+                    statusMessage.innerHTML = "<div class='alert alert-danger'>" + result.message + "</div>";
+                }
+            } catch (error) {
+                document.getElementById("statusMessage").innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
+                console.error("Check database error:", error);
+            }
+        });
+
+        document.getElementById("resetDbButton").addEventListener("click", async function() {
+            if (confirm("Apakah Anda yakin ingin menghapus semua soal dan jawaban pengguna?")) {
+                try {
+                    const resetMessage = document.getElementById("resetMessage");
+                    resetMessage.innerHTML = `
+                        <div class='alert alert-info'>
+                            <div class="spinner-container">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                            Sedang menghapus data...
+                        </div>
+                    `;
+
+                    const response = await fetch("/reset_database", {
+                        method: "POST"
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        resetMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
+                        allGeneratedQuestions = [];
+                        document.getElementById("questionList").innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
+                        document.getElementById("levelSummaryBody").innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
+                        document.getElementById("levelStatCharts").innerHTML = "";
+                        document.getElementById("statusMessage").innerHTML = "";
+
+                        selectedQuestions = [];
+                        updateSelectedCount();
+                    } else {
+                        resetMessage.innerHTML = "<div class='alert alert-danger'>" + result.message + "</div>";
+                    }
+                } catch (error) {
+                    document.getElementById("resetMessage").innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
+                    console.error("Reset error:", error);
+                }
+            }
+        });
+
+        function setupCheckboxHandlers() {
+            document.querySelectorAll('.question-checkbox').forEach(checkbox => {
+                const oldCheckbox = checkbox;
+                const parent = oldCheckbox.parentNode;
+                const newCheckbox = oldCheckbox.cloneNode(true); // Correct method: cloneNode()
+
+                if (parent) {
+                    parent.replaceChild(newCheckbox, oldCheckbox);
+                } else {
+                    console.error("Parent node tidak ditemukan untuk checkbox:", oldCheckbox);
+                }
+
+                newCheckbox.addEventListener('change', handleCheckboxChange);
+            });
+            console.log("Checkbox handlers initialized");
+        }
+
+        function handleCheckboxChange(e) {
+            const questionId = parseInt(e.target.value);
+
+            if (e.target.checked) {
+                if (!selectedQuestions.includes(questionId)) {
+                    selectedQuestions.push(questionId);
+                }
+            } else {
+                selectedQuestions = selectedQuestions.filter(id => id !== questionId);
+            }
+            console.log("Selected questions array:", selectedQuestions);
+            updateSelectedCount();
+        }
+
+        function setupSelectAllButtons() {
+            const selectAllBtn = document.getElementById('selectAllBtn');
+            const unselectAllBtn = document.getElementById('unselectAllBtn');
+
+            if (selectAllBtn) {
+                selectAllBtn.addEventListener('click', function() {
+                    const checkboxes = document.querySelectorAll('.question-checkbox');
+                    selectedQuestions = [];
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                        const questionId = parseInt(checkbox.value);
+                        if (!selectedQuestions.includes(questionId)) {
+                            selectedQuestions.push(questionId);
+                        }
+                    });
+                    console.log("Selected all questions:", selectedQuestions);
+                    updateSelectedCount();
+                });
+            }
+
+            if (unselectAllBtn) {
+                unselectAllBtn.addEventListener('click', function() {
+                    const checkboxes = document.querySelectorAll('.question-checkbox');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    selectedQuestions = [];
+                    console.log("Deselected all questions");
+                    updateSelectedCount();
+                });
+            }
+            console.log("Select/unselect buttons initialized");
+        }
+
+        function updateSelectedCount() {
+            if (!selectionCounterElement) {
+                selectionCounterElement = document.getElementById('selectionCounter');
+            }
+
+            if (selectionCounterElement) {
+                selectionCounterElement.textContent = `${selectedQuestions.length} soal dipilih`;
+            }
+
+            const saveBtn = document.getElementById('saveSelectedBtn');
+            if (saveBtn) {
+                if (selectedQuestions.length > 0) {
+                    saveBtn.textContent = `Simpan ${selectedQuestions.length} Soal Terpilih`;
+                    saveBtn.disabled = false; // Enable if questions are selected
+                } else {
+                    saveBtn.textContent = 'Simpan Soal Terpilih';
+                    saveBtn.disabled = true; // Disable if no questions are selected
+                }
+            }
+            console.log(`Selected questions updated: ${selectedQuestions.length} questions selected`);
+        }
+
+        function setupSaveSelectedButton() {
+            const saveBtn = document.getElementById('saveSelectedBtn');
+            // Menghapus event listener lama sebelum menambahkan yang baru
+            saveBtn.removeEventListener('click', handleSaveSelectedClick);
+            saveBtn.addEventListener('click', handleSaveSelectedClick);
+            console.log("Save button initialized");
+        }
+
+        async function handleSaveSelectedClick() {
+            const saveBtn = document.getElementById('saveSelectedBtn');
+
+            if (selectedQuestions.length === 0) {
+                alert('Pilih minimal 1 soal untuk disimpan!');
+                // Tombol sudah disabled karena tidak ada soal yang dipilih, tidak perlu enable/disable di sini lagi
+                return;
+            }
+
+            // Menonaktifkan tombol utama saat proses modal dimulai
+            saveBtn.disabled = true;
+
+            try {
+                showSaveToCollectionModal();
+            } catch (error) {
+                console.error('Error showing collection modal:', error);
+                showToast('Error', 'Terjadi kesalahan saat membuka modal: ' + error.message, 'error');
+            } finally {
+                // Tombol utama akan di-enable kembali setelah modal ditutup
+                // atau di handle di fungsi `createAndShowModal` atau `showSimpleSaveForm`
+                // agar terintegrasi dengan alur penonaktifan/pengaktifan tombol modal.
+            }
+        }
+
+
+        function showSaveToCollectionModal() {
+            if (!selectedQuestions || selectedQuestions.length === 0) {
+                alert('Pilih minimal satu soal untuk disimpan!');
+                // Ini seharusnya tidak terpicu jika tombol sudah disabled dengan benar
+                document.getElementById('saveSelectedBtn').disabled = false;
+                return;
+            }
+
+            // PERBAIKAN UTAMA: Dapatkan referensi tombol utama sekali di awal
+            const mainSaveSelectedBtn = document.getElementById('saveSelectedBtn');
+
+            try {
+                if (typeof bootstrap === 'undefined') {
+                    console.warn("Bootstrap tidak tersedia! Memuat dari CDN...");
+                    const bootstrapScript = document.createElement('script');
+                    bootstrapScript.src = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js";
+                    bootstrapScript.integrity = "sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz";
+                    bootstrapScript.crossOrigin = "anonymous";
+                    document.head.appendChild(bootstrapScript);
+
+                    bootstrapScript.onload = function() {
+                        console.log("Bootstrap berhasil dimuat dari CDN");
+                        createAndShowModal();
+                    };
+
+                    bootstrapScript.onerror = function() {
+                        console.error("Gagal memuat Bootstrap dari CDN");
+                        showSimpleSaveForm();
+                        mainSaveSelectedBtn.disabled = false; // Aktifkan kembali tombol utama
+                    };
+                    return;
+                }
+                createAndShowModal();
+            } catch (error) {
+                console.error('Error showing collection modal:', error);
+                showSimpleSaveForm();
+                mainSaveSelectedBtn.disabled = false; // Aktifkan kembali tombol utama
+            }
+        }
+
+        function createAndShowModal() {
+            const modalHtml = `
+                <div class="modal fade" id="saveCollectionModal" tabindex="-1" aria-labelledby="saveCollectionModalLabel">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="saveCollectionModalLabel">Simpan ${selectedQuestions.length} Soal ke Koleksi</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="radio" name="collectionOption" id="newCollection" value="new" checked>
+                                        <label class="form-check-label" for="newCollection">
+                                            Buat Koleksi Baru
+                                        </label>
+                                    </div>
+
+                                    <div id="newCollectionForm">
+                                        <div class="mb-3">
+                                            <label for="collectionName" class="form-label">Nama Koleksi</label>
+                                            <input type="text" class="form-control" id="collectionName" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="collectionDesc" class="form-label">Deskripsi (opsional)</label>
+                                            <textarea class="form-control" id="collectionDesc" rows="2"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="radio" name="collectionOption" id="existingCollection" value="existing">
+                                        <label class="form-check-label" for="existingCollection">
+                                            Tambahkan ke Koleksi yang Ada
+                                        </label>
+                                    </div>
+
+                                    <div id="existingCollectionForm" style="display: none;">
+                                        <div class="mb-3">
+                                            <label for="collectionSelect" class="form-label">Pilih Koleksi</label>
+                                            <select class="form-select" id="collectionSelect">
+                                                <option value="">Memuat koleksi...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info">
+                                    <small>
+                                        <i class="bi bi-info-circle"></i>
+                                        Soal yang disimpan ke koleksi tidak akan hilang ketika Anda membuat soal baru
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                <button type="button" class="btn btn-primary" id="saveToCollectionBtn">Simpan</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const existingModal = document.getElementById('saveCollectionModal');
+            if (existingModal) {
+                const modalInstance = bootstrap.Modal.getInstance(existingModal);
+                if (modalInstance) {
+                    modalInstance.dispose();
+                }
+                existingModal.remove();
+            }
+
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHtml;
+            document.body.appendChild(modalContainer);
+
+            // Dapatkan referensi tombol utama lagi di sini, karena modal HTML baru mungkin telah dibuat
+            const mainSaveSelectedBtn = document.getElementById('saveSelectedBtn');
+
+            try {
+                const modal = new bootstrap.Modal(document.getElementById('saveCollectionModal'), {
+                    backdrop: 'static',
+                    keyboard: true
+                });
+
+                // PERBAIKAN: Tambahkan event listener untuk 'hidden.bs.modal'
+                // Ini akan terpicu saat modal ditutup, baik dengan tombol X, Escape, atau tombol Batal
+                modalContainer.addEventListener('hidden.bs.modal', function onHidden() {
+                    modalContainer.removeEventListener('hidden.bs.modal', onHidden); // Hapus listener ini sendiri
+                    modalContainer.remove(); // Hapus elemen modal dari DOM
+                    // Aktifkan kembali tombol utama saat modal ditutup (jika ada soal yang dipilih)
+                    updateSelectedCount(); // Ini akan memeriksa `selectedQuestions.length` dan mengatur `disabled`
+                });
+
+                const setupRadioHandlers = () => {
+                    const newCollectionRadio = document.getElementById('newCollection');
+                    const existingCollectionRadio = document.getElementById('existingCollection');
+                    const newCollectionForm = document.getElementById('newCollectionForm');
+                    const existingCollectionForm = document.getElementById('existingCollectionForm');
+
+                    if (newCollectionRadio && existingCollectionRadio) {
+                        newCollectionRadio.addEventListener('change', function() {
+                            if (this.checked) {
+                                if (newCollectionForm) newCollectionForm.style.display = 'block';
+                                if (existingCollectionForm) existingCollectionForm.style.display = 'none';
+                            }
+                        });
+
+                        existingCollectionRadio.addEventListener('change', function() {
+                            if (this.checked) {
+                                if (newCollectionForm) newCollectionForm.style.display = 'none';
+                                if (existingCollectionForm) existingCollectionForm.style.display = 'block';
+                                loadCollections();
+                            }
+                        });
+                    }
+                };
+
+                setupRadioHandlers();
+
+                const saveBtn = document.getElementById('saveToCollectionBtn');
+                if (saveBtn) {
+                    saveBtn.onclick = null; // Menghapus event listener lama
+                    saveBtn.addEventListener('click', async function() {
+                        const radioOption = document.querySelector('input[name="collectionOption"]:checked');
+
+                        saveBtn.disabled = true; // Menonaktifkan tombol simpan modal
+                        // Tidak perlu menonaktifkan mainSaveSelectedBtn di sini, sudah dihandle di handleSaveSelectedClick
+                        // dan akan diaktifkan kembali saat modal ditutup oleh listener hidden.bs.modal
+
+                        let operationSuccess = false; // Flag untuk melacak keberhasilan operasi
+
+                        try {
+                            if (!radioOption) {
+                                alert('Pilih apakah membuat koleksi baru atau menambahkan ke koleksi yang ada');
+                                return;
+                            }
+
+                            const option = radioOption.value;
+
+                            if (option === 'new') {
+                                const nameInput = document.getElementById('collectionName');
+                                const descInput = document.getElementById('collectionDesc');
+
+                                if (!nameInput || !nameInput.value.trim()) {
+                                    alert('Nama koleksi harus diisi!');
+                                    return;
+                                }
+
+                                operationSuccess = await createNewCollection(
+                                    nameInput.value.trim(),
+                                    descInput ? descInput.value.trim() : '',
+                                    selectedQuestions
+                                );
+                            } else {
+                                const selectEl = document.getElementById('collectionSelect');
+
+                                if (!selectEl || !selectEl.value) {
+                                    alert('Pilih koleksi terlebih dahulu!');
+                                    return;
+                                }
+
+                                operationSuccess = await addToExistingCollection(selectEl.value, selectedQuestions);
+                            }
+
+                            if (operationSuccess) { // Jika operasi berhasil
+                                modal.hide(); // Sembunyikan modal
+                            }
+
+                        } catch (e) {
+                            console.error('Error saving to collection:', e);
+                            showToast('Error', 'Gagal menyimpan koleksi: ' + e.message, 'error');
+                        } finally {
+                            // Mengaktifkan kembali tombol simpan modal
+                            saveBtn.disabled = false;
+                            // Tombol utama akan diaktifkan kembali oleh event listener 'hidden.bs.modal'
+                        }
+                    });
+                }
+
+                modal.show();
+
+            } catch (error) {
+                console.error('Error initializing modal:', error);
+                mainSaveSelectedBtn.disabled = false; // Aktifkan kembali tombol utama jika inisialisasi modal gagal
+                // Cleanup modal jika inisialisasi gagal dan modal sudah ditambahkan ke DOM
+                const potentialModal = document.getElementById('saveCollectionModal');
+                if (potentialModal) {
+                    const modalInstance = bootstrap.Modal.getInstance(potentialModal);
+                    if (modalInstance) {
+                        modalInstance.dispose();
+                    }
+                    potentialModal.remove();
+                }
+                showToast('Error', 'Terjadi kesalahan saat membuka modal. Coba lagi.', 'error');
+            }
+        }
+
+        function showSimpleSaveForm() {
+            const container = document.createElement('div');
+            container.className = 'fixed-top w-100 h-100 d-flex justify-content-center align-items-center';
+            container.style.backgroundColor = 'rgba(0,0,0,0.5)';
+            container.style.zIndex = '9999';
+
+            container.innerHTML = `
+                <div class="card" style="width: 500px; max-width: 90%;">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Simpan ${selectedQuestions.length} Soal ke Koleksi Baru</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="simpleName" class="form-label">Nama Koleksi</label>
+                            <input type="text" class="form-control" id="simpleName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="simpleDesc" class="form-label">Deskripsi (opsional)</label>
+                            <textarea class="form-control" id="simpleDesc" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-end">
+                        <button class="btn btn-secondary me-2" id="simpleCancel">Batal</button>
+                        <button class="btn btn-primary" id="simpleSave">Simpan</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(container);
+
+            // Dapatkan referensi tombol utama
+            const mainSaveSelectedBtn = document.getElementById('saveSelectedBtn');
+
+            document.getElementById('simpleCancel').addEventListener('click', function() {
+                document.body.removeChild(container);
+                updateSelectedCount(); // Perbarui status tombol utama
+            });
+
+            document.getElementById('simpleSave').addEventListener('click', async function() {
+                const name = document.getElementById('simpleName').value;
+                const description = document.getElementById('simpleDesc').value;
+
+                this.disabled = true; // Menonaktifkan tombol simpan di simple form
+                mainSaveSelectedBtn.disabled = true; // Menonaktifkan tombol utama
+
+                try {
+                    if (!name) {
+                        alert('Nama koleksi harus diisi!');
+                        return;
+                    }
+
+                    const success = await createNewCollection(name, description, selectedQuestions);
+                    if (success) {
+                       document.body.removeChild(container); // Hanya hapus jika berhasil
+                    }
+                } catch (e) {
+                    console.error('Error saving via simple form:', e);
+                    showToast('Error', 'Gagal menyimpan koleksi: ' + e.message, 'error');
+                } finally {
+                    this.disabled = false; // Aktifkan kembali tombol simpan di simple form
+                    updateSelectedCount(); // Perbarui status tombol utama
+                }
+            });
+        }
+
+        let questionsInCollection = [];
+
+        async function loadQuestionsInCollection() {
+            try {
+                const response = await fetch('/api/questions/in_collection');
+                const data = await response.json();
+
+                if (data.success) {
+                    questionsInCollection = data.question_ids || [];
+                    console.log(`Loaded ${questionsInCollection.length} questions in collection`);
+                } else {
+                    console.error('Error loading questions in collection:', data.message);
+                }
+            } catch (error) {
+                console.error('Error fetching questions in collection:', error);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", async function() {
+            try {
+                console.log("Halaman dimuat, mengambil data soal...");
+
+                await loadQuestionsInCollection();
+
+                await fetchQuestions(3);
+
+                initializeQuestionSelection();
+            } catch (error) {
+                console.error("Error pada inisialisasi utama:", error);
+                document.getElementById("questionList").innerHTML =
+                    `<div class='alert alert-danger'>Terjadi kesalahan saat inisialisasi: ${error.message}</div>`;
+            }
+        });
+
+        document.getElementById("collectionFilter").addEventListener("change", function() {
+            filterAndDisplayQuestions();
+        });
+
+        async function loadCollections() {
+            try {
+                const select = document.getElementById('collectionSelect');
+                if (!select) return;
+
+                select.innerHTML = '<option value="">Memuat koleksi...</option>';
+
+                const response = await fetch('/api/collections');
+                const data = await response.json();
+
+                if (data.success && data.collections.length > 0) {
+                    select.innerHTML = '';
+
+                    data.collections.forEach(collection => {
+                        const option = document.createElement('option');
+                        option.value = collection.id;
+                        option.textContent = `${collection.name} (${collection.question_count} soal)`;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">Tidak ada koleksi</option>';
+
+                    document.getElementById('newCollection').checked = true;
+                    document.getElementById('existingCollection').disabled = true;
+                    document.getElementById('newCollectionForm').style.display = 'block';
+                    document.getElementById('existingCollectionForm').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading collections:', error);
+
+                const select = document.getElementById('collectionSelect');
+                if (select) {
+                    select.innerHTML = '<option value="">Error memuat koleksi</option>';
+                }
+
+                showToast('Error', 'Gagal memuat daftar koleksi', 'error');
+            }
+        }
+
+        async function createNewCollection(name, description, questionIds) {
+            try {
+                showToast('Proses', `Menyimpan ${questionIds.length} soal ke koleksi baru...`, 'info');
+
+                if (!name || name.trim() === '') {
+                    showToast('Gagal', 'Nama koleksi tidak boleh kosong', 'error');
+                    return false; // Indicate failure
+                }
+
+                if (!Array.isArray(questionIds) || questionIds.length === 0) {
+                    showToast('Gagal', 'Tidak ada soal yang dipilih untuk disimpan', 'error');
+                    return false; // Indicate failure
+                }
+
+                console.log('Data yang akan dikirim ke server:', {
+                    name,
+                    description: description || '',
+                    question_ids: questionIds
+                });
+
+                const response = await fetch('/api/collections', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description || '',
+                        question_ids: questionIds
+                    }),
+                });
+
+                if (!response.ok) {
+                    let errorMessage = `Error ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData && errorData.message) {
+                            errorMessage = errorData.message;
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing error response:', parseError);
+                    }
+
+                    throw new Error(errorMessage);
+                }
+
+                let responseText = await response.text();
+                let result;
+
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('Response is not valid JSON:', responseText);
+                    throw new Error('Respons server tidak valid: bukan format JSON');
+                }
+
+                if (result && result.success) {
+                    showToast('Berhasil', `${questionIds.length} soal berhasil disimpan ke koleksi "${name}"`, 'success');
+                    resetSelection();
+                    await loadQuestionsInCollection();
+                    filterAndDisplayQuestions();
+                    return true; // Indicate success
+                } else {
+                    const errorMsg = (result && result.message) ? result.message : 'Gagal membuat koleksi';
+                    showToast('Gagal', errorMsg, 'error');
+                    return false; // Indicate failure
+                }
+            } catch (error) {
+                console.error('Error creating collection:', error);
+                showToast('Error', `Gagal menyimpan koleksi: ${error.message}`, 'error');
+                return false; // Indicate failure
+            }
+        }
+
+        async function addToExistingCollection(collectionId, questionIds) {
+            try {
+                showToast('Proses', `Menambahkan ${questionIds.length} soal ke koleksi...`, 'info');
+
+                if (!collectionId) {
+                    showToast('Gagal', 'ID koleksi tidak valid', 'error');
+                    return false; // Indicate failure
+                }
+
+                if (!Array.isArray(questionIds) || questionIds.length === 0) {
+                    showToast('Gagal', 'Tidak ada soal yang dipilih untuk disimpan', 'error');
+                    return false; // Indicate failure
+                }
+
+                console.log('Data yang akan dikirim ke server:', {
+                    collection_id: collectionId,
+                    question_ids: questionIds
+                });
+
+                const response = await fetch(`/api/collections/${collectionId}/questions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        question_ids: questionIds
+                    }),
+                });
+
+                if (!response.ok) {
+                    let errorMessage = `Error ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData && errorData.message) {
+                            errorMessage = errorData.message;
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing error response:', parseError);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                let responseText = await response.text();
+                let result;
+
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('Response is not valid JSON:', responseText);
+                    throw new Error('Respons server tidak valid: bukan format JSON');
+                }
+
+                if (result && result.success) {
+                    showToast('Berhasil', `${questionIds.length} soal berhasil ditambahkan ke koleksi`, 'success');
+                    resetSelection();
+                    await loadQuestionsInCollection();
+                    filterAndDisplayQuestions();
+                    return true; // Indicate success
+                } else {
+                    const errorMsg = (result && result.message) ? result.message : 'Gagal menambahkan soal ke koleksi';
+                    showToast('Gagal', errorMsg, 'error');
+                    return false; // Indicate failure
+                }
+            } catch (error) {
+                console.error('Error adding to collection:', error);
+                showToast('Error', `Gagal menambahkan soal ke koleksi: ${error.message}`, 'error');
+                return false; // Indicate failure
+            }
+        }
+
+        function resetSelection() {
+            const checkboxes = document.querySelectorAll('.question-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            selectedQuestions = [];
+            updateSelectedCount();
+        }
+
+        function showToast(title, message, type = 'info') {
+            if (!document.getElementById('toastContainer')) {
+                const container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                container.style.zIndex = '9999';
+                document.body.appendChild(container);
+            }
+
+            const toastId = 'toast-' + Date.now();
+            const toastHtml = `
+                <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header ${type === 'error' ? 'bg-danger text-white' : type === 'success' ? 'bg-success text-white' : 'bg-primary text-white'}">
+                        <strong class="me-auto">${title}</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('toastContainer').insertAdjacentHTML('beforeend', toastHtml);
+            const toastElement = document.getElementById(toastId);
+
+            if (typeof bootstrap !== 'undefined') {
+                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+                toast.show();
+
+                toastElement.addEventListener('hidden.bs.toast', function() {
+                    this.remove();
+                });
+            } else {
+                toastElement.style.display = 'block';
+                setTimeout(() => {
+                    toastElement.style.opacity = '0';
+                    toastElement.style.transition = 'opacity 0.5s ease';
+                    setTimeout(() => {
+                        toastElement.remove();
+                    }, 500);
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QnA - Pilihan Ganda</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    body {
+      padding-top: 60px;
+      background-color: #f8f9fa;
+    }
+    .option-card {
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid #dee2e6;
+      background-color: white;
+      color: #212529;
+    }
+    .option-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      border-color: #86b7fe;
+    }
+    .option-card.selected {
+      border-color: #0d6efd;
+      background-color: rgba(13, 110, 253, 0.1);
+    }
+    .badge {
+      font-size: 0.9rem;
+      font-weight: normal;
+    }
+    .navbar {
+      background-color: #0d6efd;
+    }
+    .navbar-brand {
+      font-weight: bold;
+    }
+    .user-info {
+      color: white;
+      margin-right: 15px;
+    }
+    .question-card {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    #explanation-card {
+      border-left: 4px solid #20c997;
+    }
+    .progress-card {
+      border-radius: 8px;
+    }
+    .progress-card.correct {
+      background-color: #d1e7dd;
+    }
+    .progress-card.incorrect {
+      background-color: #f8d7da;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container">
+      <a class="navbar-brand" href="/DashboardSiswa">Sistem Tes Diagnostik</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link active" href="/DashboardSiswa">Tes Diagnostik</a>
+          </li>
+          <!-- <li class="nav-item">
+            <a class="nav-link" href="/result">Hasil Saya</a>
+          </li> -->
+        </ul>
+        <div class="d-flex align-items-center">
+          <span class="user-info">
+            <i class="bi bi-person-circle"></i> {{ current_user.nama }} ({{ current_user.kelas }})
+          </span>
+          <a href="/logout" class="btn btn-outline-light ms-2">
+            <i class="bi bi-box-arrow-right"></i> Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+    <h1 class="text-center mb-4">Tes Diagnostik</h1>
+    
+    <!-- Card untuk informasi level -->
+    <div class="card question-card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-3 mb-2 mb-md-0">
+            <span class="badge bg-primary" id="level-badge">
+              <i class="bi bi-diagram-2"></i> level: -
+            </span>
+          </div>
+          <div class="col-md-3 mb-2 mb-md-0">
+            <span class="badge bg-info" id="difficulty-badge">
+              <i class="bi bi-speedometer2"></i> p: -
+            </span>
+          </div>
+          <div class="col-md-3 mb-2 mb-md-0">
+            <span class="badge bg-warning text-dark" id="weight-badge">
+              <i class="bi bi-star-fill"></i> Bobot: -
+            </span>
+          </div>
+          <div class="col-md-3">
+            <span class="badge bg-secondary" id="question-id-badge">
+              <i class="bi bi-hash"></i> ID: -
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Card untuk pertanyaan -->
+    <div class="card question-card mb-4">
+      <div class="card-body">
+        <h3 id="question" class="card-title">
+          <i class="bi bi-hourglass-split"></i> Memuat soal...
+        </h3>
+        <input type="hidden" id="question_id" value="">
+      </div>
+    </div>
+    
+    <!-- Container untuk opsi pilihan ganda -->
+    <div id="options-container" class="mb-4">
+      <div class="row row-cols-1 row-cols-md-2 g-4" id="options-list">
+        <!-- Opsi akan dimuat di sini -->
+      </div>
+    </div>
+    
+    <!-- Tombol submit -->
+    <div class="d-grid gap-2 mb-4">
+      <button id="submit-answer" class="btn btn-success btn-lg py-3">
+        <i class="bi bi-send-check"></i> Submit Jawaban
+      </button>
+    </div>
+    
+    <!-- Hasil jawaban -->
+    <div class="mb-4">
+      <div id="result" class="alert alert-warning d-none"></div>
+    </div>
+    
+    <!-- Penjelasan -->
+    <div class="card mb-4 d-none" id="explanation-card">
+      <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Penjelasan</h5>
+      </div>
+      <div class="card-body">
+        <p id="explanation-text" class="mb-0">-</p>
+      </div>
+    </div>
+    
+    <!-- Progress Status -->
+    <div class="card progress-card mb-4">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Progress Tes</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6 mb-3 mb-md-0">
+            <div class="card progress-card correct h-100">
+              <div class="card-body text-center">
+                <h5 class="card-title text-success">
+                  <i class="bi bi-check-circle"></i> Benar
+                </h5>
+                <h2 id="correct-count" class="mb-0 text-success">0</h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card progress-card incorrect h-100">
+              <div class="card-body text-center">
+                <h5 class="card-title text-danger">
+                  <i class="bi bi-x-circle"></i> Salah
+                </h5>
+                <h2 id="incorrect-count" class="mb-0 text-danger">0</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="text-center mt-3">
+          <a href="/result" class="btn btn-primary" id="view-results-btn">
+            <i class="bi bi-clipboard-data"></i> Lihat Hasil Lengkap
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // User ID untuk session ini
+    const userId = "{{ current_user.id }}";
+    let currentQuestion = null;
+    let selectedOption = null;
+    const FINAL_levelS = [5, 6, 7];
+    
+    // Tambahkan ini di awal untuk mendapatkan collection_id dari URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const collectionId = urlParams.get('collection_id');
+    
+    // Tampilkan error jika collection_id tidak ada
+    if (!collectionId) {
+      console.warn("Collection ID tidak ditemukan dalam URL");
+      document.getElementById("result").classList.remove("d-none");
+      document.getElementById("result").innerHTML = 
+        '<i class="bi bi-exclamation-triangle"></i> Error: Collection ID tidak ditemukan dalam URL';
+    }
+    
+    // Fungsi untuk mengambil soal berikutnya (dengan collection_id WAJIB)
+async function getNextQuestion() {
+  try {
+    // Tampilkan loading state
+    document.getElementById("question").innerHTML = '<i class="bi bi-hourglass-split"></i> Memuat soal...';
+    document.getElementById("submit-answer").disabled = true;
+    document.getElementById("options-list").innerHTML = "";
+
+    // Validasi collection_id
+    if (!collectionId) {
+      showError("Collection ID tidak ditemukan dalam URL!");
+      return;
+    }
+
+    // Request HARUS menyertakan collection_id
+    const url = `/get_question?user_id=${userId}&collection_id=${collectionId}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    currentQuestion = data;
+
+    // Update UI dengan data soal
+    document.getElementById("question_id").value = data.id || "";
+    document.getElementById("level-badge").innerHTML = `<i class="bi bi-diagram-2"></i> level: ${data.level || '-'}`;
+    document.getElementById("difficulty-badge").innerHTML = `<i class="bi bi-speedometer2"></i> p: ${data.p || '-'}`;
+    document.getElementById("weight-badge").innerHTML = `<i class="bi bi-star-fill"></i> Bobot: ${data.bobot || '-'}`;
+    document.getElementById("question-id-badge").innerHTML = `<i class="bi bi-hash"></i> ID: ${data.id || '-'}`;
+
+    // Update tombol submit berdasarkan level
+    const submitButton = document.getElementById("submit-answer");
+    const islevelFinal = FINAL_levelS.includes(parseInt(data.level));
+    submitButton.innerHTML = islevelFinal ? 
+      '<i class="bi bi-flag-fill"></i> Selesaikan Tes' : 
+      '<i class="bi bi-send-check"></i> Submit Jawaban';
+
+    // Handle response status
+    if (data.status === "game over" || data.status === "win") {
+      showFinalResult(data.message);
+    } else if (data.status === "error") {
+      showError(data.message);
+    } else if (data.question) {
+      displayQuestion(data);
+    } else {
+      showError("Format soal tidak valid");
+    }
+
+    await updateStats();
+  } catch (error) {
+    console.error("Error mengambil soal:", error);
+    showError(`Gagal memuat soal: ${error.message}`);
+  }
+}
+
+    
+    // Fungsi untuk menampilkan soal
+    function displayQuestion(data) {
+      document.getElementById("question").innerText = data.question;
+      document.getElementById("submit-answer").disabled = false;
+      
+      if (Array.isArray(data.options) && data.options.length > 0) {
+        displayOptions(data.options);
+      } else {
+        showError("Tidak ada opsi jawaban tersedia");
+      }
+    }
+    
+    // Fungsi untuk menampilkan opsi pilihan ganda
+    function displayOptions(options) {
+      const optionsList = document.getElementById("options-list");
+      optionsList.innerHTML = "";
+      
+      options.forEach((option, index) => {
+        const optionCard = document.createElement("div");
+        optionCard.className = "col";
+        optionCard.innerHTML = `
+          <div class="card option-card h-100" data-option="${option}">
+            <div class="card-body">
+              <p class="card-text">${option}</p>
+            </div>
+          </div>
+        `;
+        optionsList.appendChild(optionCard);
+        
+        // Tambahkan event listener untuk memilih opsi
+        optionCard.querySelector('.option-card').addEventListener('click', function() {
+          selectOption(this);
+        });
+      });
+    }
+    
+    // Fungsi untuk memilih opsi
+    function selectOption(card) {
+      // Hapus seleksi dari semua opsi
+      document.querySelectorAll('.option-card').forEach(c => {
+        c.classList.remove('selected');
+      });
+      
+      // Tambahkan seleksi ke opsi yang dipilih
+      card.classList.add('selected');
+      selectedOption = card.getAttribute('data-option');
+    }
+    
+    // Fungsi untuk menampilkan hasil akhir
+    function showFinalResult(message) {
+      document.getElementById("question").innerText = message || "Tes Selesai!";
+      document.getElementById("submit-answer").disabled = true;
+      
+      const resultElement = document.getElementById("result");
+      resultElement.classList.remove("d-none", "alert-warning", "alert-danger");
+      resultElement.classList.add("alert-info");
+      resultElement.innerHTML = `<i class="bi bi-info-circle"></i> ${message || "Tes telah selesai!"}`;
+      
+      // Jika ada penjelasan, tampilkan
+      if (currentQuestion?.explanation) {
+        showExplanation(currentQuestion.explanation);
+      }
+      
+      // TAMBAHKAN: Simpan status selesai di localStorage
+      localStorage.setItem(`test_completed_${collectionId}`, 'true');
+      
+      // TAMBAHKAN: Tampilkan alert sukses sebelum redirect
+      Swal.fire({
+        title: 'Tes Selesai!',
+        text: 'Anda telah menyelesaikan tes ini. Anda akan diarahkan ke halaman hasil.',
+        icon: 'success',
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false
+      });
+      
+      // Redirect ke halaman hasil setelah 3 detik
+      setTimeout(() => {
+        window.location.href = `/result?collection_id=${collectionId}`;
+      }, 3000);
+    }
+    
+    // Fungsi untuk menampilkan error
+    function showError(message) {
+      document.getElementById("question").innerText = "Terjadi Kesalahan";
+      document.getElementById("submit-answer").disabled = true;
+      
+      const resultElement = document.getElementById("result");
+      resultElement.classList.remove("d-none");
+      resultElement.classList.remove("alert-success", "alert-info");
+      resultElement.classList.add("alert-danger");
+      resultElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${message}`;
+    }
+    
+    // Fungsi untuk update statistik
+    // Fungsi untuk update statistik
+async function updateStats() {
+  try {
+    // Pastikan selalu menggunakan collection_id jika tersedia
+    let url = `/get_summary?user_id=${userId}`;
+    if (collectionId) {
+      url += `&collection_id=${collectionId}`;
+      console.log(`Mengambil statistik untuk koleksi: ${collectionId}`);
+    } else {
+      console.log("Mengambil statistik global");
+    }
+    
+    // Tambahkan parameter waktu untuk menghindari cache
+    url += `&t=${new Date().getTime()}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Error ${response.status}`);
+    
+    const data = await response.json();
+    console.log("Data statistik yang diperbarui:", data);
+    
+    // Pastikan selalu menampilkan nilai yang valid
+    const correct = parseInt(data.correct || 0);
+    const incorrect = parseInt(data.incorrect || 0);
+    
+    document.getElementById("correct-count").textContent = correct;
+    document.getElementById("incorrect-count").textContent = incorrect;
+    
+    // Return data for potential use elsewhere
+    return { correct, incorrect };
+  } catch (error) {
+    console.error("Error mengambil statistik:", error);
+    // Jangan ubah nilai yang ditampilkan jika terjadi error
+    return null;
+  }
+}
+    
+    // Fungsi untuk menampilkan penjelasan
+    function showExplanation(text) {
+      if (text) {
+        document.getElementById("explanation-text").innerText = text;
+        document.getElementById("explanation-card").classList.remove("d-none");
+      }
+    }
+    
+    // Event listener untuk tombol submit jawaban
+    document.getElementById("submit-answer").addEventListener("click", async function() {
+      if (!selectedOption) {
+        showError("Silakan pilih salah satu jawaban!");
+        return;
+      }
+      
+      const questionId = document.getElementById("question_id").value;
+      const isFinallevel = currentQuestion && FINAL_levelS.includes(parseInt(currentQuestion.level));
+      
+      await submitAnswer(selectedOption, questionId, isFinallevel);
+    });
+    
+    async function submitAnswer(answer, questionId, isFinal) {
+  const submitButton = document.getElementById("submit-answer");
+  submitButton.disabled = true;
+  submitButton.innerHTML = '<i class="bi bi-hourglass"></i> Memproses...';
+
+  try {
+    // Data submit HARUS menyertakan collection_id
+    const submitData = { 
+      answer: answer,
+      user_id: userId,
+      question_id: questionId,
+      collection_id: collectionId // SELALU dikirim
+    };
+
+    const response = await fetch('/submit_answer', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(submitData)
+    });
+    
+    if (!response.ok) throw new Error(`Error ${response.status}`);
+    
+    const data = await response.json();
+    await updateStats();
+
+    // Handle hasil jawaban
+    const resultElement = document.getElementById("result");
+    resultElement.classList.remove("d-none");
+    
+    if (data.status === "continue") {
+      showContinueResult(data);
+    } else if (data.status === "wrong") {
+      showWrongAnswerResult(data);
+    } else if (data.status === "game over" || data.status === "win") {
+      showFinalTestResult(data);
+    } else {
+      showUnknownResult();
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    showError(`Terjadi kesalahan: ${error.message}`);
+    submitButton.disabled = false;
+    submitButton.innerHTML = isFinal ? 
+      '<i class="bi bi-flag-fill"></i> Selesaikan Tes' : 
+      '<i class="bi bi-send-check"></i> Submit Jawaban';
+  }
+}
+    
+    // Fungsi untuk menangani hasil "continue"
+    function showContinueResult(data) {
+      const resultElement = document.getElementById("result");
+      resultElement.classList.remove("alert-danger", "alert-warning");
+      resultElement.classList.add("alert-success");
+      resultElement.innerHTML = `<i class="bi bi-check-circle"></i> ${data.message || "Jawaban benar!"}`;
+      
+      if (data.explanation || currentQuestion?.explanation) {
+        showExplanation(data.explanation || currentQuestion.explanation);
+      }
+      
+      setTimeout(getNextQuestion, 2000);
+    }
+    
+    // Fungsi untuk menangani jawaban salah
+    function showWrongAnswerResult(data) {
+      const resultElement = document.getElementById("result");
+      resultElement.classList.remove("alert-success", "alert-info");
+      resultElement.classList.add("alert-danger");
+      resultElement.innerHTML = `<i class="bi bi-x-circle"></i> ${data.message || "Jawaban salah!"}`;
+      
+      if (data.explanation || currentQuestion?.explanation) {
+        showExplanation(data.explanation || currentQuestion.explanation);
+      }
+      
+      document.getElementById("submit-answer").disabled = false;
+      document.getElementById("submit-answer").innerHTML = 
+        '<i class="bi bi-send-check"></i> Submit Jawaban';
+    }
+    
+    // Fungsi untuk menangani hasil akhir tes
+    function showFinalTestResult(data) {
+      const resultElement = document.getElementById("result");
+      resultElement.classList.remove("alert-danger", "alert-warning");
+      resultElement.classList.add("alert-info");
+      resultElement.innerHTML = `<i class="bi bi-info-circle"></i> ${data.message || "Tes selesai!"}`;
+      
+      if (data.explanation || currentQuestion?.explanation) {
+        showExplanation(data.explanation || currentQuestion.explanation);
+      }
+      
+      // Tandai tes sebagai selesai di localStorage
+      localStorage.setItem(`test_completed_${collectionId}`, 'true');
+      
+      // Tampilkan pesan sukses dengan SweetAlert
+      Swal.fire({
+        title: 'Tes Selesai!',
+        text: 'Anda telah menyelesaikan tes ini. Anda akan diarahkan ke halaman hasil.',
+        icon: 'success',
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false
+      }).then(() => {
+        window.location.href = `/result?collection_id=${collectionId}`;
+      });
+    }
+    
+    // Fungsi untuk menangani status tidak dikenal
+    function showUnknownResult() {
+      const resultElement = document.getElementById("result");
+      resultElement.classList.remove("alert-success", "alert-danger");
+      resultElement.classList.add("alert-warning");
+      resultElement.innerHTML = `<i class="bi bi-question-circle"></i> Status tidak dikenal`;
+      
+      document.getElementById("submit-answer").disabled = false;
+      document.getElementById("submit-answer").innerHTML = 
+        '<i class="bi bi-send-check"></i> Submit Jawaban';
+    }
+    
+    // Inisialisasi saat halaman dimuat
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Update tombol hasil dengan collection_id
+      if (collectionId) {
+        document.getElementById('view-results-btn').href = `/result?collection_id=${collectionId}`;
+      }
+      
+      await updateStats();
+      await getNextQuestion();
+    });
+  </script>
+</body>
+</html>

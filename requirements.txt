@@ -1,5 +1,10 @@
-Flask==2.2.3
+Flask
+Flask-SQLAlchemy
+SQLAlchemy
 google-generativeai
-gunicorn==20.0.4
-grpcio
-Werkzeug==2.2.3
+pandas
+PyPDF2
+python-docx
+mammoth
+Werkzeug
+Flask-Login
