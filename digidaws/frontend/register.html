@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - DIGIDAWS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .register-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 500px;
+        }
+        .register-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .register-header img {
+            height: 60px;
+            margin-bottom: 1rem;
+        }
+        .form-control {
+            height: 50px;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        .btn-register {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            border: none;
+            height: 50px;
+            border-radius: 10px;
+            font-weight: 600;
+            width: 100%;
+        }
+        .role-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        .role-btn {
+            padding: 0.5rem 1.5rem;
+            border: 1px solid #dee2e6;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .role-btn:first-child {
+            border-radius: 10px 0 0 10px;
+        }
+        .role-btn:last-child {
+            border-radius: 0 10px 10px 0;
+        }
+        .role-btn.active {
+            background: #2575fc;
+            color: white;
+            border-color: #2575fc;
+            box-shadow: 0 4px 8px rgba(37, 117, 252, 0.2);
+        }
+        #kelasField {
+            display: none; /* Default hidden */
+        }
+        .alert {
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <h2>Daftar Akun Baru</h2>
+            <p class="text-muted">Buat akun untuk mulai menggunakan sistem</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="role-selector">
+            <button type="button" class="role-btn" id="guruBtn">Guru</button>
+            <button type="button" class="role-btn" id="siswaBtn">Siswa</button>
+        </div>
+
+        <form id="registerForm" action="/register" method="POST">
+            <input type="hidden" name="role" id="roleInput" value="{{ role if role else 'siswa' }}"> 
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <input type="text" class="form-control" name="nama" placeholder="Nama Lengkap" value="{{ nama if nama else '' }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <input type="text" class="form-control" name="username" placeholder="Username" value="{{ username if username else '' }}" required>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <input type="email" class="form-control" name="email" placeholder="Email" value="{{ email if email else '' }}" required>
+            </div>
+            
+            <div class="mb-3" id="kelasField">
+                <select class="form-control" name="kelas" id="kelasSelect">
+                    <option value="">Pilih Kelas</option>
+                    </select>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <input type="password" class="form-control" name="password" id="password" placeholder="Password" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <input type="password" class="form-control" name="confirm_password" id="confirm_password" placeholder="Konfirmasi Password" required>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary btn-register">Daftar</button>
+            </div>
+            
+            <div class="text-center mt-3">
+                <p class="text-muted">Sudah punya akun? <a href="/login">Login disini</a></p>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const guruBtn = document.getElementById('guruBtn');
+            const siswaBtn = document.getElementById('siswaBtn');
+            const roleInput = document.getElementById('roleInput');
+            const kelasField = document.getElementById('kelasField');
+            const kelasSelect = document.getElementById('kelasSelect');
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirm_password');
+
+            // --- PERUBAHAN DIMULAI DI SINI ---
+            // Daftar kelas spesifik sesuai gambar
+            const kelasOptions = [
+                'X.A', 'X.B', 'X.C', 'X.D', 'X.E', 'X.F', 'X.G', 'X.H', 'X.I', 'X.J', 'X.K', 'X.L',
+                'XI P1.1', 'XI P1.2', 'XI P2.1', 'XI P2.2', 'XI P4.1', 'XI P3.2', 'XI P4', 'XI P5', 'XI P6', 'XI P7.1', 'XI P7.2', 'XI P7.3',
+                'XII P 1', 'XII P 2.1', 'XII P 2.2', 'XII P 3', 'XII P 4', 'XII P 5', 'XII P 6.1', 'XII P 6.2', 'XII P 7.1', 'XII P 7.2', 'XII P 7.3', 'XII P 8'
+            ];
+            // --- PERUBAHAN SELESAI DI SINI ---
+
+            function populateKelasOptions() {
+                kelasSelect.innerHTML = '<option value="">Pilih Kelas</option>'; // Reset options
+                kelasOptions.forEach(kelas => {
+                    const option = document.createElement('option');
+                    option.value = kelas;
+                    option.textContent = kelas;
+                    kelasSelect.appendChild(option);
+                });
+            }
+
+            function toggleKelasField() {
+                if (roleInput.value === 'siswa') {
+                    kelasField.style.display = 'block';
+                    kelasSelect.setAttribute('required', 'required');
+                } else {
+                    kelasField.style.display = 'none';
+                    kelasSelect.removeAttribute('required');
+                    kelasSelect.value = ''; // Clear selection when not a student
+                }
+            }
+
+            // Set initial state based on hidden role input value (from Flask rendering)
+            const initialRole = roleInput.value; // Get initial value from Flask
+            if (initialRole === 'guru') {
+                guruBtn.classList.add('active');
+                siswaBtn.classList.remove('active');
+            } else { // 'siswa' or default
+                siswaBtn.classList.add('active');
+                guruBtn.classList.remove('active');
+            }
+            populateKelasOptions(); // Populate options on load
+            toggleKelasField(); // Set initial visibility of kelas field
+
+            // If Flask passed back a selected 'kelas' value due to validation error
+            // Ensure this runs AFTER populateKelasOptions()
+            const preselectedKelas = "{{ kelas | default('') }}"; 
+            if (preselectedKelas) {
+                kelasSelect.value = preselectedKelas;
+            }
+
+            // Event listeners for role buttons
+            guruBtn.addEventListener('click', () => {
+                guruBtn.classList.add('active');
+                siswaBtn.classList.remove('active');
+                roleInput.value = 'guru';
+                toggleKelasField();
+            });
+
+            siswaBtn.addEventListener('click', () => {
+                siswaBtn.classList.add('active');
+                guruBtn.classList.remove('active');
+                roleInput.value = 'siswa';
+                toggleKelasField();
+            });
+            
+            // Frontend validation for passwords and kelas
+            document.getElementById('registerForm').addEventListener('submit', function(event) {
+                if (passwordInput.value !== confirmPasswordInput.value) {
+                    event.preventDefault(); // Stop form submission
+                    alert('Password dan konfirmasi password tidak sama!');
+                    return false;
+                }
+                
+                if (roleInput.value === 'siswa' && !kelasSelect.value) {
+                    event.preventDefault(); // Stop form submission
+                    alert('Silakan pilih kelas untuk siswa!');
+                    return false;
+                }
+                return true; // Allow form submission
+            });
+        });
+    </script>
+</body>
+</html>

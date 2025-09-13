@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panduan Asesmen Diagnostik</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 17px;
+            line-height: 1.6;
+        }
+        /* Navbar styles */
+        .navbar {
+            background-color: #0d6efd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+        }
+        
+        .user-info {
+            color: white;
+            margin-right: 15px;
+        }
+        .hero {
+            background: linear-gradient(45deg, #0d6efd, #0dcaf0);
+            color: white;
+            padding: 4rem 0;
+            text-align: center;
+        }
+        .hero h1 {
+            font-weight: 700;
+            font-size: 2.5rem;
+        }
+        .hero p {
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 1rem auto 0;
+        }
+        .guide-container {
+            max-width: 800px;
+            margin: auto;
+            padding: 3rem 1rem;
+        }
+        .guide-section {
+            margin-bottom: 3.5rem;
+        }
+        .guide-section h2 {
+            font-weight: 600;
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #0d6efd;
+            display: inline-block;
+        }
+        .guide-section h3 {
+            font-weight: 600;
+            font-size: 1.3rem;
+            color: #555;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        .guide-section h4 {
+            font-weight: 600;
+            font-size: 1.15rem;
+            color: #333;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            padding-left: 0.75rem;
+            border-left: 3px solid #0dcaf0;
+        }
+        .benefit-icon {
+            font-size: 2rem;
+            color: #0d6efd;
+        }
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+        .flow-step-icon {
+            font-size: 2rem;
+            color: #0d6efd;
+            margin-right: 1.5rem;
+            margin-top: 0.25rem;
+        }
+        .flow-step-content h5 {
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+
+        .diagram-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+        .diagram-caption {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 1rem;
+        }
+        
+        /* SVG Diagram Styles */
+        .mst-diagram {
+            width: 100%;
+            max-width: 700px;
+            height: auto;
+        }
+        .stage-box {
+            fill: #0d6efd;
+            stroke: #0a58ca;
+            stroke-width: 2;
+        }
+        .stage-text {
+            fill: white;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 600;
+            font-size: 18px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        .stage-label {
+            fill: #495057;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 500;
+            font-size: 14px;
+            text-anchor: middle;
+        }
+        .arrow-path {
+            stroke: #495057;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+        .probability-text {
+            fill: #6c757d;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 12px;
+            text-anchor: middle;
+        }
+        .vertical-line {
+            stroke: #dee2e6;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark main-navbar">
+        <div class="container">
+            <a class="navbar-brand" href="#" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIGIDAWS</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/guru" id="nav-dashboard">Dashboard Guru</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/guru/collections" id="nav-collections">Koleksi Soal</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/guru/panduan" id="nav-guide">
+                            <i class="bi bi-question-circle"></i> Panduan
+                        </a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span class="user-info">
+                        <i class="bi bi-person-circle"></i> Guru
+                    </span>
+                    <a href="/logout" class="btn btn-outline-light">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <h1>Panduan Lengkap Asesmen Diagnostik</h1>
+        <p>Pahami konsep, manfaat, dan alur penggunaan sistem untuk memaksimalkan potensi pembelajaran di kelas Anda.</p>
+    </div>
+
+    <div class="container guide-container">
+        
+        <section class="guide-section">
+            <h2>Memahami Asesmen Diagnostik</h2>
+            <article>
+                <h3><i class="bi bi-question-circle-fill text-primary me-2"></i>Apa itu Asesmen Diagnostik?</h3>
+                <p>Secara sederhana, asesmen diagnostik adalah sebuah <strong>evaluasi yang dilakukan di awal proses pembelajaran</strong>. Tujuannya bukan untuk memberikan nilai, melainkan untuk "mendiagnosis" atau mengidentifikasi kondisi awal setiap siswa.</p>
+                <p>Anggap saja seperti seorang dokter yang memeriksa pasien sebelum memberikan resep. Asesmen ini membantu guru memahami:</p>
+                <ul>
+                    <li><strong>Kekuatan:</strong> Materi apa yang sudah dikuasai siswa?</li>
+                    <li><strong>Kelemahan:</strong> Di bagian mana siswa masih mengalami kesulitan atau miskonsepsi?</li>
+                    <li><strong>Kesiapan Belajar:</strong> Sejauh mana siswa siap untuk menerima materi baru?</li>
+                </ul>
+
+                <h3><i class="bi bi-bullseye text-primary me-2"></i>Mengapa Asesmen Ini Penting?</h3>
+                <p>Dalam setiap kelas, kemampuan siswa sangat beragam. Mengajar dengan pendekatan "satu ukuran untuk semua" seringkali tidak efektif. Asesmen diagnostik menjadi penting karena:</p>
+                <ul>
+                    <li><strong>Menghindari Asumsi:</strong> Guru tidak lagi berasumsi bahwa semua siswa memulai dari titik yang sama.</li>
+                    <li><strong>Dasar Pembelajaran Terdiferensiasi:</strong> Memberikan data nyata untuk merancang pembelajaran yang sesuai dengan kebutuhan kelompok siswa yang berbeda.</li>
+                    <li><strong>Mendeteksi Miskonsepsi:</strong> Mengidentifikasi kesalahpahaman konsep sejak dini sebelum menjadi masalah yang lebih besar.</li>
+                </ul>
+
+                <h3><i class="bi bi-graph-up-arrow text-primary me-2"></i>Manfaat bagi Guru</h3>
+                <div class="row g-4 mt-3">
+                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-pencil-square benefit-icon me-3"></i><div><strong>Perancangan Tepat Sasaran</strong><p class="small text-muted">Guru dapat menyesuaikan materi, metode, dan media ajar agar relevan dengan tingkat pemahaman siswa.</p></div></div></div>
+                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-life-preserver benefit-icon me-3"></i><div><strong>Intervensi Dini</strong><p class="small text-muted">Membantu siswa yang kesulitan secara lebih cepat dan efektif sebelum mereka tertinggal lebih jauh.</p></div></div></div>
+                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-lightbulb-fill benefit-icon me-3"></i><div><strong>Peningkatan Efektivitas</strong><p class="small text-muted">Proses mengajar menjadi lebih efisien karena fokus pada kebutuhan belajar yang sesungguhnya di kelas.</p></div></div></div>
+                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-people-fill benefit-icon me-3"></i><div><strong>Komunikasi Lebih Baik</strong><p class="small text-muted">Menyediakan data objektif untuk berdiskusi dengan orang tua atau wali murid mengenai perkembangan siswa.</p></div></div></div>
+                </div>
+            </article>
+        </section>
+
+        <section class="guide-section">
+            <h2>Konsep Tes Adaptif Multi-Tahap (MST)</h2>
+            <article>
+                <h3><i class="bi bi-diagram-3-fill text-primary me-2"></i>Apa itu Tes Adaptif Multi-Tahap (MST)?</h3>
+                <p><strong>Multi-Stage Testing (MST)</strong> adalah sebuah model tes adaptif di mana alur pengerjaan soal dibagi ke dalam beberapa tahap (*stages*). Soal yang akan diterima siswa pada tahap berikutnya ditentukan oleh performa mereka di tahap sebelumnya. Ini membuat tes menjadi lebih personal dan efisien.</p>
+                
+                <h3><i class="bi bi-check-circle-fill text-primary me-2"></i>Tujuan & Pentingnya MST</h3>
+                <p>Tujuan utama MST adalah untuk <strong>mengidentifikasi tingkat kemampuan siswa secara cepat dan akurat</strong> dengan jumlah soal yang lebih sedikit dibandingkan tes konvensional. Dalam asesmen diagnostik, ini sangat penting karena efisien, akurat, dan menghasilkan data yang bermakna.</p>
+
+                <h3><i class="bi bi-signpost-split-fill text-primary me-2"></i>Alur MST yang Digunakan</h3>
+                
+                <div class="diagram-container">
+                    <svg class="mst-diagram" viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Define arrow marker -->
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#495057" />
+                            </marker>
+                        </defs>
+                        
+                        <!-- Stage divider lines -->
+                        <line x1="150" y1="30" x2="150" y2="370" class="vertical-line" />
+                        <line x1="300" y1="30" x2="300" y2="370" class="vertical-line" />
+                        <line x1="450" y1="30" x2="450" y2="370" class="vertical-line" />
+                        <line x1="600" y1="30" x2="600" y2="370" class="vertical-line" />
+                        
+                        <!-- Stage labels -->
+                        <text x="75" y="20" class="stage-label">Stage I</text>
+                        <text x="225" y="20" class="stage-label">Stage II</text>
+                        <text x="375" y="20" class="stage-label">Stage III</text>
+                        <text x="660" y="20" class="stage-label">Stage IV</text>
+                        
+                        <!-- Stage 1: Level 1 (centered in first section) -->
+                        <rect x="45" y="175" width="60" height="50" class="stage-box" />
+                        <text x="75" y="200" class="stage-text">1</text>
+                        
+                        <!-- Stage 2: Level 2 (centered in second section) -->
+                        <rect x="195" y="175" width="60" height="50" class="stage-box" />
+                        <text x="225" y="200" class="stage-text">2</text>
+                        
+                        <!-- Stage 3: Level 3 and 4 (centered in third section) -->
+                        <rect x="345" y="240" width="60" height="50" class="stage-box" />
+                        <text x="375" y="265" class="stage-text">3</text>
+                        
+                        <rect x="345" y="110" width="60" height="50" class="stage-box" />
+                        <text x="375" y="135" class="stage-text">4</text>
+                        
+                        <!-- Stage 4: Level 7, 6, 5 (top to bottom order) -->
+                        <rect x="630" y="70" width="60" height="50" class="stage-box" />
+                        <text x="660" y="95" class="stage-text">7</text>
+                        
+                        <rect x="630" y="175" width="60" height="50" class="stage-box" />
+                        <text x="660" y="200" class="stage-text">6</text>
+                        
+                        <rect x="630" y="280" width="60" height="50" class="stage-box" />
+                        <text x="660" y="305" class="stage-text">5</text>
+                        
+                        <!-- Arrows -->
+                        <!-- Stage 1 to Stage 2 -->
+                        <path d="M 105 200 L 195 200" class="arrow-path" />
+                        
+                        <!-- Stage 2 to Stage 3 -->
+                        <!-- To Level 4 (correct) -->
+                        <path d="M 255 185 L 345 150" class="arrow-path" />
+                        
+                        <!-- To Level 3 (incorrect) -->
+                        <path d="M 255 215 L 345 250" class="arrow-path" />
+                        
+                        <!-- Stage 3 to Stage 4 -->
+                        <!-- From Level 4 to Level 7 (correct) -->
+                        <path d="M 405 125 L 630 85" class="arrow-path" />
+                        
+                        <!-- From Level 4 to Level 6 (incorrect) -->
+                        <path d="M 405 150 L 630 185" class="arrow-path" />
+                        
+                        <!-- From Level 3 to Level 6 (correct) -->
+                        <path d="M 405 255 L 630 210" class="arrow-path" />
+                        
+                        <!-- From Level 3 to Level 5 (incorrect) -->
+                        <path d="M 405 275 L 630 295" class="arrow-path" />
+                        
+                        <!-- Probability labels at bottom -->
+                        <text x="75" y="360" class="probability-text" text-anchor="middle" font-weight="bold">100%</text>
+                        <text x="225" y="360" class="probability-text" text-anchor="middle" font-weight="bold">100%</text>
+                        <text x="375" y="360" class="probability-text" text-anchor="middle" font-weight="bold">50% + 50%</text>
+                        <text x="660" y="360" class="probability-text" text-anchor="middle" font-weight="bold">33% + 33% + 33%</text>
+                    </svg>
+                    <p class="diagram-caption">Diagram alur Tes Adaptif Multi-Tahap (MST) yang digunakan dalam sistem.</p>
+                </div>
+
+                <p>Sistem ini menggunakan alur tes adaptif 4-tahap seperti yang diilustrasikan pada diagram di atas. Berikut adalah penjelasannya:</p>
+                
+                <h4>Tahap 1 & 2: Titik Awal</h4>
+                <p>Semua siswa memulai dari soal <strong>Level 1</strong>, kemudian tanpa terkecuali melanjutkan ke soal <strong>Level 2</strong>. Tahap ini berfungsi sebagai penentu awal (routing) sebelum tes menjadi adaptif.</p>
+                
+                <h4>Tahap 3: Percabangan Pertama</h4>
+                <p>Performa siswa di soal Level 2 menentukan jalur selanjutnya:</p>
+                <ul>
+                    <li>Jika jawaban di Level 2 <strong>Benar</strong>, siswa diarahkan ke soal yang lebih sulit di <strong>Level 4</strong>.</li>
+                    <li>Jika jawaban di Level 2 <strong>Salah</strong>, siswa diarahkan ke soal yang lebih mudah di <strong>Level 3</strong>.</li>
+                </ul>
+
+                <h4>Tahap 4: Penentuan Akhir</h4>
+                <p>Ini adalah tahap akhir untuk menentukan level kemampuan siswa secara spesifik:</p>
+                <ul>
+                    <li>Dari Level 4: Jika <strong>Benar</strong>, siswa mencapai <strong>Level 7</strong> (Mahir). Jika <strong>Salah</strong>, siswa ditempatkan di <strong>Level 6</strong> (Cakap).</li>
+                    <li>Dari Level 3: Jika <strong>Benar</strong>, siswa ditempatkan di <strong>Level 6</strong> (Cakap). Jika <strong>Salah</strong>, siswa ditempatkan di <strong>Level 5</strong> (Dasar).</li>
+                </ul>
+            </article>
+        </section>
+
+        <section class="guide-section">
+            <h2>Alur Penggunaan Sistem untuk Guru</h2>
+            <div class="flow-step">
+                <div class="flow-step-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
+                <div class="flow-step-content">
+                    <h5>Langkah 1: Generate Soal Otomatis</h5>
+                    <p class="text-muted">Siapkan modul ajar (.pdf/.docx), lalu gunakan tombol "Upload File & Generate Soal" di Dashboard untuk membuat bank soal secara otomatis menggunakan AI.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="flow-step-icon"><i class="bi bi-collection"></i></div>
+                <div class="flow-step-content">
+                    <h5>Langkah 2: Kelola Koleksi Soal</h5>
+                    <p class="text-muted">Buka halaman "Koleksi Soal" untuk membuat paket tes baru, menambahkan soal yang sudah di-generate, dan merevisi konten soal jika diperlukan.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="flow-step-icon"><i class="bi bi-check2-square"></i></div>
+                <div class="flow-step-content">
+                    <h5>Langkah 3: Validasi Soal</h5>
+                    <p class="text-muted">Masuk ke detail koleksi dan klik tombol "Validasi" pada setiap soal. Soal yang tidak divalidasi tidak akan muncul saat tes berlangsung.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="flow-step-icon"><i class="bi bi-person-plus"></i></div>
+                <div class="flow-step-content">
+                    <h5>Langkah 4: Tugaskan ke Siswa</h5>
+                    <p class="text-muted">Di dalam detail koleksi, gunakan fitur "Kelola Siswa" untuk memberikan akses tes kepada siswa, baik secara individu maupun per kelas.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <div class="flow-step-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                <div class="flow-step-content">
+                    <h5>Langkah 5: Analisis Hasil</h5>
+                    <p class="text-muted">Setelah siswa mengerjakan tes, buka menu "Analisis" pada koleksi untuk melihat laporan, memantau kemajuan, dan mengekspor data hasil tes.</p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- JavaScript files -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        // Mark the "Panduan" nav item as active
+        document.addEventListener('DOMContentLoaded', function() {
+            // Already added class "active" to the nav-guide element in the HTML
+        });
+    </script>
+</body>
+</html>

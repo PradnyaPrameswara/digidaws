@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hasil Tes Diagnostik</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Global Styles */
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding-top: 60px; /* Space for fixed navbar */
+    }
+
+    /* Navbar Styling */
+    .navbar {
+      background-color: #0d6efd; /* Bootstrap primary blue */
+    }
+    .navbar-brand {
+      font-weight: bold;
+    }
+    .user-info {
+      color: white;
+      margin-right: 15px;
+    }
+
+    /* Card Base Styling */
+    .card {
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+      overflow: hidden;
+      margin-bottom: 25px;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    .card-header {
+      border-bottom: none;
+      padding: 15px 20px;
+      font-weight: bold;
+    }
+
+    /* Specific Card Colors */
+    .summary-card {
+      background-color: #0d6efd; /* Sama seperti warna header navbar */
+      color: white;
+    }
+    .summary-card .card-header {
+      background: rgba(0,0,0,0.1); /* Slightly transparent background for header */
+    }
+    .benar { color: #198754; font-weight: bold; } /* Green for tepat */
+    .salah { color: #dc3545; font-weight: bold; } /* Red for kurang tepat */
+
+    /* Chart Specific Styles */
+    .chart-container {
+      width: 100%;
+      max-width: 300px; /* Limit chart size */
+      margin: 0 auto;
+      padding: 15px;
+      height: 300px;
+      position: relative;
+    }
+    .chart-explanation {
+      color: #212529; /* Dark text color */
+      background-color: #f8f9fa; /* Light background */
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 15px;
+      font-size: 0.9rem;
+      border-left: 4px solid #0d6efd; /* Blue left border for emphasis */
+    }
+
+    /* Answer Card Styles in Modal */
+    .answer-card {
+      transition: all 0.3s ease;
+      border-left: 5px solid #6c757d; /* Default gray border */
+      background-color: white;
+    }
+    .answer-card.correct {
+      border-left-color: #198754; /* Green border for correct answers */
+    }
+    .answer-card.incorrect {
+      border-left-color: #dc3545; /* Red border for incorrect answers */
+    }
+    .answer-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    /* Level Badge (currently not used in this HTML, but kept for consistency) */
+    .level-badge {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+    }
+
+    /* Statistic Cards within Summary */
+    .stat-card {
+      text-align: center;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .stat-label {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6c757d;
+    }
+    .stat-explanation {
+      font-size: 0.9rem;
+      color: #6c757d;
+      margin-top: 5px;
+    }
+
+    /* Clickable Elements */
+    .clickable {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent; /* Default transparent border */
+    }
+    .clickable:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+    .clickable.benar:hover {
+      border-color: #198754; /* Green border on hover for correct */
+    }
+    .clickable.salah:hover {
+      border-color: #dc3545; /* Red border on hover for incorrect */
+    }
+
+    /* Button Styling */
+    .btn {
+      border-radius: 50px; /* Pill-shaped buttons */
+      padding: 10px 25px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: all 0.3s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .btn-icon {
+      margin-right: 8px;
+    }
+
+    /* Progress Bar Styling */
+    .progress-container {
+      margin: 20px 0;
+    }
+    .progress {
+      height: 25px;
+      border-radius: 50px;
+      background-color: #e9ecef;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .progress-explanation {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-top: 5px;
+    }
+
+    /* Badges */
+    .badge {
+      font-size: 85%;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px; /* Rounded badge corners */
+    }
+    /* Specific style for the current level badge */
+    .current-level-badge-style {
+      font-size: 16px;
+      font-weight: bold;
+      padding: 6px 12px;
+    }
+
+
+    /* Explanation Text Styling */
+    .explanation-text {
+      background-color: #f8f9fa;
+      border-left: 4px solid #17a2b8; /* Cyan border */
+      padding: 15px;
+      border-radius: 0 8px 8px 0;
+    }
+
+    /* Answer Display in Modal */
+    .answer-question {
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .answer-response {
+      background-color: #f8f9fa;
+      padding: 8px 15px;
+      border-radius: 8px;
+      margin-top: 8px;
+      display: inline-block;
+    }
+
+    /* Level Path Visualization */
+    .level-path {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .level-step {
+      width: 14%; /* Distribute steps evenly */
+      display: inline-block;
+      text-align: center;
+      position: relative;
+    }
+    .level-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -10px;
+      width: 20px;
+      height: 2px;
+      background-color: #dee2e6; /* Line between steps */
+    }
+    .level-icon {
+      width: 40px;
+      height: 40px;
+      line-height: 40px; /* Center text vertically */
+      background-color: #e9ecef;
+      border-radius: 50%;
+      margin: 0 auto 8px;
+    }
+    .level-icon.active {
+      background-color: #0d6efd; /* Active level color */
+      color: white;
+    }
+    .level-icon.completed {
+      background-color: #198754; /* Completed level color */
+      color: white;
+    }
+    .level-explanation {
+      background-color: rgba(13, 110, 253, 0.1); /* Light blue background */
+      border-radius: 10px;
+      padding: 10px 15px;
+      margin-top: 15px;
+      font-size: 0.9rem;
+    }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    /* Error Container */
+    .error-container {
+      padding: 20px;
+      border-radius: 10px;
+      background-color: #f8d7da; /* Light red background */
+      border-left: 5px solid #dc3545; /* Red left border */
+      margin-bottom: 20px;
+    }
+    .refresh-button {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 500;
+      margin-top: 10px;
+    }
+
+    /* Level Display (if used outside path) */
+    .level-number-display {
+    font-size: 28px;
+    font-weight: bold;
+    color: #212529; /* Dark text color */
+    background-color: #f8f9fa; /* Light background */
+    border: 2px solid #0d6efd; /* Blue border */
+    border-radius: 12px;
+    padding: 8px 16px;
+    display: inline-block;
+    margin-bottom: 15px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    }
+    .level-top-display {
+    font-size: 42px;
+    font-weight: bold;
+    color: #198754; /* Green color for better visibility */
+    margin: 20px auto;
+    text-align: center;
+    display: block;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container">
+  <a class="navbar-brand" href="/DashboardSiswa" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIGIDAWS</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/DashboardSiswa">Dashboard</a>
+          </li>
+        </ul>
+        <div class="d-flex align-items-center">
+          <span class="user-info">
+            <i class="bi bi-person-circle"></i> {{ current_user.nama }} ({{ current_user.kelas }})
+          </span>
+          <a href="/logout" class="btn btn-outline-light ms-2">
+            <i class="bi bi-box-arrow-right"></i> Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <div class="container mt-4">
+    <!-- Breadcrumb navigation -->
+    <nav aria-label="breadcrumb" class="mb-4">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/DashboardSiswa">Beranda</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Hasil Tes</li>
+      </ol>
+    </nav>
+
+    <h1 class="mb-4 text-center">Hasil Tes Diagnostik</h1>
+    
+    <!-- Error container (hidden by default) -->
+    <div class="error-container" id="errorContainer" style="display: none;">
+      <h5><i class="bi bi-exclamation-triangle me-2"></i>Terjadi Masalah dengan Data</h5>
+      <p id="errorMessage">Terdapat ketidaksesuaian data pada hasil tes Anda.</p>
+      <button class="refresh-button" id="refreshDataButton">
+        <i class="bi bi-arrow-clockwise me-2"></i>Perbaiki Data
+      </button>
+    </div>
+    
+    <!-- Path visualization with explanation -->
+    <div class="card mb-4">
+      <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Alur Progres Tes</h5>
+      </div>
+      <div class="card-body">
+        <div class="level-path d-none d-md-block">
+          <div class="level-step">
+            <div class="level-icon completed">1</div>
+            <div class="level-label">Level 1</div>
+          </div>
+          <div class="level-step">
+            <div class="level-icon completed">2</div>
+            <div class="level-label">Level 2</div>
+          </div>
+          <div class="level-step">
+            <div class="level-icon" id="level3">3</div>
+            <div class="level-label">Level 3</div>
+          </div>
+          <div class="level-step">
+            <div class="level-icon" id="level4">4</div>
+            <div class="level-label">Level 4</div>
+          </div>
+          <div class="level-step">
+            <div class="level-icon" id="level5">5</div>
+            <div class="level-label">Level 5</div>
+          </div>
+          <div class="level-step">
+            <div class="level-icon" id="level6">6</div>
+            <div class="level-label">Level 6</div>
+          </div>
+          <div class="level-step">
+            <div class="level-icon" id="level7">7</div>
+            <div class="level-label">Level 7</div>
+          </div>
+        </div>
+        <div class="level-explanation">
+          <p><i class="bi bi-info-circle me-2"></i><strong class="text-dark">Level Terakhir yang Dicapai: <span id="current-level-text">{{ current_level }}</span></strong></p>
+          <p class="mb-0">Diagram di atas menunjukkan progress Anda dalam tes diagnostik. Level berwarna hijau menandakan level yang telah Anda lewati, sedangkan level biru adalah level terakhir yang Anda capai. Sistem tes diagnostik menggunakan alur adaptif berdasarkan jawaban Anda untuk menentukan jalur tes.</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Card untuk ringkasan hasil -->
+    <div class="card summary-card mb-4">
+      <div class="card-header">
+        <h3><i class="bi bi-clipboard-data me-2"></i>Ringkasan Hasil</h3>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="stat-card mb-3 clickable" onclick="showAnswersModal('correct')">
+              <div class="stat-label">Jawaban Tepat</div>
+              <div class="stat-value benar" id="correct-value">{{ correct }}</div>
+              <div class="small">Soal dijawab dengan tepat</div>
+              <div class="stat-explanation"><i class="bi bi-hand-index-thumb"></i> Klik untuk melihat detail jawaban tepat</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card mb-3 clickable" onclick="showAnswersModal('incorrect')">
+              <div class="stat-label">Jawaban Kurang Tepat</div>
+              <div class="stat-value salah" id="incorrect-value">{{ incorrect }}</div>
+              <div class="small">Soal dijawab kurang tepat</div>
+              <div class="stat-explanation"><i class="bi bi-hand-index-thumb"></i> Klik untuk melihat detail jawaban kurang tepat</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-card mb-3">
+              <div class="stat-label">Akurasi</div>
+              <div class="stat-value text-primary" id="accuracy-value">{{ accuracy }}%</div>
+              <div class="small">Tingkat ketepatan jawaban</div>
+              <div class="stat-explanation">Persentase jawaban tepat dari total soal</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="row mt-3">
+          <div class="col-md-7">
+            <div class="card h-100">
+              <div class="card-body">
+                <p>
+                  <strong class="text-dark">Level Terakhir yang Dicapai:</strong> 
+                  <span class="badge bg-light text-dark border border-primary current-level-badge-style" 
+                        id="current-level-badge">{{ current_level }}</span>
+                </p>
+                <!-- Progress bar with explanation -->
+                <div class="progress-container">
+                  <label><strong>Performa Jawaban:</strong></label>
+                  <div class="progress">
+                    <div id="correct-progress" class="progress-bar bg-success" role="progressbar" 
+                        aria-valuemin="0" aria-valuemax="100">
+                      <span id="correct-percent">0%</span>
+                    </div>
+                    <div id="incorrect-progress" class="progress-bar bg-danger" role="progressbar" 
+                        aria-valuemin="0" aria-valuemax="100">
+                      <span id="incorrect-percent">0%</span>
+                    </div>
+                  </div>
+                  <div class="progress-explanation">
+                    <i class="bi bi-info-circle me-1"></i> Diagram di atas menunjukkan perbandingan jawaban tepat (hijau) dan kurang tepat (merah) dari semua soal yang telah Anda kerjakan.
+                  </div>
+                </div>
+                
+                <!-- Badges for additional information -->
+                <div class="mt-4">
+                  <p><strong>Statistik Lanjutan:</strong></p>
+                  <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-info" id="total-questions">Total Soal: {{ correct + incorrect }}</span>
+                    <span class="badge bg-secondary" id="collection-name">Koleksi: {{ collection_name if collection_name else 'N/A' }}</span>
+                    
+                  </div>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="mt-4">
+                  <a href="/DashboardSiswa" class="btn btn-outline-primary">
+                    <i class="bi bi-grid btn-icon"></i>Kembali ke Dashboard
+                  </a>
+                  <button id="exportPdfBtn" class="btn btn-danger">
+                    <i class="bi bi-file-pdf btn-icon"></i>Export ke PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-5">
+            <div class="card h-100">
+              <div class="card-body">
+                <div class="chart-container">
+                  <canvas id="resultChart"></canvas>
+                </div>
+                <div class="chart-explanation">
+                  <strong>Diagram Donat:</strong> Diagram ini menunjukkan perbandingan persentase jawaban tepat (hijau) dan jawaban kurang tepat (merah) dari keseluruhan tes yang telah Anda kerjakan. Visualisasi berbentuk donat ini memudahkan Anda untuk melihat proporsi jawaban secara visual.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Rekomendasi -->
+    <div class="card mb-5">
+      <div class="card-header bg-white">
+        <h3><i class="bi bi-lightbulb me-2"></i>Rekomendasi</h3>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-primary">
+          <h5><i class="bi bi-mortarboard me-2"></i>Saran Pembelajaran</h5>
+          <p>Berdasarkan hasil tes diagnostik Anda, berikut beberapa rekomendasi untuk meningkatkan pemahaman:</p>
+          <ul id="recommendation-list">
+            <li>Sedang memuat rekomendasi...</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal untuk menampilkan jawaban -->
+  <div class="modal fade" id="answersModal" tabindex="-1" aria-labelledby="answersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="answersModalLabel">Riwayat Jawaban</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="answersModalBody">
+          <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Memuat data jawaban...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+    // Directly inject values from Flask backend for robustness
+    const userId = parseInt("{{ current_user.id }}") || null;
+    const collectionId = parseInt("{{ collection_id }}") || null;
+
+    // Log for debugging
+    console.log("Parsed userId:", userId);
+    console.log("Parsed collectionId:", collectionId);
+
+    let hasDataError = false; // Flag untuk menandai adanya kesalahan data
+    let allAnswers = []; // Variable untuk menyimpan semua jawaban
+    let questionLevelMap = {}; // Map untuk menyimpan ID soal -> level
+    
+    // Setup chart and visualizations
+    document.addEventListener('DOMContentLoaded', function() {
+      // Aktifkan tombol ekspor PDF secara independen (tidak menunggu inisialisasi data)
+      setupExportButtons();
+      
+      // Inisialisasi
+      initResultPage().catch(error => {
+        console.error("Terjadi kesalahan saat inisialisasi halaman:", error);
+        showError("Terjadi kesalahan saat memuat data hasil. Tombol export tetap dapat digunakan.");
+        showLoading(false);
+      });
+      
+      // Setup refresh button
+      const refreshButton = document.getElementById('refreshDataButton');
+      if (refreshButton) {
+        refreshButton.addEventListener('click', async function() {
+          await forceRefreshData();
+        });
+      }
+    });
+    
+    // Fungsi untuk mengambil data soal dan level dari server
+    async function fetchQuestionData() {
+      // Only fetch if userId is valid
+      if (userId === null || collectionId === null) {
+        console.error("fetchQuestionData: userId atau collectionId tidak valid. Tidak dapat mengambil data soal.");
+        return;
+      }
+
+      try {
+        console.log("Mengambil data soal dari database...");
+        let successful = false;
+        
+        // Coba menggunakan endpoint koleksi terlebih dahulu
+        try {
+          const response = await fetch(`/api/collections/${collectionId}/questions`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            processQuestionData(data);
+            successful = true;
+            console.log("Berhasil mengambil data soal dari /api/collections/${collectionId}/questions");
+            return;
+          } else {
+            console.warn(`Endpoint /api/collections/${collectionId}/questions tidak tersedia (${response.status}). Mencoba endpoint alternatif...`);
+          }
+        } catch (err) {
+          console.warn("Gagal mengakses endpoint collection questions:", err.message);
+        }
+        
+        // Jika endpoint pertama gagal, coba dengan endpoint generic
+        if (!successful) {
+          try {
+            const response = await fetch(`/api/get_questions`);
+            
+            if (response.ok) {
+              const data = await response.json();
+              processQuestionData(data);
+              successful = true;
+              console.log("Berhasil mengambil data soal dari /api/get_questions");
+              return;
+            } else {
+              console.warn(`Endpoint /api/get_questions tidak tersedia (${response.status}).`);
+            }
+          } catch (err) {
+            console.warn("Gagal mengakses endpoint get_questions:", err.message);
+          }
+        }
+
+        // Jika kedua endpoint gagal, coba dengan endpoint collection detail
+        if (!successful) {
+          try {
+            const response = await fetch(`/api/collections/${collectionId}`);
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.questions && Array.isArray(data.questions)) {
+                processQuestionData(data.questions);
+                successful = true;
+                console.log("Berhasil mengambil data soal dari /api/collections/${collectionId}");
+                return;
+              } else {
+                console.warn("Data questions tidak ditemukan dalam response /api/collections/${collectionId}");
+              }
+            } else {
+              console.warn(`Endpoint /api/collections/${collectionId} tidak tersedia (${response.status}).`);
+            }
+          } catch (err) {
+            console.warn("Gagal mengakses endpoint collection detail:", err.message);
+          }
+        }
+        
+        // Jika semua endpoint gagal, beri pesan error
+        if (!successful) {
+          throw new Error("Tidak dapat mengambil data soal dari semua endpoint yang tersedia");
+        }
+      } catch (error) {
+        console.error("Error mengambil data soal:", error);
+        // Tetap lanjutkan eksekusi program meskipun gagal mengambil data soal
+      }
+    }
+    
+    // Fungsi untuk memproses data soal dari berbagai format API response
+    function processQuestionData(data) {
+      try {
+        // Handle both API response formats
+        if (data.success && Array.isArray(data.data)) {
+          // Format /api/get_questions
+          data.data.forEach(question => {
+            questionLevelMap[question.id] = question.level;
+          });
+          console.log("Peta soal ke level berhasil dibuat", questionLevelMap);
+        } else if (Array.isArray(data)) {
+          // Format /api/collections/${collectionId}/questions
+          data.forEach(question => {
+            questionLevelMap[question.id] = question.level;
+          });
+          console.log("Peta soal ke level berhasil dibuat", questionLevelMap);
+        } else {
+          console.warn("Gagal membuat peta soal ke level, format data tidak dikenali:", data);
+        }
+      } catch (error) {
+        console.error("Error memproses data soal:", error);
+      }
+    }
+    
+    async function initResultPage() {
+      try {
+        // Tampilkan loading overlay
+        showLoading(true);
+
+        // Check if IDs are valid before proceeding with fetches
+        if (userId === null || collectionId === null) {
+            showError("ID pengguna atau koleksi tidak tersedia. Pastikan Anda login dan mengakses halaman ini dengan benar.");
+            showLoading(false);
+            // Tetap setup tombol export (mereka akan menampilkan pesan error jika parameter tidak valid)
+            setupExportButtons();
+            return; // Stop initialization if IDs are invalid
+        }
+        
+        // Cek dan perbaiki inkonsistensi data (jika ada)
+        try {
+          await fixStatisticsInconsistency();
+        } catch (err) {
+          console.warn("Gagal memperbaiki inkonsistensi data:", err.message);
+          // Lanjutkan meskipun gagal
+        }
+        
+        // Ambil riwayat jawaban terlebih dahulu (untuk memastikan data tersedia untuk export)
+        try {
+          await fetchAndCacheAnswerHistory();
+          console.log("Riwayat jawaban berhasil di-cache untuk keperluan export");
+        } catch (err) {
+          console.warn("Gagal mengambil riwayat jawaban:", err.message);
+          // Lanjutkan meskipun gagal
+        }
+        
+        // Ambil data hasil tes
+        let testData;
+        try {
+          testData = await fetchTestResultData();
+          // Render visualisasi dan statistik
+          renderResultPage(testData);
+        } catch (err) {
+          console.error("Gagal mengambil data hasil tes:", err.message);
+          showError("Gagal mengambil data hasil tes. Tombol export tetap dapat digunakan meskipun data visual tidak dapat ditampilkan.");
+          
+          // Tetap sembunyikan loading meskipun gagal mendapatkan data visualisasi
+          showLoading(false);
+          
+          // Pastikan tombol export tetap diaktifkan meskipun data visual gagal diambil
+          setupExportButtons();
+          return;
+        }
+        
+        // Sembunyikan loading overlay
+        showLoading(false);
+      } catch (error) {
+        console.error("Error initializing result page:", error);
+        showLoading(false);
+        showError("Terjadi kesalahan saat memuat hasil tes. Tombol export tetap dapat digunakan.");
+        
+        // Pastikan tombol export tetap diaktifkan meskipun ada error
+        setupExportButtons();
+      }
+    }
+    
+    // Fungsi untuk menampilkan/menyembunyikan loading overlay
+    function showLoading(show) {
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      if (loadingOverlay) {
+        loadingOverlay.style.display = show ? 'flex' : 'none';
+      }
+    }
+    
+    // Fungsi untuk menampilkan pesan error
+    function showError(message) {
+      const errorContainer = document.getElementById('errorContainer');
+      const errorMessage = document.getElementById('errorMessage');
+      
+      if (errorContainer && errorMessage) {
+        errorMessage.textContent = message;
+        errorContainer.style.display = 'block';
+      } else {
+        // Fallback if elements don't exist
+        alert(message);
+      }
+    }
+    
+    // Fungsi untuk memperbaiki inkonsistensi data statistik
+    async function fixStatisticsInconsistency() {
+      // Only proceed if IDs are valid
+      if (userId === null || collectionId === null) {
+        console.error("fixStatisticsInconsistency: userId or collectionId is null. Cannot proceed.");
+        return false;
+      }
+
+      try {
+        console.log(`Memeriksa konsistensi data untuk koleksi: ${collectionId}`);
+        
+        // Panggil endpoint khusus untuk menyegarkan data jawaban
+        const response = await fetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error memeriksa data: ${errorText}`);
+          return false;
+        }
+        
+        const result = await response.json();
+        console.log("Hasil pemeriksaan data:", result);
+        
+        // Jika ada perubahan, tandai ada masalah data
+        if (result.changes) {
+          hasDataError = true;
+          const oldCorrect = result.changes.old_correct || 0;
+          const newCorrect = result.changes.new_correct || 0;
+          const oldIncorrect = result.changes.old_incorrect || 0;
+          const newIncorrect = result.changes.new_incorrect || 0;
+          
+          // Tampilkan pesan error jika ada perbedaan data
+          if (oldCorrect !== newCorrect || oldIncorrect !== newIncorrect) {
+            showError(`Terdapat perbedaan data. Data awal: Benar=${oldCorrect}, Salah=${oldIncorrect}. Data terkoreksi: Benar=${newCorrect}, Salah=${newIncorrect}.`);
+          }
+        }
+        
+        return result.success || false;
+      } catch (error) {
+        console.error("Error memperbaiki inkonsistensi:", error);
+        return false;
+      }
+    }
+    
+    // Fungsi untuk memaksa refresh data
+    async function forceRefreshData() {
+      // Only proceed if IDs are valid
+      if (userId === null || collectionId === null) {
+        console.error("forceRefreshData: userId or collectionId is null. Cannot proceed.");
+        showError("ID pengguna atau koleksi tidak tersedia. Tidak dapat memperbaiki data.");
+        return;
+      }
+
+      try {
+        showLoading(true);
+        
+        const response = await fetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}&force=true`);
+        
+        if (!response.ok) {
+          throw new Error(`Error server: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // Reload halaman untuk menampilkan data yang sudah diperbaiki
+          window.location.reload();
+        } else {
+          throw new Error(result.message || "Gagal memperbaiki data");
+        }
+      } catch (error) {
+        console.error("Error refreshing data:", error);
+        showLoading(false);
+        showError(`Gagal memperbaiki data: ${error.message}`);
+      }
+    }
+    
+    // Fungsi untuk mengambil data hasil tes
+    async function fetchTestResultData() {
+      // Only proceed if IDs are valid
+      if (userId === null || collectionId === null) {
+        console.error("fetchTestResultData: userId or collectionId is null. Cannot fetch test data.");
+        throw new Error("ID pengguna atau koleksi tidak tersedia.");
+      }
+
+      try {
+        // Tambahkan timestamp untuk menghindari cache
+        const timestamp = new Date().getTime();
+        const url = `/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Error server: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Data hasil tes:", data);
+        
+        if (!data.success && data.message) {
+          throw new Error(data.message);
+        }
+        
+        return data;
+      } catch (error) {
+        console.error("Error fetching test data:", error);
+        throw error;
+      }
+    }
+    
+    // Fungsi untuk mengambil data siswa_answers langsung dari database
+    async function fetchSiswaAnswers() {
+      // Only proceed if IDs are valid
+      if (userId === null || collectionId === null) {
+        console.error("fetchSiswaAnswers: userId or collectionId is null. Cannot fetch student answers.");
+        return null;
+      }
+
+      try {
+        // Fetch data siswa_answers langsung dari database
+        const timestamp = new Date().getTime();
+        const url = `/api/siswa_answers?user_id=${userId}&collection_id=${collectionId}&t=${timestamp}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Error server: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data.siswa_answers || [];
+      } catch (error) {
+        console.error("Error fetching siswa_answers:", error);
+        return null;
+      }
+    }
+    
+    // Fungsi untuk mengambil dan menyimpan riwayat jawaban (tanpa menampilkannya)
+    async function fetchAndCacheAnswerHistory() {
+      // Only proceed if IDs are valid
+      if (userId === null || collectionId === null) {
+        console.error("fetchAndCacheAnswerHistory: userId or collectionId is null. Cannot fetch answer history.");
+        return;
+      }
+
+      try {
+        // Hanya ambil data, tapi tidak perlu menampilkan
+        const timestamp = new Date().getTime();
+        const url = `/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Error server: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Riwayat jawaban disimpan:", data.answers);
+        
+        // Simpan semua jawaban untuk digunakan nanti
+        allAnswers = data.answers || [];
+        
+        // Tambahkan informasi level ke jawaban jika tidak ada
+        try {
+          await enrichAnswersWithLevels(allAnswers);
+        } catch (levelError) {
+          console.error("Error saat menambahkan informasi level ke jawaban:", levelError);
+          console.warn("Melanjutkan dengan data yang ada meskipun terjadi error pada enrichAnswersWithLevels");
+        }
+      } catch (error) {
+        console.error("Error fetching answer history:", error);
+        // Tetap lanjutkan eksekusi program meskipun gagal mengambil riwayat jawaban
+      }
+    }
+    
+    // Fungsi untuk memperkaya data jawaban dengan informasi level
+    async function enrichAnswersWithLevels(answers) {
+      if (!answers || answers.length === 0) return;
+      
+      try {
+        let levelFound = false;
+        
+        // Periksa terlebih dahulu apakah jawaban sudah memiliki informasi level
+        const allAnswersHaveLevel = answers.every(answer => answer.level !== undefined && answer.level !== null);
+        if (allAnswersHaveLevel) {
+          console.log("Semua jawaban sudah memiliki informasi level");
+          return; // Semua jawaban sudah memiliki level, tidak perlu melakukan apa-apa lagi
+        }
+        
+        // Cek jika data level sudah tersimpan dalam questionLevelMap
+        if (Object.keys(questionLevelMap).length > 0) {
+          levelFound = true;
+          console.log("Menggunakan data level yang sudah tersimpan di questionLevelMap");
+        }
+        // Jika questionLevelMap belum ada, coba ambil data soal dulu
+        else {
+          try {
+            await fetchQuestionData();
+            if (Object.keys(questionLevelMap).length > 0) {
+              levelFound = true;
+              console.log("Level berhasil diambil dari endpoint collections/questions");
+            }
+          } catch (err) {
+            console.warn("Gagal mengambil data soal:", err.message);
+          }
+        }
+        
+        // Jika masih belum ada, coba ambil data siswa_answers langsung dari database
+        if (!levelFound) {
+          try {
+            const siswaAnswers = await fetchSiswaAnswers();
+            if (siswaAnswers && siswaAnswers.length > 0) {
+              siswaAnswers.forEach(answer => {
+                if (answer.level && answer.question_id) {
+                  questionLevelMap[answer.question_id] = answer.level;
+                  levelFound = true;
+                }
+              });
+              if (levelFound) {
+                console.log("Level berhasil diambil dari endpoint siswa_answers");
+              }
+            }
+          } catch (err) {
+            console.warn("Gagal mengambil data jawaban siswa:", err.message);
+            // Lanjutkan meskipun gagal
+          }
+        }
+        
+        // Tambahkan informasi level ke jawaban
+        let updatedCount = 0;
+        answers.forEach(answer => {
+          // Jika jawaban belum memiliki level tapi ada di questionLevelMap
+          if ((!answer.level || answer.level === undefined) && answer.question_id && questionLevelMap[answer.question_id]) {
+            answer.level = questionLevelMap[answer.question_id];
+            updatedCount++;
+          } 
+          // Fallback: gunakan level default jika masih tidak ada
+          else if (!answer.level || answer.level === undefined) {
+            answer.level = answer.level || 3; // Default level 3 jika tidak ada informasi
+            console.log(`Menggunakan level default (3) untuk pertanyaan ID: ${answer.question_id || 'unknown'}`);
+          }
+        });
+        
+        // Log hasil update
+        if (updatedCount > 0) {
+          console.log(`Berhasil menambahkan level ke ${updatedCount} jawaban`);
+        }
+        
+        // Fallback: Jika masih tidak ada data level, lanjutkan dengan data yang ada
+        if (!levelFound) {
+          console.warn("Tidak dapat mengambil data level lengkap, beberapa jawaban mungkin menggunakan level default");
+        }
+      } catch (error) {
+        console.error("Error enriching answers with levels:", error);
+        // Pastikan fungsi tidak gagal total, tangkap error dan lanjutkan eksekusi
+      }
+    }
+    
+    // Fungsi untuk menampilkan modal jawaban
+    function showAnswersModal(type) {
+      // Set judul modal
+      const modalTitle = document.getElementById('answersModalLabel');
+      modalTitle.textContent = type === 'correct' ? 'Jawaban Tepat' : 'Jawaban Kurang Tepat';
+      
+      // Tampilkan loading
+      const modalBody = document.getElementById('answersModalBody');
+      modalBody.innerHTML = `
+        <div class="text-center">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Memuat data jawaban...</p>
+        </div>
+      `;
+      
+      // Tampilkan modal
+      const answersModal = new bootstrap.Modal(document.getElementById('answersModal'));
+      answersModal.show();
+      
+      // Filter jawaban berdasarkan tipe (benar/salah)
+      if (allAnswers.length > 0) {
+        // Jika data jawaban sudah tersedia, gunakan data yang ada
+        renderFilteredAnswers(type);
+      } else {
+        // Jika belum, ambil data jawaban dari API
+        fetchAndRenderFilteredAnswers(type);
+      }
+    }
+    
+    // Fungsi untuk mengambil dan menampilkan jawaban yang difilter
+    async function fetchAndRenderFilteredAnswers(type) {
+      // Only proceed if IDs are valid
+      if (userId === null || collectionId === null) {
+        console.error("fetchAndRenderFilteredAnswers: userId or collectionId is null. Cannot fetch and render answers.");
+        const modalBody = document.getElementById('answersModalBody');
+        modalBody.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>ID pengguna atau koleksi tidak tersedia. Tidak dapat memuat jawaban.
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        const timestamp = new Date().getTime();
+        const url = `/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Error server: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Detail struktur data jawaban:", data);
+        
+        if (data.answers && data.answers.length > 0) {
+          console.log("Contoh objek jawaban pertama:", data.answers[0]);
+        } else {
+          console.log("Tidak ada jawaban dalam data");
+        }
+        
+        // Simpan semua jawaban untuk digunakan nanti
+        allAnswers = data.answers || [];
+        
+        // Tambahkan informasi level ke jawaban jika tidak ada
+        await enrichAnswersWithLevels(allAnswers);
+        
+        // Render jawaban yang difilter
+        renderFilteredAnswers(type);
+        
+      } catch (error) {
+        console.error("Error fetching answers:", error);
+        const modalBody = document.getElementById('answersModalBody');
+        modalBody.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>Gagal memuat data jawaban: ${error.message}
+          </div>
+        `;
+      }
+    }
+    
+   // Fungsi untuk menampilkan jawaban yang difilter (dengan jawaban tepat untuk jawaban kurang tepat)
+function renderFilteredAnswers(type) {
+  const modalBody = document.getElementById('answersModalBody');
+  
+  // Filter jawaban berdasarkan tipe
+  const isCorrect = type === 'correct';
+  const filteredAnswers = allAnswers.filter(answer => answer.is_correct === isCorrect);
+  
+  if (filteredAnswers.length === 0) {
+    modalBody.innerHTML = `
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>Tidak ada jawaban ${isCorrect ? 'tepat' : 'kurang tepat'} yang tersedia.
+      </div>
+    `;
+    return;
+  }
+  
+  // Render jawaban
+  let answersHTML = '';
+  
+  filteredAnswers.forEach((answer, index) => {
+    // Cek apakah ada jawaban tepat yang tersedia (untuk jawaban kurang tepat)
+    const correctAnswer = answer.jawaban_benar || answer.correct_answer || '';
+    
+    answersHTML += `
+      <div class="card answer-card mb-3 ${isCorrect ? 'correct' : 'incorrect'}">
+        <div class="card-body">
+          <h5 class="card-title">Pertanyaan:</h5>
+          <p class="answer-question">${answer.question || 'Tidak tersedia'}</p>
+          
+          <h5 class="card-title mt-3">Jawaban Anda:</h5>
+          <div class="answer-response ${isCorrect ? 'bg-success text-white' : 'bg-danger text-white'}">
+            ${answer.user_answer || 'Tidak tersedia'}
+          </div>
+          
+          ${!isCorrect && correctAnswer ? `
+            <h5 class="card-title mt-3">Jawaban Tepat:</h5>
+            <div class="answer-response bg-info text-white">
+              ${correctAnswer}
+            </div>
+          ` : ''}
+          
+          ${answer.explanation ? `
+            <div class="mt-3">
+              <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="collapse" data-bs-target="#modalExplanation${index}">
+                <i class="bi bi-lightbulb me-1"></i>Lihat Penjelasan
+              </button>
+              <div class="collapse mt-2" id="modalExplanation${index}">
+                <div class="explanation-text">
+                  ${answer.explanation}
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  });
+  
+  modalBody.innerHTML = answersHTML;
+}
+    
+    // Fungsi untuk merender halaman hasil
+    function renderResultPage(data) {
+      const ctx = document.getElementById('resultChart').getContext('2d');
+      
+      // Ambil data dari response API
+      const correctValue = parseInt(data.correct || 0);
+      const incorrectValue = parseInt(data.incorrect || 0);
+      const totalValue = correctValue + incorrectValue;
+      const currentLevel = parseInt(data.current_level || 1);
+      
+      // Hitung akurasi
+      const accuracyValue = totalValue > 0 ? Math.round((correctValue / totalValue) * 100) : 0;
+      
+      // Perbarui visualisasi level path
+      updateLevelPath(currentLevel);
+      
+      // Update nilai statistik
+      document.getElementById('correct-value').textContent = correctValue;
+      document.getElementById('incorrect-value').textContent = incorrectValue;
+      document.getElementById('accuracy-value').textContent = accuracyValue + '%';
+      document.getElementById('total-questions').textContent = `Total Soal: ${totalValue}`;
+      document.getElementById('current-level-badge').textContent = currentLevel;
+      document.getElementById('current-level-text').textContent = currentLevel;
+      
+      // Hitung persentase untuk progress bar
+      const correctPercent = totalValue > 0 ? Math.round((correctValue / totalValue) * 100) : 0;
+      const incorrectPercent = totalValue > 0 ? 100 - correctPercent : 0;
+      
+      // Update progress bar
+      const correctProgressBar = document.getElementById('correct-progress');
+      const incorrectProgressBar = document.getElementById('incorrect-progress');
+      
+      correctProgressBar.style.width = correctPercent + '%';
+      incorrectProgressBar.style.width = incorrectPercent + '%';
+      
+      document.getElementById('correct-percent').textContent = correctPercent + '%';
+      document.getElementById('incorrect-percent').textContent = incorrectPercent + '%';
+      
+      // Konfigurasi dan render chart
+      const resultChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Tepat', 'Kurang Tepat'],
+          datasets: [{
+            data: [correctValue, incorrectValue],
+            backgroundColor: ['#198754', '#dc3545'],
+            borderColor: ['#198754', '#dc3545'],
+            borderWidth: 1,
+            hoverOffset: 15
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: {
+                  size: 14
+                },
+                padding: 15
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  const percentage = Math.round((value / totalValue) * 100) || 0;
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          },
+          cutout: '65%',
+          animation: {
+            animateScale: true,
+            animateRotate: true,
+            duration: 1000
+          }
+        }
+      });
+      
+      // Generate personalized recommendations
+      generateRecommendations(correctValue, incorrectValue, currentLevel);
+    }
+    
+    // Update level path visualization
+    function updateLevelPath(currentLevel) {
+      // Mark levels as active or completed
+      for (let i = 1; i <= 7; i++) {
+        const levelElement = document.getElementById(`level${i}`);
+        if (levelElement) {
+          if (i < currentLevel) {
+            levelElement.classList.add('completed');
+          } else if (i === currentLevel) {
+            levelElement.classList.add('active');
+          }
+        }
+      }
+    }
+    // Function to export results to Excel
+function exportToExcel() {
+  try {
+    // Validasi parameter
+    if (!userId || !collectionId) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Export Gagal',
+        text: 'Parameter user atau koleksi tidak valid.',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
+    showLoading(true);
+    
+    // Cek apakah ada data jawaban
+    if (allAnswers.length === 0) {
+      console.warn("Tidak ada data jawaban saat melakukan export Excel. Mencoba reload data terlebih dahulu...");
+      
+      // Coba ambil data jawaban secara singkat
+      fetchAndCacheAnswerHistory()
+        .catch(err => {
+          console.warn("Gagal mengambil data jawaban:", err.message);
+          console.warn("Melanjutkan export Excel meskipun tidak ada data jawaban lengkap");
+        })
+        .finally(() => {
+          // Lanjutkan proses export Excel
+          performExcelExport();
+        });
+    } else {
+      // Langsung export jika data sudah ada
+      performExcelExport();
+    }
+    
+  } catch (error) {
+    console.error("Error exporting to Excel:", error);
+    showLoading(false);
+    
+    // Show error notification
+    Swal.fire({
+      icon: 'error',
+      title: 'Export Gagal',
+      text: 'Terjadi kesalahan saat mengexport data ke Excel: ' + error.message,
+      confirmButtonText: 'OK'
+    });
+  }
+}
+
+// Fungsi untuk melakukan export Excel setelah persiapan data
+function performExcelExport() {
+  try {
+    // Construct the URL with parameters
+    const exportUrl = `/api/export_result_excel?user_id=${userId}&collection_id=${collectionId}`;
+    
+    // Tambahkan timestamp untuk menghindari cache
+    const timestampedUrl = `${exportUrl}&t=${new Date().getTime()}`;
+    
+    // Create a hidden link element
+    const link = document.createElement('a');
+    link.href = timestampedUrl;
+    link.style.display = 'none';
+    
+    // Append to body and trigger click
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    setTimeout(() => {
+      document.body.removeChild(link);
+      showLoading(false);
+    }, 2000);
+    
+  } catch (error) {
+    console.error("Error performing Excel export:", error);
+    showLoading(false);
+    
+    // Show error notification
+    Swal.fire({
+      icon: 'error',
+      title: 'Export Gagal',
+      text: 'Terjadi kesalahan saat mengexport data ke Excel: ' + error.message,
+      confirmButtonText: 'OK'
+    });
+  }
+}
+
+// Event listener sudah ditangani di fungsi setupExportButtons()
+    // Generate personalized recommendations
+    function generateRecommendations(correct, incorrect, currentLevel) {
+      const recommendationList = document.getElementById('recommendation-list');
+      if (!recommendationList) return;
+      
+      const recommendations = [];
+      const total = correct + incorrect;
+      const accuracy = total > 0 ? (correct / total) * 100 : 0;
+      
+      // Clear existing recommendations
+      recommendationList.innerHTML = '';
+      
+      // Add recommendations based on performance
+      if (accuracy < 50) {
+        recommendations.push('Fokus pada peningkatan pemahaman dasar materi');
+        recommendations.push('Perbaiki konsep dasar untuk meningkatkan kemampuan');
+        recommendations.push('Cari sumber belajar tambahan untuk materi yang belum dipahami');
+      } else if (accuracy < 75) {
+        recommendations.push('Tingkatkan pemahaman pada level menengah (3-4)');
+        recommendations.push('Pelajari kembali materi yang berkaitan dengan soal yang dijawab salah');
+        recommendations.push('Latih kemampuan aplikasi konsep pada konteks berbeda');
+      } else {
+        recommendations.push('Lanjutkan pembelajaran ke materi yang lebih kompleks');
+        recommendations.push('Coba tes pada koleksi lain untuk memperluas penguasaan materi');
+        recommendations.push('Bantu teman yang mungkin kesulitan dengan materi yang sudah Anda kuasai');
+      }
+      
+      // Add level-specific recommendations
+      if (currentLevel < 5) {
+        recommendations.push(`Ulangi tes untuk mencapai level yang lebih tinggi (saat ini: ${currentLevel})`);
+      } else {
+        recommendations.push('Selamat mencapai level akhir! Coba tes lain untuk tantangan baru');
+      }
+      
+      // Add recommendations to the list
+      recommendations.forEach(rec => {
+        const li = document.createElement('li');
+        li.textContent = rec;
+        recommendationList.appendChild(li);
+      });
+    }
+
+    // Fungsi untuk setup tombol export (PDF dan Excel)
+    function setupExportButtons() {
+      // Setup export PDF button
+      const exportPdfBtn = document.getElementById('exportPdfBtn');
+      if (exportPdfBtn) {
+        console.log("Menambahkan event listener untuk export PDF");
+        exportPdfBtn.addEventListener('click', function() {
+          try {
+            exportToPdf();
+          } catch (err) {
+            console.error("Error dalam handler exportToPdf:", err);
+            showLoading(false);
+            Swal.fire({
+              icon: 'error',
+              title: 'Export Gagal',
+              text: 'Terjadi kesalahan saat mengeksport hasil ke PDF. Silakan coba lagi nanti.',
+              confirmButtonText: 'OK'
+            });
+          }
+        });
+      } else {
+        console.warn("Tombol export PDF tidak ditemukan");
+      }
+      
+      // Setup export Excel button
+      const exportExcelBtn = document.getElementById('exportExcelBtn');
+      if (exportExcelBtn) {
+        console.log("Menambahkan event listener untuk export Excel");
+        exportExcelBtn.addEventListener('click', function() {
+          try {
+            exportToExcel();
+          } catch (err) {
+            console.error("Error dalam handler exportToExcel:", err);
+            showLoading(false);
+            Swal.fire({
+              icon: 'error',
+              title: 'Export Gagal',
+              text: 'Terjadi kesalahan saat mengeksport hasil ke Excel. Silakan coba lagi nanti.',
+              confirmButtonText: 'OK'
+            });
+          }
+        });
+      }
+    }
+
+// Function to export to PDF
+function exportToPdf() {
+  try {
+    // Validasi parameter
+    if (!userId || !collectionId) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Export Gagal',
+        text: 'Parameter user atau koleksi tidak valid.',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
+    showLoading(true);
+    
+    // Cek apakah ada data jawaban
+    if (allAnswers.length === 0) {
+      console.warn("Tidak ada data jawaban saat melakukan export PDF. Mencoba reload data terlebih dahulu...");
+      
+      // Coba ambil data jawaban secara singkat
+      fetchAndCacheAnswerHistory()
+        .catch(err => {
+          console.warn("Gagal mengambil data jawaban:", err.message);
+          console.warn("Melanjutkan export PDF meskipun tidak ada data jawaban lengkap");
+        })
+        .finally(() => {
+          // Lanjutkan proses export PDF
+          performPdfExport();
+        });
+    } else {
+      // Langsung export jika data sudah ada
+      performPdfExport();
+    }
+    
+  } catch (error) {
+    console.error("Error exporting to PDF:", error);
+    showLoading(false);
+    
+    // Show error notification
+    Swal.fire({
+      icon: 'error',
+      title: 'Export Gagal',
+      text: 'Terjadi kesalahan saat mengexport data ke PDF: ' + error.message,
+      confirmButtonText: 'OK'
+    });
+  }
+}
+
+// Fungsi untuk melakukan export PDF setelah persiapan data
+function performPdfExport() {
+  try {
+    // Construct the URL with parameters
+    const exportUrl = `/api/export_result_pdf?user_id=${userId}&collection_id=${collectionId}`;
+    
+    // Tambahkan timestamp untuk menghindari cache
+    const timestampedUrl = `${exportUrl}&t=${new Date().getTime()}`;
+    
+    // Log info untuk debugging
+    console.log("Mengeksport hasil ke PDF dengan URL:", timestampedUrl);
+    
+    // Open in a new tab or download directly
+    window.open(timestampedUrl, '_blank');
+    
+    // Hide loading after a short delay
+    setTimeout(() => {
+      showLoading(false);
+    }, 2000);
+    
+  } catch (error) {
+    console.error("Error performing PDF export:", error);
+    showLoading(false);
+    
+    // Show error notification
+    Swal.fire({
+      icon: 'error',
+      title: 'Export Gagal',
+      text: 'Terjadi kesalahan saat mengexport data ke PDF: ' + error.message,
+      confirmButtonText: 'OK'
+    });
+  }
+}
+  </script>
+</body>
+</html>

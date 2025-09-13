@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Laporan Hasil Tes Diagnostik - {{ student.nama }}</title>
+    <style type="text/css">
+        @page {
+            size: a4 portrait;
+            margin: 2.54cm;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .report-header {
+            background-color: #003366;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .report-header h1 {
+            margin: 0;
+            font-size: 20pt;
+            font-weight: bold;
+        }
+
+        .report-date {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            font-size: 10pt;
+            color: #555;
+            font-style: italic;
+        }
+
+        .student-info-table {
+            width: 100%;
+            font-size: 11pt;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .student-info-table td {
+            padding: 4px 5px;
+            vertical-align: top;
+        }
+        .info-label {
+            width: 120px;
+        }
+        .info-value {
+            font-weight: bold;
+        }
+        .info-right {
+            text-align: left;
+        }
+
+        .section-title {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #003366;
+            border-bottom: 2px solid #003366;
+            padding-bottom: 6px;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .summary-table td {
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+        .summary-label {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            width: 40%;
+        }
+        .summary-value {
+            text-align: right;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        .description-box {
+            background-color: #eef7ff;
+            border: 1px solid #d1e9ff;
+            padding: 12px;
+            font-size: 10pt;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        
+        .recommendation-intro, .recommendation-outro {
+            margin-bottom: 15px;
+            font-style: italic;
+            color: #555;
+            text-align: justify;
+        }
+        .recommendation-outro {
+            margin-top: 15px;
+        }
+        
+        .recommendation-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11pt;
+            page-break-inside: auto;
+        }
+        .recommendation-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+            color: #333;
+            vertical-align: middle;
+        }
+        .recommendation-table td {
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+        .recommendation-table tr {
+            page-break-inside: avoid;
+        }
+        .recommendation-table .rec-number {
+            width: 5%;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+            table-layout: auto;
+            page-break-inside: auto;
+        }
+        .history-table tr {
+            page-break-inside: auto;
+        }
+        .history-table td {
+            padding: 8px;
+            border: 1px solid #cccccc;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+        .history-table th {
+            background-color: #ecf0f1;
+            color: #34495e;
+            font-weight: bold;
+            padding: 8px;
+            border: 1px solid #cccccc;
+            text-align: left;
+            vertical-align: middle;
+        }
+        
+        .status-correct, .text-correct {
+            color: #198754;
+            font-weight: bold;
+        }
+        .status-incorrect, .text-incorrect {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .history-table .status-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 9pt;
+            color: #7f8c8d;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 15px;
+            margin-top: 40px;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <h1>Laporan Hasil Tes Diagnostik</h1>
+    </div>
+
+    <div class="page-container">
+        <div class="report-date">
+            Tanggal Laporan: {{ result.updated_at.strftime('%d %B %Y') if result.updated_at else now().strftime('%d %B %Y') }}
+        </div>
+
+        <table class="student-info-table">
+            <tr>
+                <td style="width: 50%;">
+                    <table class="student-info-table">
+                        <tr><td class="info-label">Nama Siswa</td><td>:</td><td class="info-value">{{ student.nama }}</td></tr>
+                        <tr><td class="info-label">Kelas</td><td>:</td><td class="info-value">{{ student.kelas }}</td></tr>
+                    </table>
+                </td>
+                <td style="width: 50%;" class="info-right">
+                    <table class="student-info-table">
+                        <tr><td class="info-label">Materi Tes</td><td>:</td><td class="info-value">{{ collection.name }}</td></tr>
+                        <tr><td class="info-label">Guru Pengampu</td><td>:</td><td class="info-value">{{ collection.guru.nama if collection and collection.guru else 'Nama Guru' }}</td></tr>
+                    </table>
+                    </td>
+            </tr>
+        </table>
+
+        <div class="section-title">A. Ringkasan Hasil Tes</div>
+        <table class="summary-table">
+            {% set level_descriptions = {
+                1: 'Kesadaran Teknologi: Siswa mampu mengenali dan mengidentifikasi konsep dan istilah dasar.',
+                2: 'Literasi Teknologi: Siswa dapat menjelaskan dan membandingkan konsep-konsep teknologi yang mendasar.',
+                3: 'Kemampuan Dasar: Siswa mampu menerapkan pengetahuan dalam konteks praktis dan sederhana.',
+                4: 'Kemampuan Lanjut: Siswa mampu menganalisis dan memecahkan masalah menggunakan konsep yang lebih kompleks.',
+                5: 'Kreativitas Dasar: Siswa dapat mulai merancang solusi sederhana berdasarkan pemahaman yang dimiliki.',
+                6: 'Kreativitas Menengah: Siswa mampu mengintegrasikan beberapa konsep untuk menciptakan solusi yang lebih praktis dan efektif.',
+                7: 'Kritik Teknologi: Siswa mampu mengevaluasi, mengkritisi, dan merefleksikan penerapan konsep secara mendalam.'
+            } %}
+            <tr>
+                <td class="summary-label">Tingkat Kemampuan Tercapai</td>
+                <td class="summary-value">{{ result.current_level }} / 7</td>
+            </tr>
+            <tr>
+                <td class="summary-label">Akurasi Jawaban</td>
+                <td class="summary-value">{{ "%.2f"|format(accuracy|float) }}%</td>
+            </tr>
+            <tr>
+                <td class="summary-label">Detail Jawaban</td>
+                <td class="summary-value" style="font-size: 11pt;">
+                    <span class="text-correct">Tepat: {{ result.correct }}</span> | 
+                    <span class="text-incorrect">Kurang Tepat: {{ result.incorrect }}</span> | 
+                    Total: {{ total_questions }}
+                </td>
+            </tr>
+        </table>
+        <div class="description-box">
+            <strong>Deskripsi Tingkat Kemampuan:</strong><br>
+            {{ level_descriptions.get(result.current_level, 'Level tidak terdefinisi.') }}
+        </div>
+
+        <div class="section-title">B. Rekomendasi Pembelajaran</div>
+        <p class="recommendation-intro">
+            Halo {{ student.nama.split()[0] }}, gimana kabarnya hari ini? Dari hasil tes kemarin, saya lihat ada beberapa area yang perlu kita tingkatkan lagi biar kamu makin jago di materi "{{ collection.name }}" ini ya. Tenang aja, ini bukan berarti kamu nggak bisa, justru ini kesempatan buat kita belajar bareng dan bikin kamu makin pede.
+        </p>
+        <table class="recommendation-table">
+            <thead>
+                <tr>
+                    <th class="rec-number">No.</th>
+                    <th>Rekomendasi Tindak Lanjut</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="rec-number">1</td>
+                    <td>Coba kamu balik lagi ke materi dasar tentang apa itu "{{ collection.name }}". Cari penjelasan yang paling sederhana untuk memahami konsep dasarnya.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">2</td>
+                    <td>Fokus pada latihan-latihan dasar, terutama yang berkaitan dengan poin-poin yang kemarin kamu jawab kurang tepat.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">3</td>
+                    <td>Jangan ragu untuk bertanya kepada saya atau berdiskusi dengan teman jika ada bagian yang masih membingungkan.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">4</td>
+                    <td>Cari contoh-contoh nyata atau situasi sehari-hari yang berkaitan dengan materi ini untuk memperkuat pemahaman.</td>
+                </tr>
+                 <tr>
+                    <td class="rec-number">5</td>
+                    <td>Luangkan waktu khusus setiap hari (15-20 menit) untuk me-review materi agar lebih meresap.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">6</td>
+                    <td>Terakhir, coba ceritakan ulang materi dengan kata-katamu sendiri untuk mengukur seberapa dalam pemahamanmu.</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="recommendation-outro">
+            Semangat terus ya, {{ student.nama.split()[0] }}! Saya yakin kamu bisa melewati ini dan jadi lebih baik lagi. Saya ada di sini buat bantu kamu.
+        </p>
+        
+        {% if answers and answers|length > 0 %}
+        <div class="page-break"></div>
+        <div class="page-container">
+            <div class="section-title">C. Rincian Jawaban Siswa</div>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">No</th>
+                        <th style="width: 45%;">Pertanyaan</th>
+                        <th style="width: 20%;">Jawaban Siswa</th>
+                        <th style="width: 20%;">Jawaban Benar</th>
+                        <th class="status-cell" style="width: 10%;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for answer in answers %}
+                    <tr>
+                        <td style="text-align: center;">{{ loop.index }}</td>
+                        <td>{{ answer.question }}</td>
+                        <td>{{ answer.user_answer }}</td>
+                        <td>{{ answer.correct_answer }}</td>
+                        <td class="status-cell {% if answer.is_correct %}status-correct{% else %}status-incorrect{% endif %}">
+                            {{ 'Tepat' if answer.is_correct else 'Kurang Tepat' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <div class="footer">
+            <p>Laporan ini dibuat secara otomatis pada {{ now().strftime('%d %B %Y, %H:%M:%S') }}</p>
+        </div>
+    </div>
+</body>
+</html>

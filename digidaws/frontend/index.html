@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIGIDAWS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8f9fa;
+            color: #444;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+            color: white;
+            padding: 6rem 0;
+        }
+        .hero-section h1 {
+            font-weight: 700;
+        }
+        .hero-section .lead {
+            font-weight: 400;
+            max-width: 600px;
+            margin: 0 auto 2rem auto;
+        }
+        .btn-custom {
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        .btn-custom.btn-light {
+            color: #4f46e5;
+        }
+        .btn-custom.btn-outline-light:hover {
+            background-color: white;
+            color: #4f46e5;
+        }
+
+        /* General Section Styling */
+        .section-padding {
+            padding: 4rem 0;
+        }
+        .section-title {
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* Features Section */
+        .feature-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 30px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
+        }
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+        .feature-icon {
+            font-size: 3rem;
+            color: #4f46e5;
+            margin-bottom: 1rem;
+        }
+        .feature-title {
+            font-weight: 600;
+            color: #334155;
+        }
+
+        /* Benefits Section */
+        .benefits-section {
+            background-color: #ffffff;
+        }
+        .benefit-item .icon {
+            font-size: 1.5rem;
+            color: #3b82f6;
+            margin-right: 15px;
+        }
+
+        /* Call to Action Section */
+        .cta-section {
+            background-color: #eef2ff;
+            border-radius: 15px;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #1e293b;
+            color: #cbd5e1;
+            padding: 2rem 0;
+            margin-top: 4rem;
+            text-align: center; /* Teks di tengah */
+            font-size: 9px;      /* Ukuran font 9px */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="hero-section text-center">
+        <div class="container" data-aos="fade-up">
+            <h1 class="display-3 mb-3">DIGIDAWS</h1>
+            <p class="small mt-2" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis</p>
+            <p class="lead">Pahami kemampuan awal siswa secara akurat dan berikan pembelajaran yang lebih personal dan efektif.</p>
+            <div>
+                <a href="{{ url_for('login') }}" class="btn btn-light btn-custom">Login</a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-custom">Register</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container section-padding">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="section-title">Fitur Unggulan Kami</h2>
+            <p class="text-muted">Dirancang untuk kemudahan guru dan kemajuan siswa.</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="feature-card text-center">
+                    <i class="bi bi-robot feature-icon"></i>
+                    <h5 class="feature-title">Generasi Soal Otomatis</h5>
+                    <p class="text-muted">Unggah materi ajar, dan biarkan AI canggih kami membuat soal-soal diagnostik yang relevan secara otomatis.</p>
+                </div>
+            </div>
+            <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+                <div class="feature-card text-center">
+                    <i class="bi bi-person-gear feature-icon"></i>
+                    <h5 class="feature-title">Tes Adaptif & Personal</h5>
+                    <p class="text-muted">Sistem menyesuaikan kesulitan soal berdasarkan jawaban siswa, memberikan penilaian yang akurat dan personal.</p>
+                </div>
+            </div>
+            <div class="col-md-4" data-aos="fade-up" data-aos-delay="300">
+                <div class="feature-card text-center">
+                    <i class="bi bi-bar-chart-line-fill feature-icon"></i>
+                    <h5 class="feature-title">Analitik Mendalam</h5>
+                    <p class="text-muted">Dapatkan laporan detail dan visual untuk setiap siswa dan kelas, bantu Anda membuat keputusan berbasis data.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="benefits-section section-padding">
+        <div class="container">
+            <div class="text-center mb-5" data-aos="fade-up">
+                <h2 class="section-title">Manfaat untuk Anda</h2>
+            </div>
+            <div class="row g-5 align-items-center">
+                <div class="col-lg-6" data-aos="fade-right">
+                    <img src="https://images.unsplash.com/photo-1543269865-cbf427effbad?q=80&w=1740&auto=format&fit=crop" class="img-fluid rounded-3" alt="Guru Mengajar">
+                </div>
+                <div class="col-lg-6" data-aos="fade-left">
+                    <h3>Untuk Guru 👨‍🏫</h3>
+                    <p class="text-muted">Fokus pada mengajar, bukan administrasi. Platform kami membantu Anda untuk:</p>
+                    <ul class="list-unstyled">
+                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Menghemat Waktu,</b> dengan pembuatan soal dan penilaian otomatis.</span></li>
+                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Memahami Kebutuhan Siswa,</b> melalui data kemampuan awal yang akurat.</span></li>
+                        <li class="d-flex align-items-start"><i class="bi bi-check-circle-fill icon"></i> <span><b>Merancang Pembelajaran Efektif,</b> berdasarkan rekomendasi dan analisis data.</span></li>
+                    </ul>
+                </div>
+            </div>
+             <div class="row g-5 align-items-center mt-5 flex-row-reverse">
+                <div class="col-lg-6" data-aos="fade-left">
+                    <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1740&auto=format&fit=crop" class="img-fluid rounded-3" alt="Siswa Belajar">
+                </div>
+                <div class="col-lg-6" data-aos="fade-right">
+                    <h3>Untuk Siswa 👩‍🎓</h3>
+                    <p class="text-muted">Ketahui potensi diri dan raih prestasi terbaikmu. Dengan platform ini, kamu bisa:</p>
+                    <ul class="list-unstyled">
+                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Mengenal Kekuatan & Kelemahan,</b> melalui hasil tes yang detail.</span></li>
+                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Mendapatkan Rekomendasi Belajar,</b> yang sesuai dengan kebutuhanmu.</span></li>
+                        <li class="d-flex align-items-start"><i class="bi bi-check-circle-fill icon"></i> <span><b>Belajar Lebih Fokus dan Efisien,</b> pada materi yang paling kamu perlukan.</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container section-padding">
+        <div class="cta-section p-5 text-center" data-aos="zoom-in">
+            <h2 class="section-title">Siap Mengubah Cara Belajar & Mengajar?</h2>
+            <p class="lead text-muted my-4">Bergabunglah sekarang dan rasakan kemudahan asesmen diagnostik berbasis AI.</p>
+            <div>
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-custom shadow-sm">Login</a>
+                <a href="{{ url_for('register') }}" class="btn btn-secondary btn-custom shadow-sm">Register</a>
+            </div>
+        </div>
+    </div>
+
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 by Anak Agung Gede Pradnya Prameswara</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Inisialisasi AOS
+        AOS.init({
+            duration: 800, // Durasi animasi
+            once: true,    // Animasi hanya berjalan sekali
+        });
+    </script>
+</body>
+</html>

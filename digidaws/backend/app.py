@@ -1,4 +1,5 @@
 import datetime
+import sys
 from sqlalchemy import func, text
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -19,13 +20,27 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user, LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask import send_file
-import pdfkit  # Anda perlu menginstall: pip install pdfkit
+import pdfkit
+from xhtml2pdf import pisa
 import tempfile
 import os
-from xhtml2pdf import pisa
 from io import BytesIO
 
-app = Flask(__name__)
+import os
+import sys
+from pathlib import Path
+
+# Define the root directory (parent of backend)
+ROOT_DIR = Path(__file__).parent.parent
+
+# Add the root directory to the Python path
+sys.path.insert(0, str(ROOT_DIR))
+
+# Flask app with proper template and static configuration
+app = Flask(__name__, 
+            template_folder=os.path.join(ROOT_DIR, 'frontend'),
+            static_folder=os.path.join(ROOT_DIR, 'img'))
+
 # Add secret key for session
 app.secret_key = '70315ac5aa5fee60d775f2ad95d2a163b24a4ba65583df64620acc3a283ccbc8'  # Replace with a real secret key in production
 
@@ -46,10 +61,10 @@ def load_user(user_id):
     return None
 
 # Konfigurasi MySQL
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://agungame123$asesment_diagnostik_db:kata_sandi_anda@agungame123.mysql.pythonanywhere-services.com:3306/agungame123$asesment_diagnostik_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/asesment_diagnostik_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['SQLALCHEMY_ECHO'] = True # Tambahan untuk debug SQL queries
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
+app.config['SQLALCHEMY_ECHO'] = True  # Tambahan untuk debug SQL queries
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 db = SQLAlchemy(app)
@@ -58,9 +73,9 @@ db = SQLAlchemy(app)
 # KONFIGURASI GEMINI AI
 # =========================================
 # Gunakan environment variable untuk API key
-my_api_key_gemini = 'AIzaSyCcx9iCB6oGXUPGoW2Ot3Mk7JjIreeCzRQ'
+my_api_key_gemini = 'AIzaSyCcx9iCB6oGXUPGoW2Ot3Mk7JjIreeCzRQ' 
 genai.configure(api_key=my_api_key_gemini)
-model = genai.GenerativeModel('gemini-2.0-flash')
+model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
 # =========================================
 # DATABASE MODELS
@@ -74,6 +89,7 @@ class Guru(db.Model, UserMixin):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     nama = db.Column(db.String(100), nullable=False)
+    has_seen_welcome_guide = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     
     # Property untuk identifikasi tipe pengguna
@@ -268,6 +284,43 @@ def get_hasil_siswa(self):
     hasil_siswa = SiswaResult.query.all()
     return hasil_siswa
 
+@app.route('/guru/welcome')
+@login_required
+def guru_welcome_guide():
+    # Pastikan hanya guru yang bisa mengakses halaman ini
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        flash("Akses ditolak. Halaman ini hanya untuk guru.", "error")
+        return redirect(url_for('login'))
+    return render_template('guru/guru_welcome.html') # File HTML baru yang akan kita buat
+
+@app.route('/api/guru/mark_welcome_seen', methods=['POST'])
+@login_required
+def mark_welcome_seen():
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        return jsonify({'success': False, 'message': 'Akses ditolak'}), 403
+
+    try:
+        # Cari guru yang sedang login di database
+        guru = Guru.query.get(current_user.id)
+        if guru:
+            # Update statusnya menjadi sudah melihat panduan
+            guru.has_seen_welcome_guide = True
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Status panduan berhasil diperbarui.'})
+        return jsonify({'success': False, 'message': 'Guru tidak ditemukan.'}), 404
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saat menandai panduan selesai: {str(e)}")
+        return jsonify({'success': False, 'message': 'Terjadi kesalahan server.'}), 500
+
+@app.route('/guru/panduan')
+@login_required
+def guru_panduan_lengkap():
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        flash("Akses ditolak.", "error")
+        return redirect(url_for('login'))
+    return render_template('guru/guru_panduan.html')
+
 # Rute untuk guru mengakses hasil siswa
 @results_bp.route('/guru/hasil-siswa', methods=['GET'])
 @login_required
@@ -428,34 +481,36 @@ def load_user(user_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Handle login logic here
         username = request.form.get('username')
         password = request.form.get('password')
-        role = request.form.get('role')  # 'guru' or 'siswa'
+
+        user = Guru.query.filter_by(username=username).first()
         
-        if role == 'guru':
-            user = Guru.query.filter_by(username=username).first()
-        else:
+        if not user:
             user = Siswa.query.filter_by(username=username).first()
-        
+
         if user and user.check_password(password):
-            # Login the user with Flask-Login
             login_user(user)
-            
-            # Check if the user was trying to access a protected page
-            next_page = request.args.get('next')
-            
-            # Login successful
-            if next_page:
-                return redirect(next_page)
-            elif role == 'guru':
-                return redirect(url_for('guru'))
-            else:
+            flash(f'Selamat datang, {user.nama}!', 'success')
+
+            # --- PERUBAHAN 2: Modifikasi logika redirect untuk guru ---
+            if hasattr(user, 'user_type') and user.user_type == 'guru':
+                # Cek apakah guru sudah pernah melihat panduan
+                if not user.has_seen_welcome_guide:
+                    # Jika belum, arahkan ke halaman panduan
+                    return redirect(url_for('guru_welcome_guide'))
+                else:
+                    # Jika sudah, arahkan ke dashboard guru seperti biasa
+                    return redirect(url_for('guru'))
+            elif hasattr(user, 'user_type') and user.user_type == 'siswa':
                 return redirect(url_for('DashboardSiswa'))
+            else:
+                flash("Login berhasil, tetapi peran tidak dikenal.", "info")
+                return redirect(url_for('index'))
         else:
             flash("Username atau password salah", "error")
             return redirect(url_for('login'))
-    
+
     return render_template('login.html')
 
 @app.route('/logout')
@@ -475,17 +530,24 @@ def register():
         confirm_password = request.form.get('confirm_password')
         role = request.form.get('role')
         
-        # NEW: Ambil kelas dari form (akan ada di request jika role adalah siswa)
+        # Ambil kelas dari form (akan ada di request jika role adalah siswa)
         kelas = request.form.get('kelas') 
 
+        # Log untuk debugging
+        print(f"Register attempt: Nama={nama}, Username={username}, Email={email}, Role={role}, Kelas={kelas}")
+
         if password != confirm_password:
-            # Render ulang template dengan pesan error dan data yang sudah diisi
-            return render_template('register.html', error="Password tidak sama",
+            flash("Password dan konfirmasi password tidak sama!", "error")
+            return render_template('register.html', 
                                    nama=nama, username=username, email=email, role=role, kelas=kelas)
         
+        # Cek duplikasi berdasarkan peran
         if role == 'guru':
-            if Guru.query.filter_by(username=username).first() or Guru.query.filter_by(email=email).first():
-                return render_template('register.html', error="Username atau email sudah terdaftar",
+            existing_user = Guru.query.filter_by(username=username).first() or \
+                            Guru.query.filter_by(email=email).first()
+            if existing_user:
+                flash("Username atau email sudah terdaftar sebagai Guru.", "error")
+                return render_template('register.html', 
                                        nama=nama, username=username, email=email, role=role, kelas=kelas)
             
             new_user = Guru(
@@ -494,14 +556,23 @@ def register():
                 nama=nama
             )
             new_user.set_password(password)
-        else: # role == 'siswa'
-            if Siswa.query.filter_by(username=username).first() or Siswa.query.filter_by(email=email).first():
-                return render_template('register.html', error="Username atau email sudah terdaftar",
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Registrasi guru berhasil! Silakan login.', 'success')
+            return redirect(url_for('login'))
+        
+        elif role == 'siswa': # role == 'siswa'
+            existing_user = Siswa.query.filter_by(username=username).first() or \
+                            Siswa.query.filter_by(email=email).first()
+            if existing_user:
+                flash("Username atau email sudah terdaftar sebagai Siswa.", "error")
+                return render_template('register.html', 
                                        nama=nama, username=username, email=email, role=role, kelas=kelas)
             
             # Pastikan kelas dipilih untuk siswa
             if not kelas:
-                return render_template('register.html', error="Kelas harus dipilih untuk siswa",
+                flash("Kelas harus dipilih untuk siswa!", "error")
+                return render_template('register.html', 
                                        nama=nama, username=username, email=email, role=role, kelas=kelas)
 
             new_user = Siswa(
@@ -511,18 +582,18 @@ def register():
                 kelas=kelas # Simpan kelas siswa
             )
             new_user.set_password(password)
-        
-        db.session.add(new_user)
-        db.session.commit()
-        
-        if role == 'guru':
-            flash('Registrasi guru berhasil!', 'success')
-            return redirect(url_for('login')) # Arahkan ke halaman login setelah registrasi
-        else:
-            flash('Registrasi siswa berhasil!', 'success')
-            return redirect(url_for('login')) # Arahkan ke halaman login setelah registrasi
-    
-    return render_template('register.html')
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Registrasi siswa berhasil! Silakan login.', 'success')
+            return redirect(url_for('login'))
+        else: # Handle case where role is not 'guru' or 'siswa' (shouldn't happen with proper frontend)
+            flash("Peran registrasi tidak valid.", "error")
+            return render_template('register.html', 
+                                   nama=nama, username=username, email=email, role=role, kelas=kelas)
+            
+    # Untuk permintaan GET, render template register
+    # Peran default di sini bisa 'siswa' agar form siswa langsung muncul
+    return render_template('register.html', role='siswa')
 
 # =========================================
 # TRANSISI level DENGAN PROBABILITAS
@@ -561,6 +632,61 @@ def assign_weight(p: float) -> int:
         return 5
 
 # =========================================
+# FUNGSI KETERANGAN LEVEL
+# =========================================
+def get_level_description(level):
+    """Mengembalikan deskripsi teks untuk level numerik."""
+    descriptions = {
+        1: "Kesadaran Teknologi: Pemahaman dasar tentang konsep dan istilah.",
+        2: "Literasi Teknologi: Mampu menjelaskan konsep dan cara kerjanya.",
+        3: "Aplikasi Dasar: Mampu menerapkan konsep pada masalah sederhana.",
+        4: "Aplikasi Lanjut: Mampu menganalisis dan memecahkan masalah kompleks.",
+        5: "Kemampuan Rendah: Telah menyelesaikan tes dengan penguasaan pada tingkat dasar.",
+        6: "Kemampuan Menengah: Telah menyelesaikan tes dengan penguasaan pada tingkat menengah.",
+        7: "Kemampuan Tinggi: Telah menyelesaikan tes dengan penguasaan pada tingkat mahir.",
+    }
+    return descriptions.get(level, "Level Tidak Dikenal")
+
+def get_level_description_short(level):
+    """Mengembalikan deskripsi singkat untuk level numerik."""
+    descriptions = {
+        1: "Kesadaran Teknologi",
+        2: "Literasi Teknologi",
+        3: "Aplikasi Dasar",
+        4: "Aplikasi Lanjut",
+        5: "Kemampuan Rendah",
+        6: "Kemampuan Menengah",
+        7: "Kemampuan Tinggi",
+    }
+    return descriptions.get(level, "Level Tidak Dikenal")
+
+def get_bloom_taxonomy(level):
+    """Mengembalikan taksonomi Bloom untuk level numerik (format lengkap)."""
+    bloom_mapping = {
+        1: "C1: Mengingat (Remembering)",
+        2: "C2: Memahami (Understanding)", 
+        3: "C3: Menerapkan (Applying)",
+        4: "C4: Menganalisis (Analyzing)",
+        5: "C6: Mencipta (Creating) - Tingkat Dasar",
+        6: "C6: Mencipta (Creating) - Tingkat Menengah",
+        7: "C5: Mengevaluasi (Evaluating)"
+    }
+    return bloom_mapping.get(level, "Tidak Dikenal")
+
+def get_bloom_taxonomy_short(level):
+    """Mengembalikan taksonomi Bloom untuk level numerik (format singkat - hanya C)."""
+    bloom_mapping = {
+        1: "C1",
+        2: "C2", 
+        3: "C3",
+        4: "C4",
+        5: "C6",
+        6: "C6",
+        7: "C5"
+    }
+    return bloom_mapping.get(level, "Tidak Dikenal")
+
+# =========================================
 # FUNGSI EVALUASI JAWABAN
 # =========================================
 def is_answer_correct(user_answer, expected_answer):
@@ -573,39 +699,6 @@ def is_answer_correct(user_answer, expected_answer):
     
     # Untuk pilihan ganda, jawaban harus sama persis (tidak case-sensitive)
     return user_answer == expected_answer
-
-
-# Fungsi untuk evaluasi dengan Gemini
-def evaluate_with_gemini(soal, answer, correct_answer=None, options=None):
-    """
-    Evaluasi jawaban menggunakan Gemini AI untuk pilihan ganda
-    """
-    try:
-        # Jika kita memiliki jawaban yang benar, cukup bandingkan langsung
-        if correct_answer:
-            return answer.lower().strip() == correct_answer.lower().strip()
-            
-        # Jika tidak ada jawaban benar, gunakan AI untuk mengevaluasi
-        eval_prompt = f"""
-        Soal: {soal}
-        Jawaban: "{answer}"
-        Opsi: {", ".join(options) if options else "Tidak tersedia"}
-        
-        Evaluasi apakah jawaban tersebut benar berdasarkan opsi yang tersedia.
-        Hanya balas 'benar' atau 'salah' (tanpa teks lain).
-        """
-        
-        response = model.generate_content(eval_prompt)
-        ai_eval = response.text.strip().lower()
-        
-        return "benar" in ai_eval
-    except Exception as e:
-        print(f"Error evaluasi dengan Gemini: {str(e)}")
-        # Fallback ke perbandingan sederhana jika memiliki jawaban benar
-        if correct_answer:
-            return answer.lower().strip() == correct_answer.lower().strip()
-        return False
-
 
 # =========================================
 # FUNGSI UNTUK CARI DAN TAMBAH KOLOM
@@ -673,15 +766,26 @@ def index():
     return render_template('index.html')
 
 @app.route('/guru')
+@login_required # Tambahkan decorator login_required jika belum ada untuk memastikan user terotentikasi
 def guru():
-    return render_template('guru.html')
+    # Pastikan yang mengakses halaman guru adalah user dengan user_type 'guru'
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        flash("Akses ditolak. Hanya guru yang dapat mengakses halaman ini.", "error")
+        return redirect(url_for('login'))
+    return render_template('guru/Dashboard_guru.html')
 
 @app.route('/DashboardSiswa')
+@login_required # Tambahkan decorator login_required jika belum ada
 def DashboardSiswa():
-    return render_template('DashboardSiswa.html')
+    # Pastikan yang mengakses halaman DashboardSiswa adalah user dengan user_type 'siswa'
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'siswa':
+        flash("Akses ditolak. Hanya siswa yang dapat mengakses halaman ini.", "error")
+        return redirect(url_for('login'))
+    return render_template('siswa/Dashboard_siswa.html')
+
 @app.route('/qna')
 def qna():
-    return render_template('qna.html')
+    return render_template('siswa/qna_siswa.html')
 
 # =========================================
 # RESULTS PAGE
@@ -1365,12 +1469,10 @@ def get_question_analysis():
                 stats["accuracy"] = round((stats["correct"] / stats["total"] * 100), 2) if stats["total"] > 0 else 0
                 
             question_stats.append({
-                "id": question.id,
                 "level": question.level,
                 "soal": question.soal,
                 "options": json.loads(question.options) if question.options else [],
                 "jawaban_benar": question.jawaban_benar,
-                "p": question.p,
                 "bobot": question.bobot,
                 "total_answers": total_answers,
                 "correct_answers": correct_answers,
@@ -1541,7 +1643,7 @@ def results():
         
         if not user_result:
             # Create a new result record if none exists
-            return render_template('result.html', 
+            return render_template('siswa/result.html', 
                                 correct=0, 
                                 incorrect=0, 
                                 current_level=1,
@@ -1592,7 +1694,7 @@ def results():
         # Calculate average answer time (if needed)
         avg_time = "N/A"  # Implement logic here if you want to track this
         
-        return render_template('result.html', 
+        return render_template('siswa/result.html', 
                               correct=user_result.correct, 
                               incorrect=user_result.incorrect,
                               current_level=user_result.current_level,
@@ -1682,7 +1784,7 @@ def collection_analytics(collection_id):
         flash('Anda tidak memiliki akses ke analisis koleksi ini', 'error')
         return redirect(url_for('guru'))
     
-    return render_template('collection-analytics.html', collection_id=collection_id)
+    return render_template('guru/collection-analytics.html', collection_id=collection_id)
 
 # Add these endpoints to your Flask app
 
@@ -1770,22 +1872,11 @@ def get_collection(collection_id):
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload_file():
-    # Debug information
-    print(f"Current user: {current_user}, authenticated: {current_user.is_authenticated}")
-    print(f"User attributes: {dir(current_user)}")
-    
-    # Check if user is authenticated
-    if not current_user.is_authenticated:
-        print("User not authenticated, redirecting to login")
-        return jsonify({"message": "Anda harus login terlebih dahulu"}), 401
-    
-    # Dari kode model Guru yang Anda berikan, seharusnya menggunakan user_type atau class name
-    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
-        print(f"User {current_user.username} is not a teacher")
+    if not current_user.is_authenticated or not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        print(f"User {current_user.username} is not a teacher or not authenticated.")
         return jsonify({"message": "Hanya guru yang dapat menggenerate soal"}), 403
-        
-    # Tambahan logging untuk debug
-    print("Upload file endpoint called")
+
+    print("Upload file endpoint called by teacher:", current_user.username)
     
     if 'file' not in request.files:
         return jsonify({"message": "Tidak ada file yang diunggah"}), 400
@@ -1798,108 +1889,74 @@ def upload_file():
     if file_ext not in ['doc', 'docx', 'pdf']:
         return jsonify({"message": "Format file tidak didukung. Hanya file .doc, .docx, dan .pdf yang diizinkan"}), 400
 
-    # Create upload folder if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
     file.save(file_path)
     print(f"File disimpan di {file_path}")
 
+    content_text = ""
     try:
-        # Extract text from document based on file type
         if file_ext == 'pdf':
             content_text = extract_text_from_pdf(file_path)
         elif file_ext in ['doc', 'docx']:
             content_text = extract_text_from_docx(file_path)
-        else:
-            return jsonify({"message": "Format file tidak didukung"}), 400
-            
-        print(f"Berhasil mengekstrak teks dari file {file.filename}")
         
-        # Create dataframe from extracted text - Use the improved function
-        df = convert_text_to_dataframe_improved(content_text)
-        
-        if df.empty:
-            # Fallback to simple content dataframe if we couldn't extract tabular data
-            df = pd.DataFrame({
-                'content': [content_text],
-                'length': [len(content_text)]
-            })
-            print("Menggunakan dataframe sederhana karena tidak dapat mengekstrak data tabular")
-            
-        print(f"Berhasil membuat dataframe dengan {len(df)} baris")
-        
-        # Extract key educational components from the document content
-        # Modified to handle only 3 return values instead of 5
         educational_components = extract_educational_components(content_text)
-        if len(educational_components) == 3:
-            module_elements, initial_competencies, learning_objectives = educational_components
-            pemahaman_bermakna = "Tidak tersedia"
-            target_peserta_didik = "Tidak tersedia"
-        else:
-            module_elements, initial_competencies, learning_objectives, pemahaman_bermakna, target_peserta_didik = educational_components
+        module_elements, initial_competencies, learning_objectives, pemahaman_bermakna, target_peserta_didik = educational_components
+
+        if module_elements == "Tidak tersedia" or learning_objectives == "Tidak tersedia":
+            print("Validasi gagal: Komponen esensial (Modul Ajar/Tujuan Pembelajaran) tidak ditemukan.")
+            return jsonify({
+                "message": "File gagal diproses. Pastikan file yang diunggah adalah Modul Ajar yang valid dan mengandung kata kunci seperti 'Modul Ajar', 'Elemen Ajar', atau 'Tujuan Pembelajaran' agar soal dapat dibuat."
+            }), 400 
+
+        print("Validasi konten berhasil. Komponen esensial ditemukan.")
+            
+        df = convert_text_to_dataframe_improved(content_text)
+        if df.empty:
+            df = pd.DataFrame({'content': [content_text], 'length': [len(content_text)]})
+            print("Menggunakan dataframe sederhana karena tidak dapat mengekstrak data tabular.")
+            
+        print("Berhasil mengekstrak komponen pembelajaran.")
         
-        print("Berhasil mengekstrak komponen pembelajaran:")
-        print(f"- Modul/Elemen Ajar: {module_elements[:100]}...")
-        print(f"- Kompetensi Awal: {initial_competencies[:300]}...")
-        print(f"- Tujuan Pembelajaran: {learning_objectives[:300]}...")
-        print(f"- Pemahaman Bermakna: {pemahaman_bermakna[:100]}...")
-        print(f"- Target Peserta Didik: {target_peserta_didik[:100]}...")
-        
-    except ValueError as e:
-        if "not enough values to unpack" in str(e):
-            print("Warning: extract_educational_components() returned fewer values than expected")
-            # Handle case where only 3 values are returned
-            educational_components = extract_educational_components(content_text)
-            module_elements, initial_competencies, learning_objectives = educational_components
-            pemahaman_bermakna = "Tidak tersedia"
-            target_peserta_didik = "Tidak tersedia"
-        else:
-            print(f"Error membaca file: {str(e)}")
-            return jsonify({"message": f"Error membaca file: {str(e)}"}), 500
     except Exception as e:
-        print(f"Error membaca file: {str(e)}")
-        return jsonify({"message": f"Error membaca file: {str(e)}"}), 500
+        print(f"Error membaca atau memproses file: {str(e)}")
+        return jsonify({"message": f"Error membaca atau memproses file: {str(e)}"}), 500
 
-    # Rest of your code remains the same...
     explanation_text = """
-    **Indeks Kesulitan Item untuk Diagnosis Kognitif**
-    Indeks kesulitan item sangat penting dalam menilai kemampuan kognitif individu di berbagai domain. Hal ini penting untuk mendapatkan pemahaman mendalam tentang kekuatan dan kelemahan kognitif individu.
-    Kesulitan item dalam diagnosis kognitif menggambarkan seberapa menantang item tes tertentu terhadap konstruk kognitif yang dievaluasi. Tingkat kesulitan ini diukur dengan indeks kesulitan item, yang menghitung persentase peserta tes yang menjawab item dengan benar.
-    Indeks kesulitan item yang tinggi menunjukkan bahwa item tersebut relatif mudah, karena sebagian besar peserta ujian menjawabnya dengan benar. Sebaliknya, indeks yang rendah menunjukkan bahwa item tersebut lebih sulit, karena lebih sedikit peserta yang memberikan jawaban yang benar.
-    Menganalisis skor indeks kesulitan item di beberapa item tes dapat digunakan untuk menyesuaikan strategi intervensi, merancang program pelatihan yang ditargetkan, dan memberikan dukungan pembelajaran yang dipersonalisasi kepada individu berdasarkan profil kognitif spesifik mereka.
-    Selain itu, hal ini juga memastikan bahwa item tes secara akurat mengukur konstruk kognitif yang dimaksud dan bahwa instrumen penilaian secara keseluruhan memberikan hasil yang valid dan andal.
+        **Indeks Kesulitan Item untuk Diagnosis Kognitif**
+        Indeks kesulitan item sangat penting dalam menilai kemampuan kognitif individu di berbagai domain. Hal ini penting untuk mendapatkan pemahaman mendalam tentang kekuatan dan kelemahan kognitif individu.
+        Kesulitan item dalam diagnosis kognitif menggambarkan seberapa menantang item tes tertentu terhadap konstruk kognitif yang dievaluasi. Tingkat kesulitan ini diukur dengan indeks kesulitan item, yang menghitung persentase peserta tes yang menjawab item dengan benar.
+        Indeks kesulitan item yang tinggi menunjukkan bahwa item tersebut relatif mudah, karena sebagian besar peserta ujian menjawabnya dengan benar. Sebaliknya, indeks yang rendah menunjukkan bahwa item tersebut lebih sulit, karena lebih sedikit peserta yang memberikan jawaban yang benar.
+        Menganalisis skor indeks kesulitan item di beberapa item tes dapat digunakan untuk menyesuaikan strategi intervensi, merancang program pelatihan yang ditargetkan, dan memberikan dukungan pembelajaran yang dipersonalisasi kepada individu berdasarkan profil kognitif spesifik mereka.
+        Selain itu, hal ini juga memastikan bahwa item tes secara akurat mengukur konstruk kognitif yang dimaksud dan bahwa instrumen penilaian secara keseluruhan memberikan hasil yang valid dan andal.
         
-    **Membuat Sesi Multi-Tahap Berdasarkan Taksonomi Kompetensi Teknologi**
-    Dalam membuat soal untuk sesi multi-tahap, gunakan taksonomi kompetensi teknologi berikut sebagai panduan untuk menentukan tipe dan tingkat kesulitan soal pada setiap level:
-    
-    **Tabel 1.1: Taksonomi Kompetensi Teknologi** *(Setelah Todd, 1991, hlm. 271)*
-    | Tingkat | Kompetensi | Jenis Pengetahuan | Hasil Pembelajaran |
-    |---------|------------|-------------------|-------------------|
-    | 1 | Kesadaran Teknologi | *knowledge that* | Pemahaman dasar tentang konsep dan istilah teknologi |
-    | 2 | Literasi Teknologi | *knowledge that* | Komprehensi dan kemampuan menjelaskan konsep teknologi |
-    | 3 | Kemampuan Teknologi | *knowledge that* dan *how* | Aplikasi pengetahuan dalam konteks praktis |
-    | 4 | Kreativitas Teknologi | *knowledge that* dan *how* | Invensi dan pengembangan solusi teknologi |
-    | 5 | Kritik Teknologi | *knowledge that*, *how*, dan *why* | Penilaian kritis dan evaluasi mendalam |
-    
-    Setiap tingkat pada taksonomi ini sesuai dengan level pada sesi multi-tahap dan menentukan karakteristik soal yang harus dibuat.
-    """
+        **Membuat Sesi Multi-Tahap Berdasarkan Taksonomi Kompetensi Teknologi**
+        Dalam membuat soal untuk sesi multi-tahap, gunakan taksonomi kompetensi teknologi berikut sebagai panduan untuk menentukan tipe dan tingkat kesulitan soal pada setiap level:
+        
+        **Tabel 1.1: Taksonomi Kompetensi Teknologi** *(Setelah Todd, 1991, hlm. 271)*
+        | Tingkat | Kompetensi | Jenis Pengetahuan | Hasil Pembelajaran |
+        |---------|------------|-------------------|-------------------|
+        | 1 | Kesadaran Teknologi | *knowledge that* | Pemahaman dasar tentang konsep dan istilah teknologi |
+        | 2 | Literasi Teknologi | *knowledge that* | Komprehensi dan kemampuan menjelaskan konsep teknologi |
+        | 3 | Kemampuan Teknologi | *knowledge that* dan *how* | Aplikasi pengetahuan dalam konteks praktis |
+        | 4 | Kreativitas Teknologi | *knowledge that* dan *how* | Invensi dan pengembangan solusi teknologi |
+        | 5 | Kritik Teknologi | *knowledge that*, *how*, dan *why* | Penilaian kritis dan evaluasi mendalam |
+        
+        Setiap tingkat pada taksonomi ini sesuai dengan level pada sesi multi-tahap dan menentukan karakteristik soal yang harus dibuat.
+        """
 
-    # Modified prompt to generate universal questions without specific ID references
-    # Now includes specific educational component analysis and multiple-choice format
     prompt = f"""
-    Berikut adalah data (katalog) siswa dalam tabel:
+    Anda adalah seorang ahli pembuat soal asesmen diagnostik yang bertugas membantu guru untuk membuat soal yang akan diberikan pada siswa SMA X. Soal dibuat berdasarkan Tujuan Pembelajaran yg diunggah dalam Modul Ajar.
 
-    {df.to_string(index=False)}
-    
-    Berdasarkan analisis dokumen yang diunggah, berikut adalah komponen pembelajaran yang telah diidentifikasi:
-    
+    ANALISIS MODUL AJAR:
+    ========================================
     MODUL/ELEMEN AJAR:
     {module_elements}
-    
+
     KOMPETENSI AWAL:
     {initial_competencies}
-    
+
     TUJUAN PEMBELAJARAN:
     {learning_objectives}
 
@@ -1908,94 +1965,105 @@ def upload_file():
 
     TARGET PESERTA DIDIK:
     {target_peserta_didik}
-    
+
+    DATA SISWA:
+    {df.to_string(index=False)}
+    ========================================
+
     {explanation_text}
 
-    Silakan buat 5 soal PILIHAN GANDA untuk SETIAP level dalam multi-stage session berdasarkan materi pembelajaran di atas:
-    level 1 -> level 2
-    level 2 -> Jika benar menjawab maka di bawa ke level 4 atau jika salah menjawab akan dibawa ke level 3
-    level 4 -> Jika benar menjawab maka di bawa ke level 7 atau jika salah menjawab akan dibawa ke level 6
-    level 3 -> Jika benar menjawab maka di bawa ke level 6 atau jika salah menjawab akan dibawa ke level 5
-    level 5, 6, 7 = final
+    INSTRUKSI PEMBUATAN SOAL:
+    ========================================
 
+    Berdasarkan analisis modul ajar di atas, buatlah soal pilihan ganda untuk sistem multi-stage dengan alur:
 
-    PENERAPAN TAKSONOMI KOMPETENSI TEKNOLOGI PADA SOAL:
-    1. level 1 (STAGE I) - KESADARAN TEKNOLOGI (Pemahaman)
-       * Buat soal yang menguji pemahaman dasar konsep dan istilah teknologi
-       * Fokus pada "knowledge that" - pengetahuan deklaratif tentang fakta-fakta dasar
-       * Contoh kata kerja operasional: mengenali, mengidentifikasi, menyebutkan
-       * Tingkat kesulitan: Sangat mudah (p = 0.95)
-    
-    2. level 2 (STAGE II) - LITERASI TEKNOLOGI (Komprehensi)
-       * Buat soal yang menguji kemampuan menjelaskan konsep teknologi
-       * Tetap fokus pada "knowledge that" tetapi lebih mendalam
-       * Contoh kata kerja operasional: menjelaskan, membandingkan, mengklasifikasi
-       * Tingkat kesulitan: Mudah (p = 0.90)
-    
-    3-4. level 3-4 (STAGE III) - KEMAMPUAN TEKNOLOGI (Aplikasi)
-       * level 3: Soal aplikasi tingkat dasar untuk peserta kemampuan rendah-menengah
-       * level 4: Soal aplikasi tingkat lanjut untuk peserta kemampuan menengah-tinggi
-       * Gabungkan "knowledge that" dan "knowledge how" - pengetahuan prosedural
-       * Contoh kata kerja operasional: menerapkan, menggunakan, mendemonstrasikan
-       * Tingkat kesulitan level 3: p = 0.75 (sedang)
-       * Tingkat kesulitan level 4: p = 0.67 (sedang-sulit)
-    
-    5-6-7. level 5-6-7 (STAGE IV) - PENILAIAN AKHIR
-       * level 5: Untuk peserta kemampuan rendah (dari level 3)
-           - Fokus pada kreativitas teknologi dasar
-           - Tingkat kesulitan: p = 0.20
-       * level 6: Untuk peserta kemampuan menengah (dari level 3 atau 4)
-           - Fokus pada kreativitas teknologi menengah
-           - Tingkat kesulitan: p = 0.17
-       * level 7: Untuk peserta kemampuan tinggi (dari level 4)
-           - Fokus pada kritik teknologi dan evaluasi mendalam
-           - Tingkat kesulitan: p = 0.15
-    
-    PENTING:
-    1. Buatlah pertanyaan PILIHAN GANDA dengan 4 opsi jawaban (A, B, C, D)
-    2. Pertanyaan harus berkaitan langsung dengan elemen ajar, kompetensi awal, dan tujuan pembelajaran yang telah diidentifikasi
-    3. Soal pada level 1 sebaiknya berkaitan dengan kompetensi awal (pengetahuan dasar)
-    4. Soal pada level terakhir (5, 6, 7) sebaiknya berkaitan dengan tujuan pembelajaran (tingkat pemahaman tinggi)
-    5. Pertanyaan sebaiknya tidak menyebutkan ID atau nomor urut spesifik dari dataset
-    6. Rumuskan pertanyaan yang berfokus pada pemahaman konsep umum, prinsip, dan penerapan
-    7. Pastikan setiap soal memiliki 4 pilihan jawaban (bukan essay)
+    ALUR MULTI-STAGE:
+    Level 1 → Level 2
+    Level 2 → Jika BENAR ke Level 4, jika SALAH ke Level 3
+    Level 3 → Jika BENAR ke Level 6, jika SALAH ke Level 5
+    Level 4 → Jika BENAR ke Level 7, jika SALAH ke Level 6
+    Level 5, 6, 7 = Level Final
 
-    Berikan respon HANYA dalam format JSON array berikut tanpa komentar atau teks tambahan. Pastikan format JSON valid:
+    SPESIFIKASI SOAL PER LEVEL:
+
+    LEVEL 1 (KESADARAN TEKNOLOGI - p=0.95):
+    - Fokus: Konsep dan istilah dasar dari MODUL/ELEMEN AJAR
+    - Materi: Ambil dari elemen ajar yang paling fundamental
+    - Hubungkan dengan PEMAHAMAN BERMAKNA
+    - Hindari penggunaan kata MODUL pada soalnya
+    - Kata kerja: mengenali, mengidentifikasi, menyebutkan
+    - Contoh: "Apa yang dimaksud dengan [konsep dasar dari modul]?"
+
+    LEVEL 2 (LITERASI TEKNOLOGI - p=0.90):
+    - Fokus: Pemahaman konsep dari KOMPETENSI AWAL
+    - Materi: Elaborasi konsep yang sudah dikenali di level 1
+    - Hubungkan dengan PEMAHAMAN BERMAKNA
+    - Hindari penggunaan kata Siswa pada soalnya
+    - Kata kerja: menjelaskan, membandingkan, mengklasifikasi
+    - Contoh: "Bagaimana cara kerja [konsep dari modul] dalam konteks nyata?"
+
+    LEVEL 3 (APLIKASI DASAR - p=0.75):
+    - Fokus: Penerapan sederhana dari materi modul
+    - Materi: Aplikasi konsep untuk siswa kemampuan rendah-menengah
+    - Kata kerja: menerapkan, menggunakan, mendemonstrasikan
+    - Hubungkan dengan PEMAHAMAN BERMAKNA
+    - Hubungkan dengan TARGET PESERTA DIDIK
+
+    LEVEL 4 (APLIKASI LANJUT - p=0.67):
+    - Fokus: Penerapan kompleks dari materi modul
+    - Materi: Aplikasi konsep untuk siswa kemampuan menengah-tinggi
+    - Kata kerja: menganalisis, memecahkan masalah
+    - Hubungkan dengan PEMAHAMAN BERMAKNA
+    - Hubungkan dengan TUJUAN PEMBELAJARAN
+
+    LEVEL 5 (FINAL - KEMAMPUAN RENDAH - p=0.20):
+    - Fokus: Kreativitas teknologi dasar dari materi modul
+    - Materi: Inovasi sederhana berdasarkan PEMAHAMAN BERMAKNA
+    - Kata kerja: merancang, mengembangkan (level dasar)
+
+    LEVEL 6 (FINAL - KEMAMPUAN MENENGAH - p=0.17):
+    - Fokus: Kreativitas teknologi menengah dari materi modul
+    - Materi: Sintesis konsep untuk solusi praktis
+    - Kata kerja: mengintegrasikan, menciptakan solusi
+    - Hubungkan dengan PEMAHAMAN BERMAKNA
+
+    LEVEL 7 (FINAL - KEMAMPUAN TINGGI - p=0.15):
+    - Fokus: Kritik dan evaluasi mendalam dari TUJUAN PEMBELAJARAN
+    - Materi: Penilaian kritis terhadap implementasi konsep modul
+    - Kata kerja: mengevaluasi, mengkritisi, merefleksikan
+    - Hubungkan dengan PEMAHAMAN BERMAKNA
+
+    ATURAN WAJIB:
+    - Setiap soal HARUS merujuk langsung pada konten modul ajar yang dianalisis.
+    - **Konten Soal**: Jangan menyebutkan frasa seperti "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Pemahaman Bermakna", atau "Target Peserta Didik" secara eksplisit di dalam teks soal atau pilihan jawaban. Fokus pada *isi* dari bagian-bagian tersebut, bukan *nama* bagiannya.
+    - Gunakan terminologi dan konsep spesifik dari modul/elemen ajar.
+    - Soal level 1-2 berbasis pada KOMPETENSI AWAL.
+    - Soal level 5-7 berbasis pada TUJUAN PEMBELAJARAN.
+    - Konteks soal disesuaikan dengan TARGET PESERTA DIDIK.
+    - 4 pilihan jawaban (A, B, C, D) untuk setiap soal.
+    - **Panjang Opsi Jawaban**: Buat semua opsi jawaban (A, B, C, D) sesingkat mungkin, idealnya tidak lebih dari 15 kata per opsi. Hindari membuat opsi pengecoh yang terlalu panjang dan berbelit-belit.
+    - **Variasi Kunci Jawaban**: Posisikan jawaban yang benar secara acak. Sangat penting bahwa **jawaban yang benar tidak selalu menjadi opsi yang paling panjang atau paling detail**. Variasikan panjang kalimat jawaban benar (kadang pendek, kadang sedang).
+    - Hindari penggunaan ID atau nomor urut spesifik.
+    - Bahasa mudah dipahami sesuai jenjang siswa kelas X.
+
+    FORMAT OUTPUT - JSON ARRAY:
     [
-      {{
-        "level": (sesuaikan level yang akan dibuat),
+    {{
+        "level": 1,
         "question_type": "multiple_choice",
-        "soal": "Pertanyaan universal tentang konsep, bukan tentang ID tertentu",
+        "soal": "Pertanyaan berdasarkan elemen ajar spesifik...",
         "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
         "jawaban_benar": "Opsi A",
-        "p": (sesuaikan tingkat kesulitanya sesuai level yang akan dibuat),
-        "explanation": "penjelasan singkat"
-      }},
-      {{
-        "level": (sesuaikan level yang akan dibuat),
-        "question_type": "multiple_choice",
-        "soal": "Pertanyaan yang tidak mengandung ID atau nomor urut spesifik",
-        "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-        "jawaban_benar": "Opsi C",
-        "p": (sesuaikan tingkat kesulitanya sesuai level yang akan dibuat),
-        "explanation": "penjelasan singkat mengapa C adalah jawaban yang benar"
-      }},
-      ...dan seterusnya
+        "p": 0.95,
+        "explanation": "Penjelasan mengapa jawaban benar dan kaitannya dengan modul ajar",
+        "modul_reference": "Bagian spesifik modul yang dirujuk"
+    }},
+    ...dst
     ]
-        
-    Buat total 35 soal: 5 soal untuk setiap level (level=1..7).
-    Setiap pertanyaan harus memiliki 4 pilihan jawaban dan 1 jawaban benar.
-   
-    Fokuskan soal berdasarkan tingkat kognitif:
-    - level 1: Tingkat pengetahuan (knowledge) - mengingat, mengenali
-    - level 2: Tingkat pemahaman (comprehension) - memahami, menjelaskan
-    - level 3-4: Tingkat penerapan (application) - menerapkan, menggunakan
-    - level 5-6: Tingkat analisis (analysis) - menganalisis, membandingkan
-    - level 7: Tingkat evaluasi dan sintesis (evaluation & synthesis) - mengevaluasi, menciptakan
 
-    Buatkan soal yang sesuai dengan taksonomi kompetensi teknologi yang telah diberikan.
-    Pastikan untuk tidak menyertakan ID atau nomor urut spesifik dari dataset dalam soal.
-    buatkan soalnya dalam bahasa yang mudah dipahami oleh siswa.
+    TARGET: 35 soal total (5 soal per level)
+
+    PENTING: Pastikan setiap soal memiliki kaitan langsung dan eksplisit dengan konten modul ajar yang dianalisis. Jangan membuat soal generik!
     """
 
     try:
@@ -2003,21 +2071,18 @@ def upload_file():
         response = model.generate_content(prompt)
         raw_text = response.text.strip()
         
-        # Debug: Print raw AI response for troubleshooting
-        print("Raw AI response:", raw_text)
+        print("Raw AI response:", raw_text[:500])
         
-        # Improved JSON extraction approach
+        gen_questions = []
         try:
-            # First attempt: Clean any markdown code block formatting
-            cleaned_text = re.sub(r'```json|```', '', raw_text).strip()  # Fixed regex pattern
+            cleaned_text = re.sub(r'```json|```', '', raw_text).strip()
             cleaned_text = re.sub(r',\s*([}\]])', r'\1', cleaned_text)
             gen_questions = json.loads(cleaned_text)
             print("Berhasil parsing JSON setelah membersihkan markdown")
         except json.JSONDecodeError:
-            print("Parsing JSON setelah membersihkan markdown gagal, mencoba metode lain")
+            print("Parsing JSON setelah membersihkan markdown gagal, mencoba metode lain.")
             
-            # Second attempt: Try to extract JSON array with regex
-            match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)  # Fixed regex pattern
+            match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)
             if match:
                 try:
                     json_text = match.group()
@@ -2029,7 +2094,6 @@ def upload_file():
                     print(f"Error decode JSON setelah regex: {str(e)}")
                     return jsonify({"message": f"Error parsing JSON soal: {str(e)}"}), 500
             else:
-                # Third attempt: Find the outermost square brackets
                 print("Ekstraksi regex gagal, mencoba dengan bracket matching")
                 open_bracket = raw_text.find('[')
                 close_bracket = raw_text.rfind(']')
@@ -2037,15 +2101,12 @@ def upload_file():
                 if open_bracket >= 0 and close_bracket > open_bracket:
                     try:
                         json_text = raw_text[open_bracket:close_bracket+1]
-                        print(f"Ekstraksi JSON dengan indeks kurung: {json_text[:100]}...")
                         json_text = re.sub(r',\s*([}\]])', r'\1', json_text)
                         gen_questions = json.loads(json_text)
                         print("Berhasil parsing JSON dari ekstraksi kurung")
                     except json.JSONDecodeError as e:
                         print(f"Error decode JSON setelah ekstraksi kurung: {str(e)}")
-                        # Final attempt: Try with more extensive cleaning
-                        cleaned_text = re.sub(r'```json|```|\n|\\n|\\\"', '', json_text)  # Fixed regex pattern
-                        # Fix potential trailing commas which are invalid in JSON
+                        cleaned_text = re.sub(r'```json|```|\n|\\n|\\\"', '', json_text)
                         cleaned_text = re.sub(r',\s*\}', '}', cleaned_text)
                         cleaned_text = re.sub(r',\s*\]', ']', cleaned_text)
                         
@@ -2059,68 +2120,54 @@ def upload_file():
                     print("Tidak dapat menemukan array JSON dalam respons")
                     return jsonify({"message": "Tidak dapat menemukan format JSON dalam respons AI"}), 500
 
-        # Validasi struktur data yang diterima
         if not isinstance(gen_questions, list):
             print(f"Diharapkan list, tapi dapat {type(gen_questions)}")
             return jsonify({"message": "AI tidak mengembalikan array soal yang valid"}), 500
             
         print(f"Berhasil mengekstrak {len(gen_questions)} soal")
         
-        # Validasi jumlah soal
-        # Idealnya harus ada 35 soal (5 per level), tapi kita bisa menerima jumlah yang berbeda
-        if len(gen_questions) < 7:  # Minimal harus ada 1 soal per level
+        if len(gen_questions) < 7:
             print(f"Jumlah soal tidak mencukupi: {len(gen_questions)}")
             return jsonify({"message": f"AI hanya menghasilkan {len(gen_questions)} soal, minimal diperlukan 7 soal"}), 500
 
-        # Hapus soal lama dan data terkait
-        print("Menghapus data terkait dari database")
+        print(f"Menghapus soal lama yang tidak dalam koleksi dan dimiliki oleh guru_id {current_user.id}...")
         try:
-            # BAGIAN YANG DIMODIFIKASI - MULAI
-            # Dapatkan daftar ID soal yang ada dalam koleksi (yang harus dipertahankan)
-            preserved_question_ids = db.session.query(CollectionQuestion.question_id).distinct().all()
-            preserved_question_ids = [id[0] for id in preserved_question_ids]
+            preserved_question_ids_in_collections = db.session.query(CollectionQuestion.question_id).join(
+                Question, Question.id == CollectionQuestion.question_id
+            ).filter(
+                Question.guru_id == current_user.id
+            ).distinct().all()
+            preserved_question_ids_in_collections = [id[0] for id in preserved_question_ids_in_collections]
             
-            if preserved_question_ids:
-                print(f"Mempertahankan {len(preserved_question_ids)} soal dalam koleksi")
-            
-            # Pertama, hapus semua jawaban pengguna yang tidak terkait dengan soal dalam koleksi
-            print("Menghapus jawaban pengguna...")
-            if preserved_question_ids:
-                # Hapus jawaban siswa hanya untuk soal yang tidak dalam koleksi
-                SiswaAnswer.query.filter(~SiswaAnswer.question_id.in_(preserved_question_ids)).delete(synchronize_session=False)
-            else:
-                # Jika tidak ada soal yang dipertahankan, hapus semua jawaban
-                SiswaAnswer.query.delete()
+            siswa_answers_to_delete_q_ids = db.session.query(Question.id).filter(
+                Question.guru_id == current_user.id,
+                ~Question.id.in_(preserved_question_ids_in_collections)
+            ).subquery()
+
+            SiswaAnswer.query.filter(
+                SiswaAnswer.question_id.in_(siswa_answers_to_delete_q_ids)
+            ).delete(synchronize_session=False)
+            db.session.commit()
+            print(f"Jumlah jawaban siswa yang dihapus: {SiswaAnswer.query.filter(SiswaAnswer.question_id.in_(siswa_answers_to_delete_q_ids)).count()}")
+
+            Question.query.filter(
+                Question.guru_id == current_user.id,
+                ~Question.id.in_(preserved_question_ids_in_collections)
+            ).delete(synchronize_session=False)
             db.session.commit()
             
-            # Kedua, reset current_level semua user ke level 1
-            print("Mengatur ulang level pengguna...")
-            SiswaResult.query.update({SiswaResult.current_level: 1})
-            db.session.commit()
-            
-            # Terakhir, hapus semua soal yang tidak dalam koleksi
-            print("Menghapus soal yang tidak dalam koleksi...")
-            if preserved_question_ids:
-                # Hapus soal yang tidak ada dalam koleksi
-                Question.query.filter(~Question.id.in_(preserved_question_ids)).delete(synchronize_session=False)
-            else:
-                # Jika tidak ada soal yang dipertahankan, hapus semua soal
-                Question.query.delete()
-            db.session.commit()
-            
-            if preserved_question_ids:
-                print(f"Data lama berhasil dihapus, {len(preserved_question_ids)} soal dalam koleksi dipertahankan")
-            else:
-                print("Data lama berhasil dihapus")
-            # BAGIAN YANG DIMODIFIKASI - SELESAI
+            print(f"Soal pribadi guru {current_user.id} yang tidak terkoleksi dan jawabannya berhasil dihapus.")
             
         except Exception as e:
-            print(f"Error menghapus data lama: {str(e)}")
             db.session.rollback()
+            print(f"Error menghapus data lama: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return jsonify({"message": f"Error menghapus data lama: {str(e)}"}), 500
-        
+            
         # Simpan soal baru ke database
-        print("Menyimpan soal baru ke database")
+        print("Menyimpan soal baru ke database untuk guru:", current_user.username)
+        new_questions_from_db = [] # Daftar untuk menampung objek soal baru
         for q in gen_questions:
             try:
                 level_num = int(q.get("level"))
@@ -2135,7 +2182,7 @@ def upload_file():
                     question_type = q.get('question_type', 'multiple_choice')
                     
                     new_question = Question(
-                        guru_id=current_user.id,  # This is crucial
+                        guru_id=current_user.id,
                         level=level_num,
                         soal=q.get("soal"),
                         jawaban_benar=q.get("jawaban_benar", ""),
@@ -2146,39 +2193,65 @@ def upload_file():
                         explanation=q.get("explanation", "")
                     )
                     db.session.add(new_question)
+                    new_questions_from_db.append(new_question) # Tambahkan objek ke daftar
             except Exception as e:
-                print(f"Error memproses soal: {str(e)}")
                 db.session.rollback()
+                print(f"Error memproses soal: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 return jsonify({"message": f"Error memproses soal: {str(e)}"}), 500
-        
-        # Commit semua perubahan ke database
+            
         db.session.commit()
-        print("Database commit berhasil")
+        print("Database commit berhasil: soal baru tersimpan.")
 
-        # Hitung jumlah soal per level untuk pelaporan
+        # Buat data respons dari objek yang baru disimpan, yang sekarang memiliki ID
+        questions_for_frontend = []
+        for q_db in new_questions_from_db:
+            options = []
+            if q_db.options:
+                try:
+                    options = json.loads(q_db.options)
+                except json.JSONDecodeError:
+                    pass
+            questions_for_frontend.append({
+                "id": q_db.id, # ID dari database disertakan di sini
+                "guru_id": q_db.guru_id,
+                "collection_id": q_db.collection_id,
+                "level": q_db.level,
+                "soal": q_db.soal,
+                "jawaban_benar": q_db.jawaban_benar,
+                "options": options,
+                "question_type": q_db.question_type,
+                "p": float(q_db.p),
+                "bobot": q_db.bobot,
+                "explanation": q_db.explanation,
+                "created_at": q_db.created_at.isoformat() if q_db.created_at else None,
+                "version": q_db.version,
+                "is_current": q_db.is_current,
+                "is_validated": q_db.is_validated
+            })
+
         level_counts = {}
-        for q in gen_questions:
+        for q in questions_for_frontend:
             level = int(q.get("level"))
-            if level in level_counts:
-                level_counts[level] += 1
-            else:
-                level_counts[level] = 1
+            level_counts[level] = level_counts.get(level, 0) + 1
                 
         level_summary = ", ".join([f"level {level}: {count} soal" for level, count in sorted(level_counts.items())])
 
-        # BAGIAN YANG DIMODIFIKASI - TAMBAHAN MESSAGE
-        message = f"Total {len(gen_questions)} soal pilihan ganda berhasil digenerate dan disimpan ({level_summary})"
-        if preserved_question_ids:
-            message += f", dengan mempertahankan {len(preserved_question_ids)} soal yang ada dalam koleksi"
+        message = f"Total {len(questions_for_frontend)} soal pilihan ganda berhasil digenerate dan disimpan ({level_summary})"
+        if preserved_question_ids_in_collections:
+            message += f", dengan mempertahankan {len(preserved_question_ids_in_collections)} soal yang ada dalam koleksi."
 
         return jsonify({
-            "message": message, 
-            "data": gen_questions
+            "message": message,  
+            "data": questions_for_frontend # Kirim data baru yang sudah lengkap dengan ID
         }), 200
 
     except Exception as e:
         print(f"Exception in upload_file: {str(e)}")
         db.session.rollback()
+        import traceback
+        traceback.print_exc()
         return jsonify({"message": f"AI error: {str(e)}"}), 500
 
 # New function to extract educational components from document content
@@ -2375,21 +2448,402 @@ def clean_extracted_text(text):
     # Add line breaks for readability in the prompt
     text = re.sub(r'([.!?])\s+', r'\1\n', text)
     return text.strip()
-
 # Function to extract text from a PDF file
 def extract_text_from_pdf(file_path):
     """Extract text from a PDF file"""
     text = ""
     try:
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            for page_num in range(len(pdf_reader.pages)):
-                page = pdf_reader.pages[page_num]
-                text += page.extract_text() + "\n"
+        with open(file_path, 'rb') as f:
+            pdf_reader = PyPDF2.PdfReader(f)
+            for page in pdf_reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
         return text
     except Exception as e:
         print(f"Error extracting text from PDF: {str(e)}")
         raise
+
+
+# Function to extract text from a Word document (.docx)
+def extract_text_from_docx(file_path):
+    """Extract text from a Word document (.docx)"""
+    try:
+        doc = Document(file_path)
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+
+        # Also extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = []
+                for cell in row.cells:
+                    row_text.append(cell.text)
+                if row_text:
+                    text += "\n" + " | ".join(row_text)
+
+        return text
+    except Exception as e:
+        print(f"Error extracting text from DOCX: {str(e)}")
+        raise
+
+
+# =========================================
+# EDUCATIONAL COMPONENT EXTRACTION HELPERS
+# =========================================
+def extract_educational_components(content_text, return_dict=False):
+    """
+    Extract educational components with improved precision to avoid extracting
+    irrelevant sections like "Informasi Umum" or administrative details.
+    """
+    # Initialize results dictionary
+    results = {
+        "Modul/Elemen Ajar": "Tidak tersedia",
+        "Kompetensi Awal": "Tidak tersedia", 
+        "Tujuan Pembelajaran": "Tidak tersedia",
+        "Pemahaman Bermakna": "Tidak tersedia",
+        "Target Peserta Didik": "Tidak tersedia"
+    }
+    
+    # Split content into sections based on clear headers
+    sections = split_document_into_sections(content_text)
+    
+    # Extract each component with specific section targeting
+    results["Modul/Elemen Ajar"] = extract_module_elements(sections)
+    results["Kompetensi Awal"] = extract_initial_competencies(sections)
+    results["Tujuan Pembelajaran"] = extract_learning_objectives(sections)
+    results["Pemahaman Bermakna"] = extract_meaningful_understanding(sections)
+    results["Target Peserta Didik"] = extract_target_students(sections)
+    
+    if return_dict:
+        return results
+    else:
+        return (
+            results["Modul/Elemen Ajar"],
+            results["Kompetensi Awal"],
+            results["Tujuan Pembelajaran"],
+            results["Pemahaman Bermakna"],
+            results["Target Peserta Didik"]
+        )
+
+
+def split_document_into_sections(content_text):
+    """
+    Split document into logical sections based on headers and structure.
+    Returns a dictionary with section names as keys and content as values.
+    """
+    sections = {}
+    lines = content_text.split('\n')
+    current_section = None
+    current_content = []
+    
+    for line in lines:
+        line_clean = line.strip()
+        
+        # Skip empty lines
+        if not line_clean:
+            continue
+            
+        # Check for major section headers (Roman numerals, numbers, or bold text)
+        if is_section_header(line_clean):
+            # Save previous section
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content)
+            
+            # Start new section
+            current_section = normalize_section_name(line_clean)
+            current_content = []
+        else:
+            # Add content to current section
+            if current_section:
+                current_content.append(line_clean)
+    
+    # Don't forget the last section
+    if current_section and current_content:
+        sections[current_section] = '\n'.join(current_content)
+    
+    return sections
+
+
+def is_section_header(line):
+    """Check if a line is likely a section header."""
+    line_lower = line.lower()
+    
+    # Roman numeral patterns
+    roman_pattern = r'^[ivxlcdm]+\.\s*'
+    
+    # Number patterns  
+    number_pattern = r'^\d+\.\s*'
+    
+    # Bold text patterns (** or uppercase)
+    bold_pattern = r'^\*\*.*\*\*$'
+    uppercase_pattern = r'^[A-Z\s]{3,}$'
+    
+    return (re.match(roman_pattern, line_lower) or 
+            re.match(number_pattern, line) or
+            re.match(bold_pattern, line) or
+            re.match(uppercase_pattern, line))
+
+
+def normalize_section_name(header):
+    """Normalize section header to standard format."""
+    # Remove numbering, asterisks, and extra spaces
+    normalized = re.sub(r'^[ivxlcdm]*\.?\s*', '', header, flags=re.IGNORECASE)
+    normalized = re.sub(r'^\d+\.?\s*', '', normalized)
+    normalized = re.sub(r'^\*\*|\*\*$', '', normalized)
+    return normalized.strip().lower()
+
+
+def extract_module_elements(sections):
+    """Extract module/subject matter elements, excluding administrative info."""
+    
+    # Target sections that contain actual learning content
+    target_sections = [
+        'komponen inti', 'tujuan pembelajaran', 'pemahaman bermakna',
+        'kegiatan pembelajaran', 'materi pembelajaran', 'isi pembelajaran'
+    ]
+    
+    # Avoid these administrative sections
+    avoid_sections = [
+        'informasi umum', 'identitas modul', 'sarana dan prasarana',
+        'model pembelajaran', 'refleksi guru', 'lampiran', 'daftar pustaka'
+    ]
+    
+    content_parts = []
+    
+    for section_name, section_content in sections.items():
+        section_lower = section_name.lower()
+        
+        # Skip administrative sections
+        if any(avoid in section_lower for avoid in avoid_sections):
+            continue
+            
+        # Include target sections or sections with learning keywords
+        if (any(target in section_lower for target in target_sections) or
+            has_learning_content_keywords(section_content)):
+            
+            # Extract key learning topics/concepts
+            topics = extract_learning_topics(section_content)
+            if topics:
+                content_parts.extend(topics)
+    
+    if content_parts:
+        return '; '.join(content_parts[:5])  # Limit to 5 main topics
+    
+    return "Tidak tersedia"
+
+
+def extract_initial_competencies(sections):
+    """Extract initial competencies with high precision."""
+    
+    for section_name, section_content in sections.items():
+        section_lower = section_name.lower()
+        
+        # Look specifically for competency sections
+        if ('kompetensi awal' in section_lower or 
+            'kemampuan awal' in section_lower or
+            'prasyarat' in section_lower):
+            
+            return clean_competency_text(section_content)
+    
+    # If no dedicated section found, look for competency mentions in content
+    for section_name, section_content in sections.items():
+        if 'kompetensi' in section_content.lower():
+            competency_sentences = extract_competency_sentences(section_content)
+            if competency_sentences:
+                return '; '.join(competency_sentences[:3])
+    
+    return "Tidak tersedia"
+
+
+def extract_learning_objectives(sections):
+    """Extract learning objectives with precision."""
+    
+    for section_name, section_content in sections.items():
+        section_lower = section_name.lower()
+        
+        # Target objective sections specifically
+        if ('tujuan pembelajaran' in section_lower or
+            'capaian pembelajaran' in section_lower or
+            'learning objective' in section_lower):
+            
+            objectives = extract_bulleted_items(section_content)
+            if objectives:
+                return '; '.join(objectives[:6])  # Limit to 6 main objectives
+            else:
+                return clean_extracted_text(section_content)
+    
+    return "Tidak tersedia"
+
+
+def extract_meaningful_understanding(sections):
+    """Extract meaningful understanding components."""
+    
+    for section_name, section_content in sections.items():
+        section_lower = section_name.lower()
+        
+        if ('pemahaman bermakna' in section_lower or
+            'meaningful understanding' in section_lower):
+            
+            understanding_items = extract_bulleted_items(section_content)
+            if understanding_items:
+                return '; '.join(understanding_items[:4])
+            else:
+                return clean_extracted_text(section_content)
+    
+    return "Tidak tersedia"
+
+
+def extract_target_students(sections):
+    """Extract target student characteristics."""
+    
+    for section_name, section_content in sections.items():
+        section_lower = section_name.lower()
+        
+        if ('target peserta didik' in section_lower or
+            'sasaran peserta' in section_lower or
+            'karakteristik peserta' in section_lower):
+            
+            return clean_extracted_text(section_content)
+    
+    return "Tidak tersedia"
+
+
+def has_learning_content_keywords(text):
+    """Check if text contains learning content keywords."""
+    learning_keywords = [
+        'algoritma', 'pemrograman', 'variabel', 'fungsi', 'struktur kontrol',
+        'diagram alir', 'pseudokode', 'bahasa c', 'ekspresi', 'perulangan'
+    ]
+    
+    text_lower = text.lower()
+    return any(keyword in text_lower for keyword in learning_keywords)
+
+
+def extract_learning_topics(text):
+    """Extract main learning topics from text."""
+    topics = []
+    
+    # Look for common topic indicators
+    topic_patterns = [
+        r'mempelajari\s+([^.]+)',
+        r'memahami\s+([^.]+)', 
+        r'menguasai\s+([^.]+)',
+        r'konsep\s+([^.]+)',
+        r'materi\s+([^.]+)'
+    ]
+    
+    for pattern in topic_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        topics.extend([match.strip() for match in matches])
+    
+    # Remove duplicates and clean
+    unique_topics = []
+    for topic in topics:
+        cleaned_topic = clean_topic_text(topic)
+        if cleaned_topic and cleaned_topic not in unique_topics:
+            unique_topics.append(cleaned_topic)
+    
+    return unique_topics[:5]  # Limit to 5 topics
+
+
+def extract_bulleted_items(text):
+    """Extract bulleted or numbered items from text."""
+    items = []
+    
+    lines = text.split('\n')
+    for line in lines:
+        line = line.strip()
+        
+        # Check for bullet points or numbers
+        if (re.match(r'^[-•*]\s+', line) or 
+            re.match(r'^\d+[\.)]\s+', line)):
+            
+            # Clean the item
+            item = re.sub(r'^[-•*\d\.)]\s+', '', line)
+            if item and len(item) > 10:  # Ensure meaningful content
+                items.append(item.strip())
+    
+    return items
+
+
+def extract_competency_sentences(text):
+    """Extract sentences that describe competencies."""
+    sentences = re.split(r'[.!?]+', text)
+    competency_sentences = []
+    
+    competency_keywords = [
+        'mampu', 'dapat', 'menguasai', 'memahami', 'menerapkan',
+        'menganalisis', 'mengevaluasi', 'menciptakan'
+    ]
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if (any(keyword in sentence.lower() for keyword in competency_keywords) and
+            len(sentence) > 20):  # Ensure meaningful length
+            competency_sentences.append(sentence)
+    
+    return competency_sentences
+
+
+def clean_competency_text(text):
+    """Clean competency text by removing administrative noise."""
+    # Remove common administrative phrases
+    admin_phrases = [
+        r'materi pada unit.*berkaitan dengan',
+        r'dalam unit.*siswa diajarkan',
+        r'lewat unit ini.*diimplementasikan',
+        r'dengan demikian.*untuk menghasilkan'
+    ]
+    
+    cleaned = text
+    for phrase in admin_phrases:
+        cleaned = re.sub(phrase, '', cleaned, flags=re.IGNORECASE | re.DOTALL)
+    
+    return clean_extracted_text(cleaned)
+
+
+def clean_topic_text(topic):
+    """Clean extracted topic text."""
+    # Remove common noise words and phrases
+    topic = re.sub(r'\b(dengan|untuk|dalam|pada|yang|dari|dan|atau)\b', ' ', topic, flags=re.IGNORECASE)
+    topic = re.sub(r'\s+', ' ', topic)
+    topic = topic.strip()
+    
+    # Only return if meaningful length
+    return topic if len(topic) > 5 else None
+
+
+def clean_extracted_text(text):
+    """Enhanced text cleaning function."""
+    if not text or text.strip() == "":
+        return "Tidak tersedia"
+    
+    # Remove administrative noise patterns
+    noise_patterns = [
+        r'lampiran.*$',
+        r'daftar pustaka.*$', 
+        r'referensi.*$',
+        r'halaman \d+',
+        r'gambar \d+',
+        r'tabel \d+',
+        r'^[\d\.\-\•○●]\s*',  # Remove bullet points at start
+        r'\*\*([^*]+)\*\*',   # Remove bold markers
+    ]
+    
+    cleaned = text
+    for pattern in noise_patterns:
+        cleaned = re.sub(pattern, '', cleaned, flags=re.MULTILINE | re.IGNORECASE)
+    
+    # Clean up whitespace
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    cleaned = cleaned.strip()
+    
+    # Return first few sentences if too long
+    sentences = re.split(r'[.!?]+', cleaned)
+    if len(sentences) > 5:
+        cleaned = '. '.join(sentences[:5]) + '.'
+    
+    return cleaned if cleaned else "Tidak tersedia"
 
 def extract_text_from_docx(file_path):
     """Extract text from a Word document (.doc or .docx)"""
@@ -2764,179 +3218,6 @@ def submit_answer():
                     "explanation": question.explanation
                 }), 200
 
-# Function for evaluating answers
-def evaluate_answer_with_ai(question_text, user_answer):
-    """
-    Mengevaluasi jawaban pengguna menggunakan AI tanpa bergantung pada kunci jawaban
-    
-    Args:
-        question_text (str): Teks pertanyaan
-        user_answer (str): Jawaban dari pengguna
-        
-    Returns:
-        bool: True jika jawaban benar, False jika salah
-    """
-    try:
-        # Use the model directly without having to re-import
-        # Jika jawaban sangat pendek, kemungkinan salah
-        if len(user_answer.strip()) < 5:
-            return False
-            
-        # Prompt yang meminta AI untuk mengevaluasi jawaban
-        prompt = f"""
-        Kamu adalah asisten evaluasi jawaban yang sangat cerdas. Tugas kamu adalah menentukan 
-        apakah jawaban pengguna benar untuk pertanyaan yang diberikan.
-        
-        Pertanyaan: {question_text}
-        
-        Jawaban pengguna: {user_answer}
-        
-        Evaluasi apakah jawaban pengguna ini benar secara konseptual dan faktual, bahkan jika berbeda dari 
-        apa yang mungkin diharapkan sebagai jawaban standar. Pertimbangkan pemahaman mendalam tentang topik,
-        bukan hanya kecocokan kata-kata.
-        
-        Harap beri penilaian akhir hanya dengan kata "BENAR" atau "SALAH", tanpa penjelasan tambahan.
-        """
-        
-        # Dapatkan respons dari Gemini
-        response = model.generate_content(prompt)
-        response_text = response.text.strip().upper()
-        
-        # Tentukan hasil evaluasi
-        if "BENAR" in response_text:
-            return True
-        elif "SALAH" in response_text:
-            return False
-        else:
-            # Jika respons tidak jelas, coba lagi dengan prompt yang lebih sederhana
-            simplified_prompt = f"""
-            Pertanyaan: {question_text}
-            Jawaban: {user_answer}
-            Apakah jawaban ini benar? Jawab hanya dengan BENAR atau SALAH.
-            """
-            response = model.generate_content(simplified_prompt)
-            response_text = response.text.strip().upper()
-            
-            return "BENAR" in response_text
-            
-    except Exception as e:
-        print(f"Error dalam evaluasi dengan AI: {str(e)}")
-        # Jika terjadi error, gunakan metode alternatif
-        return evaluate_with_rule_based(question_text, user_answer)
-
-def evaluate_with_rule_based(question_text, user_answer):
-    """
-    Evaluasi jawaban berbasis aturan sederhana sebagai fallback terakhir
-    
-    Metode ini menggunakan teknik NLP sederhana untuk menentukan kemiripan
-    antara jawaban pengguna dan jawaban yang diharapkan berdasarkan pertanyaan
-    """
-    try:
-        # 1. Ekstrak kata kunci dari pertanyaan
-        # Hapus kata-kata umum dalam Bahasa Indonesia
-        common_words = ["ada", "adalah", "yang", "di", "dengan", "untuk", "pada", "ini", "itu", 
-                        "dari", "dalam", "dan", "ke", "akan", "atau", "secara", "jika", "maka",
-                        "apakah", "bagaimana", "mengapa", "kenapa", "kapan", "siapa", "dimana", 
-                        "mana", "apa", "sebutkan", "jelaskan", "berikan", "ceritakan"]
-        
-        # Normalisasi pertanyaan dan jawaban
-        question_normalized = normalize_text_for_matching(question_text)
-        answer_normalized = normalize_text_for_matching(user_answer)
-        
-        # Hapus kata-kata umum
-        question_keywords = [w for w in question_normalized.split() if w.lower() not in common_words]
-        
-        # 2. Tentukan kemungkinan jawaban berdasarkan jenis pertanyaan
-        question_type = determine_question_type(question_text)
-        
-        # 3. Verifikasi apakah jawaban pengguna sesuai dengan ekspektasi
-        if question_type == "DEFINISI":
-            # Untuk pertanyaan definisi, jawaban harus berisi kata kunci dari pertanyaan
-            # dan memiliki panjang minimal
-            keywords_in_answer = sum(1 for kw in question_keywords if kw.lower() in answer_normalized.lower())
-            answer_length_ok = len(answer_normalized.split()) >= 5  # Jawaban minimal 5 kata
-            
-            return keywords_in_answer >= 2 and answer_length_ok
-            
-        elif question_type == "YA_TIDAK":
-            # Jawaban harus berupa ya/tidak atau benar/salah atau variasi lain
-            yes_patterns = ["ya", "benar", "betul", "tepat", "setuju", "iya"]
-            no_patterns = ["tidak", "salah", "keliru", "bukan"]
-            
-            has_yes = any(p in answer_normalized.lower() for p in yes_patterns)
-            has_no = any(p in answer_normalized.lower() for p in no_patterns)
-            
-            return has_yes or has_no
-            
-        elif question_type == "FAKTUAL":
-            # Untuk pertanyaan faktual, jawaban harus berisi angka atau fakta spesifik
-            # Cek apakah ada angka dalam jawaban
-            has_number = bool(re.search(r'\d+', answer_normalized))
-            
-            # Cek apakah jawaban memiliki kata-kata spesifik (bukan hanya kata umum)
-            answer_words = [w for w in answer_normalized.split() if w.lower() not in common_words]
-            has_specific_words = len(answer_words) >= 3
-            
-            return has_number or has_specific_words
-            
-        else:  # UMUM
-            # Untuk pertanyaan umum, pastikan jawaban memiliki panjang yang cukup
-            # dan mengandung beberapa kata kunci dari pertanyaan
-            min_answer_length = 3  # Minimal 3 kata
-            answer_words = answer_normalized.split()
-            
-            # Hitung kata-kata unik dalam jawaban
-            unique_words = len(set(w.lower() for w in answer_words))
-            
-            return len(answer_words) >= min_answer_length and unique_words >= 2
-            
-    except Exception as e:
-        print(f"Error dalam evaluasi berbasis aturan: {str(e)}")
-        # Fallback terakhir: terima jawaban jika tidak kosong (minimal usaha)
-        return len(user_answer.strip()) > 0
-
-def normalize_text_for_matching(text):
-    """
-    Normalisasi teks untuk perbandingan
-    """
-    # Ubah ke lowercase
-    text = text.lower()
-    
-    # Hilangkan tanda baca
-    text = re.sub(r'[^\w\s]', ' ', text)
-    
-    # Hilangkan spasi berlebih
-    text = re.sub(r'\s+', ' ', text).strip()
-    
-    return text
-
-def determine_question_type(question_text):
-    """
-    Menentukan jenis pertanyaan berdasarkan pola dan kata kunci
-    
-    Returns:
-        str: "DEFINISI", "YA_TIDAK", "FAKTUAL", atau "UMUM"
-    """
-    question_lower = question_text.lower()
-    
-    # Pola untuk pertanyaan definisi
-    definition_patterns = ["apa itu", "apa yang dimaksud", "definisi", "pengertian", "arti dari", "jelaskan apa"]
-    if any(pattern in question_lower for pattern in definition_patterns):
-        return "DEFINISI"
-    
-    # Pola untuk pertanyaan ya/tidak
-    yes_no_patterns = ["apakah", "benarkah", "benar bahwa", "setujukah"]
-    if any(pattern in question_lower for pattern in yes_no_patterns):
-        return "YA_TIDAK"
-    
-    # Pola untuk pertanyaan faktual
-    factual_patterns = ["berapa", "kapan", "siapa", "dimana", "tahun berapa", "sebutkan"]
-    if any(pattern in question_lower for pattern in factual_patterns):
-        return "FAKTUAL"
-    
-    # Default jika tidak ada pola yang cocok
-    return "UMUM"
-
 # =========================================
 # GET SUMMARY
 # =========================================
@@ -3001,54 +3282,51 @@ def get_summary():
         }), 500
     
 @app.route("/get_questions", methods=["GET"])
+@login_required # Pastikan hanya user yang login yang bisa mengakses
 def get_questions():
     try:
         print("Fetching questions from database...")
+        # Ambil semua soal yang dimiliki oleh guru yang sedang login
+        # Gunakan SQLAlchemy ORM daripada raw SQL untuk filter ini
+        questions_raw = (
+            Question.query
+            .filter_by(guru_id=current_user.id, is_current=True)
+            .order_by(Question.level.asc(), Question.id.asc())
+            .all()
+        )
         
-        # Gunakan SQL RAW langsung untuk memastikan tidak ada filtering
-        from sqlalchemy import text
-        result = db.session.execute(text("SELECT * FROM questions ORDER BY level ASC, id ASC"))
+        print(f"Fetched {len(questions_raw)} questions for guru_id {current_user.id}")
         
-        # Konversi hasil query ke dalam format yang dapat di-serialize
-        questions_raw = []
-        for row in result:
-            # Konversi hasil query jadi dict
-            question_dict = {column: value for column, value in zip(result.keys(), row)}
-            questions_raw.append(question_dict)
-        
-        print(f"Fetched {len(questions_raw)} questions using raw SQL")
-        
-        # Format data untuk respons
         questions_data = []
         for q in questions_raw:
-            try:
-                # Parse options
-                options = []
-                if 'options' in q and q['options']:
-                    try:
-                        options = json.loads(q['options'])
-                    except:
-                        pass
-                
-                questions_data.append({
-                    "id": q['id'],
-                    "level": q['level'],
-                    "soal": q['soal'],
-                    "jawaban_benar": q['jawaban_benar'] if 'jawaban_benar' in q else "",
-                    "options": options,
-                    "question_type": q['question_type'] if 'question_type' in q else "multiple_choice",
-                    "p": float(q['p']) if 'p' in q else 0.5,
-                    "bobot": q['bobot'] if 'bobot' in q else 1,
-                    "explanation": q['explanation'] if 'explanation' in q else "",
-                    "created_at": q['created_at'].isoformat() if 'created_at' in q and q['created_at'] else None
-                })
-            except Exception as e:
-                print(f"Error processing question {q.get('id')}: {str(e)}")
-                continue
-        
+            options = []
+            if q.options:
+                try:
+                    options = json.loads(q.options)
+                except json.JSONDecodeError:
+                    pass # Abaikan jika tidak valid JSON
+            
+            questions_data.append({
+                "id": q.id,
+                "guru_id": q.guru_id,
+                "collection_id": q.collection_id,
+                "level": q.level,
+                "soal": q.soal,
+                "jawaban_benar": q.jawaban_benar,
+                "options": options,
+                "question_type": q.question_type,
+                "p": float(q.p),
+                "bobot": q.bobot,
+                "explanation": q.explanation,
+                "created_at": q.created_at.isoformat() if q.created_at else None,
+                "version": q.version,
+                "is_current": q.is_current,
+                "is_validated": q.is_validated 
+            })
+            
         print(f"Successfully formatted {len(questions_data)} questions for response")
         return jsonify({"success": True, "data": questions_data})
-    
+        
     except Exception as e:
         print(f"Error getting questions: {str(e)}")
         import traceback
@@ -3056,18 +3334,22 @@ def get_questions():
         return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
     
 @app.route("/api/check_questions_count", methods=["GET"])
+@login_required
 def check_questions_count():
+    # Hanya guru yang bisa melihat ini
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        return jsonify({"success": False, "message": "Akses ditolak."}), 403
+
     try:
-        # Hitung soal
-        total_count = db.session.query(db.func.count(Question.id)).scalar()
+        # Hitung soal milik guru yang sedang login
+        total_count = db.session.query(db.func.count(Question.id)).filter_by(guru_id=current_user.id).scalar()
         
-        # Hitung berdasarkan level
+        # Hitung berdasarkan level milik guru yang sedang login
         level_counts = db.session.query(
-            Question.level, 
+            Question.level,  
             db.func.count(Question.id)
-        ).group_by(Question.level).all()
+        ).filter_by(guru_id=current_user.id).group_by(Question.level).all()
         
-        # Format distribusi level
         level_distribution = {str(level): count for level, count in level_counts}
         
         return jsonify({
@@ -3082,6 +3364,7 @@ def check_questions_count():
             "success": False,
             "message": f"Error checking database: {str(e)}"
         }), 500
+    
 @app.route("/api/db_check", methods=["GET"])
 def db_check():
     try:
@@ -3334,6 +3617,42 @@ def add_questions_to_collection(collection_id):
         'message': f'{added_count} soal berhasil ditambahkan ke koleksi'
     })
 
+@app.route('/api/collections/<int:collection_id>/description', methods=['PUT'])
+@login_required
+def update_collection_description(collection_id):
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    try:
+        # Validate input
+        data = request.json
+        if not data or 'description' not in data:
+            return jsonify({"success": False, "message": "Description is required"}), 400
+            
+        # Get collection and ensure it belongs to the current teacher
+        collection = QuestionCollection.query.filter_by(id=collection_id, guru_id=current_user.id).first()
+        
+        if not collection:
+            return jsonify({"success": False, "message": "Koleksi tidak ditemukan"}), 404
+        
+        # Update description
+        collection.description = data['description']
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Deskripsi koleksi berhasil diperbarui",
+            "collection": {
+                "id": collection.id,
+                "name": collection.name,
+                "description": collection.description
+            }
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/collections/<int:collection_id>', methods=['DELETE'])
 @login_required
 def delete_collection(collection_id):
@@ -3353,6 +3672,123 @@ def delete_collection(collection_id):
         'success': True, 
         'message': 'Koleksi berhasil dihapus'
     })
+
+# Endpoint untuk menghapus soal dari koleksi
+@app.route('/api/collections/<int:collection_id>/questions/<int:question_id>', methods=['DELETE'])
+@login_required
+def delete_question_from_collection(collection_id, question_id):
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    try:
+        # Verifikasi koleksi milik guru yang sedang login
+        collection = QuestionCollection.query.filter_by(id=collection_id, guru_id=current_user.id).first()
+        if not collection:
+            return jsonify({"success": False, "message": "Koleksi tidak ditemukan"}), 404
+        
+        # Verifikasi soal milik guru yang sedang login
+        question = Question.query.filter_by(id=question_id, guru_id=current_user.id).first()
+        if not question:
+            return jsonify({"success": False, "message": "Soal tidak ditemukan"}), 404
+        
+        # Cek apakah ada jawaban siswa untuk soal ini
+        student_answers_count = SiswaAnswer.query.filter_by(question_id=question_id).count()
+        
+        if student_answers_count > 0:
+            # Jika ada jawaban siswa, hanya hapus dari koleksi, jangan hapus soal
+            collection_question = CollectionQuestion.query.filter_by(
+                collection_id=collection_id, 
+                question_id=question_id
+            ).first()
+            
+            if not collection_question:
+                return jsonify({"success": False, "message": "Soal tidak ada dalam koleksi ini"}), 404
+            
+            # Hapus relasi dari koleksi saja
+            db.session.delete(collection_question)
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "message": f"Soal berhasil dihapus dari koleksi. Soal tidak dihapus dari database karena sudah ada {student_answers_count} jawaban siswa."
+            })
+        
+        # Jika tidak ada jawaban siswa, lanjutkan dengan penghapusan normal
+        collection_question = CollectionQuestion.query.filter_by(
+            collection_id=collection_id, 
+            question_id=question_id
+        ).first()
+        
+        if not collection_question:
+            return jsonify({"success": False, "message": "Soal tidak ada dalam koleksi ini"}), 404
+        
+        # Hapus relasi dari koleksi
+        db.session.delete(collection_question)
+        
+        # Cek apakah soal ini masih digunakan di koleksi lain
+        other_collections = CollectionQuestion.query.filter_by(question_id=question_id).count()
+        
+        if other_collections == 0:
+            # Jika soal tidak digunakan di koleksi lain dan tidak ada jawaban siswa, hapus soal dari database
+            # Hapus semua versi soal terlebih dahulu
+            QuestionVersion.query.filter_by(question_id=question_id).delete()
+            
+            # Hapus soal utama
+            db.session.delete(question)
+            message = "Soal berhasil dihapus dari koleksi dan database (tidak digunakan di koleksi lain dan tidak ada jawaban siswa)"
+        else:
+            message = "Soal berhasil dihapus dari koleksi (masih digunakan di koleksi lain)"
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": message
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting question from collection: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+# Endpoint untuk memvalidasi semua soal dalam koleksi
+@app.route('/api/collections/<int:collection_id>/validate-all', methods=['POST'])
+@login_required
+def validate_all_questions(collection_id):
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    try:
+        # Get collection and ensure it belongs to the current teacher
+        collection = QuestionCollection.query.filter_by(id=collection_id, guru_id=current_user.id).first()
+        
+        if not collection:
+            return jsonify({"success": False, "message": "Koleksi tidak ditemukan"}), 404
+        
+        # Get all questions in this collection
+        collection_questions = CollectionQuestion.query.filter_by(collection_id=collection_id).all()
+        question_ids = [cq.question_id for cq in collection_questions]
+        
+        # Update validation status of all questions
+        questions = Question.query.filter(Question.id.in_(question_ids)).all()
+        validated_ids = []
+        
+        for question in questions:
+            question.is_validated = True
+            validated_ids.append(question.id)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": f"{len(validated_ids)} soal berhasil divalidasi",
+            "count": len(validated_ids),
+            "validated": validated_ids
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
 
 # Mendapatkan siswa yang memiliki akses ke koleksi
 @app.route('/api/collections/<int:collection_id>/students', methods=['GET'])
@@ -3711,12 +4147,23 @@ def get_student_collections():
 # Mengambil semua data soal dari database
 # =========================================
 @app.route("/api/get_questions", methods=["GET"])
-@login_required 
-def get_questions_api(): 
+@login_required  
+def get_questions_api():  
+    # Pastikan yang mengakses endpoint ini adalah guru
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+        return jsonify({'success': False, 'message': 'Akses ditolak. Hanya guru yang dapat melihat semua soal.'}), 403
+
     try:
-        # Mengambil semua soal dari database. 
-        # Anda bisa menambahkan filter di sini jika hanya ingin soal yang 'is_current=True' atau 'is_validated=True'.
-        questions_raw = Question.query.order_by(Question.level.asc(), Question.id.asc()).all()
+        # Ambil semua soal yang dimiliki oleh guru yang sedang login
+        # Tambahkan filter guru_id di sini
+        questions_raw = (
+            Question.query
+            .filter_by(guru_id=current_user.id, is_current=True)
+            .order_by(Question.level.asc(), Question.id.asc())
+            .all()
+        )
+        
+        print(f"Fetched {len(questions_raw)} questions for guru_id {current_user.id} via API.")
         
         questions_data = []
         for q in questions_raw:
@@ -3725,12 +4172,12 @@ def get_questions_api():
                 try:
                     options = json.loads(q.options)
                 except json.JSONDecodeError:
-                    pass # Abaikan jika tidak valid JSON
+                    pass
             
             questions_data.append({
                 "id": q.id,
                 "guru_id": q.guru_id,
-                "collection_id": q.collection_id, # Sertakan jika relevan
+                "collection_id": q.collection_id,
                 "level": q.level,
                 "soal": q.soal,
                 "jawaban_benar": q.jawaban_benar,
@@ -3742,7 +4189,7 @@ def get_questions_api():
                 "created_at": q.created_at.isoformat() if q.created_at else None,
                 "version": q.version,
                 "is_current": q.is_current,
-                "is_validated": q.is_validated 
+                "is_validated": q.is_validated  
             })
             
         return jsonify({"success": True, "data": questions_data}), 200
@@ -3751,7 +4198,7 @@ def get_questions_api():
         print(f"Error getting questions via API: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 
+        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
 
 @app.route('/api/guru', methods=['GET'])
 @login_required
@@ -3825,10 +4272,51 @@ def dashboard():
 # VERSIONING ENDPOINTS (Tempatkan setelah definisi model)
 # =========================================
 # Pastikan hanya ada satu implementasi, hapus yang lama
-@app.route('/api/questions/<int:id>', methods=['PUT', 'POST'])
+@app.route('/api/questions/<int:id>', methods=['PUT', 'POST', 'DELETE'])
 @login_required
 def update_question(id):
     try:
+        # Handle DELETE request
+        if request.method == 'DELETE':
+            # Inline delete handler with safety checks
+            if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+                return jsonify({"success": False, "message": "Unauthorized"}), 403
+
+            try:
+                # Verify question belongs to current guru
+                question = Question.query.filter_by(id=id, guru_id=current_user.id).first()
+                if not question:
+                    return jsonify({"success": False, "message": "Soal tidak ditemukan"}), 404
+
+                # Count student answers
+                student_answers_count = SiswaAnswer.query.filter_by(question_id=id).count()
+
+                # Always remove relation to collections for this question belonging to this guru's collections
+                CollectionQuestion.query.filter_by(question_id=id).delete()
+
+                if student_answers_count > 0:
+                    # If there are student answers, don't delete the question; mark as not current (archived) and detach from collections
+                    question.is_current = False
+                    db.session.commit()
+                    return jsonify({
+                        "success": True,
+                        "message": f"Soal dihapus dari semua koleksi dan diarsipkan (tidak ditampilkan lagi). Tidak dihapus dari database karena sudah ada {student_answers_count} jawaban siswa."
+                    })
+
+                # No student answers: safe to delete all versions and the question
+                QuestionVersion.query.filter_by(question_id=id).delete()
+                db.session.delete(question)
+                db.session.commit()
+
+                return jsonify({
+                    "success": True,
+                    "message": "Soal berhasil dihapus dari database"
+                })
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Error deleting question: {str(e)}")
+                return jsonify({"success": False, "message": str(e)}), 500
+        
         # Log request method untuk debugging
         print(f"Request method: {request.method}")
         print(f"Request headers: {request.headers}")
@@ -4007,7 +4495,7 @@ def collection_page():
         flash('Halaman ini hanya untuk guru', 'error')
         return redirect(url_for('login'))
     
-    return render_template('collections.html')
+    return render_template('guru/collections.html')
 
 @app.route('/api/export_result_excel', methods=['GET'])
 @login_required
@@ -4106,15 +4594,28 @@ def export_result_excel():
             worksheet.write('G5', 'Tanggal Pengerjaan:', label_format)
             worksheet.write('H5', result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S'), data_format)
             
-            # Sesuaikan lebar kolom
-            worksheet.set_column('A:A', 15)
-            worksheet.set_column('B:B', 25)
-            worksheet.set_column('C:C', 5)
-            worksheet.set_column('D:D', 15)
-            worksheet.set_column('E:E', 15)
-            worksheet.set_column('F:F', 5)
-            worksheet.set_column('G:G', 18)
-            worksheet.set_column('H:H', 25)
+            # --- PERUBAHAN: Tambah keterangan level singkat ---
+            worksheet.write('A7', 'Keterangan Level:', label_format)
+            level_desc = get_level_description_short(result.current_level)
+            data_format_wrap = workbook.add_format({
+                'align': 'left',
+                'border': 1,
+                'text_wrap': True,
+                'valign': 'vcenter'
+            })
+            worksheet.merge_range('B7:H7', level_desc, data_format_wrap)
+            worksheet.set_row(6, 40)  # Atur tinggi baris
+            # --- PERUBAHAN SELESAI ---
+            
+            # Sesuaikan lebar kolom dengan spacing yang lebih baik
+            worksheet.set_column('A:A', 18)  # Label kolom
+            worksheet.set_column('B:B', 28)  # Data siswa
+            worksheet.set_column('C:C', 3)   # Spacer
+            worksheet.set_column('D:D', 18)  # Label hasil
+            worksheet.set_column('E:E', 15)  # Data hasil
+            worksheet.set_column('F:F', 3)   # Spacer
+            worksheet.set_column('G:G', 20)  # Label statistik
+            worksheet.set_column('H:H', 25)  # Data statistik
             
             # Ambil riwayat jawaban
             answers = get_student_answer_history(user_id, collection_id)
@@ -4137,14 +4638,33 @@ def export_result_excel():
                 # Tulis detail jawaban ke sheet kedua
                 df_answers.to_excel(writer, sheet_name='Detail Jawaban', index=False)
                 
-                # Format sheet kedua
+                # Format sheet Detail Jawaban dengan spacing yang lebih baik
                 worksheet2 = writer.sheets['Detail Jawaban']
-                worksheet2.set_column('A:A', 40)
-                worksheet2.set_column('B:B', 20)
-                worksheet2.set_column('C:C', 20)
-                worksheet2.set_column('D:D', 10)
-                worksheet2.set_column('E:E', 10)
-                worksheet2.set_column('F:F', 20)
+                
+                # Format headers
+                header_format2 = workbook.add_format({
+                    'bold': True,
+                    'text_wrap': True,
+                    'valign': 'top',
+                    'fg_color': '#D7E4BC',
+                    'border': 1
+                })
+                
+                # Apply header format
+                for col_num, value in enumerate(df_answers.columns.values):
+                    worksheet2.write(0, col_num, value, header_format2)
+                
+                # Set column widths with proper spacing
+                worksheet2.set_column('A:A', 50)  # Soal (wider untuk pertanyaan panjang)
+                worksheet2.set_column('B:B', 25)  # Jawaban Siswa
+                worksheet2.set_column('C:C', 25)  # Jawaban Benar
+                worksheet2.set_column('D:D', 12)  # Status
+                worksheet2.set_column('E:E', 8)   # Level
+                worksheet2.set_column('F:F', 20)  # Waktu Menjawab
+                
+                # Set row height for data rows
+                for row in range(1, len(df_answers) + 1):
+                    worksheet2.set_row(row, 25)
         
         # Kembali ke awal file
         output.seek(0)
@@ -4276,6 +4796,19 @@ def export_result_excel_teacher():
                 worksheet.write('G5', 'Tanggal Pengerjaan:', label_format)
                 worksheet.write('H5', result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S'), data_format)
                 
+                # --- PERUBAHAN: Tambah keterangan level singkat ---
+                worksheet.write('A7', 'Keterangan Level:', label_format)
+                level_desc = get_level_description_short(result.current_level)
+                data_format_wrap = workbook.add_format({
+                    'align': 'left',
+                    'border': 1,
+                    'text_wrap': True,
+                    'valign': 'vcenter'
+                })
+                worksheet.merge_range('B7:H7', level_desc, data_format_wrap)
+                worksheet.set_row(6, 40)  # Atur tinggi baris
+                # --- PERUBAHAN SELESAI ---
+                
                 # Format columns
                 worksheet.set_column('A:A', 15)
                 worksheet.set_column('B:B', 25)
@@ -4308,14 +4841,32 @@ def export_result_excel_teacher():
                         df_answers = pd.DataFrame(answers_data)
                         df_answers.to_excel(writer, sheet_name='Detail Jawaban', index=False)
                         
-                        # Format columns
+                        # Format Detail Jawaban sheet dengan spacing yang lebih baik
                         answer_sheet = writer.sheets['Detail Jawaban']
-                        answer_sheet.set_column('A:A', 40)
-                        answer_sheet.set_column('B:B', 20)
-                        answer_sheet.set_column('C:C', 20)
-                        answer_sheet.set_column('D:D', 10)
-                        answer_sheet.set_column('E:E', 10)
-                        answer_sheet.set_column('F:F', 20)
+                        
+                        # Apply header format
+                        header_format_answer = workbook.add_format({
+                            'bold': True,
+                            'text_wrap': True,
+                            'valign': 'top',
+                            'fg_color': '#D7E4BC',
+                            'border': 1
+                        })
+                        
+                        for col_num, value in enumerate(df_answers.columns.values):
+                            answer_sheet.write(0, col_num, value, header_format_answer)
+                        
+                        # Set column widths with proper spacing
+                        answer_sheet.set_column('A:A', 50)  # Soal
+                        answer_sheet.set_column('B:B', 25)  # Jawaban Siswa
+                        answer_sheet.set_column('C:C', 25)  # Jawaban Benar
+                        answer_sheet.set_column('D:D', 12)  # Status
+                        answer_sheet.set_column('E:E', 8)   # Level
+                        answer_sheet.set_column('F:F', 20)  # Waktu Menjawab
+                        
+                        # Set row height for data rows
+                        for row in range(1, len(df_answers) + 1):
+                            answer_sheet.set_row(row, 25)
             
             # Generate filename
             filename = f"Hasil_Tes_{student.nama}_{collection.name}_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx"
@@ -4346,11 +4897,11 @@ def export_result_excel_teacher():
                 # Summary sheet
                 worksheet = workbook.add_worksheet('Ringkasan Kelas')
                 
-                # Add title
-                worksheet.merge_range('A1:H1', f"RINGKASAN HASIL TES KELAS {class_id} - {collection.name}", title_format)
+                # Add title - disesuaikan untuk kolom baru
+                worksheet.merge_range('A1:K1', f"RINGKASAN HASIL TES KELAS {class_id} - {collection.name}", title_format)
                 
-                # Set up headers for class summary
-                headers = ['No', 'Nama', 'Kelas', 'level', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+                # Set up headers for class summary - tambah Taksonomi Bloom
+                headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Bloom', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
                 for col, header in enumerate(headers):
                     worksheet.write(2, col, header, header_format)
                 
@@ -4392,22 +4943,52 @@ def export_result_excel_teacher():
                         total_correct += correct
                         total_incorrect += incorrect
                         
-                        # Write row data
-                        worksheet.write(row, 0, student_number)
-                        worksheet.write(row, 1, student.nama)
-                        worksheet.write(row, 2, student.kelas)
-                        worksheet.write(row, 3, current_level)
-                        worksheet.write(row, 4, correct)
-                        worksheet.write(row, 5, incorrect)
-                        worksheet.write(row, 6, total)
-                        worksheet.write(row, 7, accuracy)
-                        worksheet.write(row, 8, "Selesai" if is_completed else "Sedang Mengerjakan" if total > 0 else "Belum Mulai")
+                        # --- PERUBAHAN: Tambah keterangan level singkat ---
+                        level_desc = get_level_description_short(current_level)
+                        # --- PERUBAHAN SELESAI ---
+                        
+                        # Write row data dengan format yang rapi
+                        data_format_teacher = workbook.add_format({
+                            'align': 'left',
+                            'border': 1
+                        })
+                        description_format_teacher = workbook.add_format({
+                            'align': 'left',
+                            'border': 1,
+                            'text_wrap': True,
+                            'valign': 'top'
+                        })
+                        num_format_teacher = workbook.add_format({
+                            'align': 'right',
+                            'border': 1,
+                            'num_format': '0'
+                        })
+                        
+                        worksheet.write(row, 0, student_number, num_format_teacher)
+                        worksheet.write(row, 1, student.nama, data_format_teacher)
+                        worksheet.write(row, 2, student.kelas, data_format_teacher)
+                        worksheet.write(row, 3, current_level, num_format_teacher)
+                        # --- PERUBAHAN: Tambah kolom keterangan level dan Taksonomi Bloom ---
+                        worksheet.write(row, 4, level_desc, description_format_teacher)
+                        worksheet.write(row, 5, get_bloom_taxonomy_short(current_level), data_format_teacher)
+                        worksheet.write(row, 6, correct, num_format_teacher)
+                        worksheet.write(row, 7, incorrect, num_format_teacher)
+                        worksheet.write(row, 8, total, num_format_teacher)
+                        worksheet.write(row, 9, accuracy, num_format_teacher)
+                        worksheet.write(row, 10, "Selesai" if is_completed else "Sedang Mengerjakan" if total > 0 else "Belum Mulai", data_format_teacher)
+                        # --- PERUBAHAN SELESAI ---
+                        
+                        # Set row height for better readability
+                        worksheet.set_row(row-1, 25)
                         
                         # Prepare data for DataFrame
                         class_data.append({
                             'Nama': student.nama,
                             'Kelas': student.kelas,
-                            'level': current_level,
+                            'Level': current_level,
+                            # --- PERUBAHAN: Tambah keterangan level ke DataFrame ---
+                            'Keterangan Level': level_desc,
+                            # --- PERUBAHAN SELESAI ---
                             'Jawaban Benar': correct,
                             'Jawaban Salah': incorrect,
                             'Total': total,
@@ -4427,54 +5008,75 @@ def export_result_excel_teacher():
                 # Skip a row
                 row += 1
                 
-                # Summary row
+                # Summary row - sesuaikan posisi kolom untuk Taksonomi Bloom
                 bold_format = workbook.add_format({'bold': True})
                 worksheet.write(row, 0, "SUMMARY", bold_format)
                 worksheet.write(row, 1, f"Total Siswa: {total_students}")
-                worksheet.write(row, 4, f"Total Benar: {total_correct}")
-                worksheet.write(row, 5, f"Total Salah: {total_incorrect}")
-                worksheet.write(row, 6, f"Total Jawaban: {total_answers}")
-                worksheet.write(row, 7, f"Akurasi Rata-rata: {avg_accuracy}%")
-                worksheet.write(row, 8, f"Penyelesaian: {completion_rate}%")
+                worksheet.write(row, 6, f"Total Benar: {total_correct}")
+                worksheet.write(row, 7, f"Total Salah: {total_incorrect}")
+                worksheet.write(row, 8, f"Total Jawaban: {total_answers}")
+                worksheet.write(row, 9, f"Akurasi Rata-rata: {avg_accuracy}%")
+                worksheet.write(row, 10, f"Penyelesaian: {completion_rate}%")
                 
-                # Format columns
-                worksheet.set_column('A:A', 5)
-                worksheet.set_column('B:B', 25)
-                worksheet.set_column('C:C', 10)
-                worksheet.set_column('D:D', 10)
-                worksheet.set_column('E:E', 15)
-                worksheet.set_column('F:F', 15)
-                worksheet.set_column('G:G', 10)
-                worksheet.set_column('H:H', 12)
-                worksheet.set_column('I:I', 18)
+                # Format columns dengan spacing yang lebih baik - tambah Taksonomi Bloom
+                worksheet.set_column('A:A', 5)   # No
+                worksheet.set_column('B:B', 25)  # Nama
+                worksheet.set_column('C:C', 12)  # Kelas
+                worksheet.set_column('D:D', 8)   # Level
+                worksheet.set_column('E:E', 20)  # Keterangan Level (singkat)
+                worksheet.set_column('F:F', 15)  # Taksonomi Bloom (format singkat)
+                worksheet.set_column('G:G', 15)  # Jawaban Benar
+                worksheet.set_column('H:H', 15)  # Jawaban Salah
+                worksheet.set_column('I:I', 10)  # Total
+                worksheet.set_column('J:J', 12)  # Akurasi (%)
+                worksheet.set_column('K:K', 18)  # Status
+                worksheet.set_column('G:G', 15)  # Jawaban Salah
+                worksheet.set_column('H:H', 10)  # Total
+                worksheet.set_column('I:I', 12)  # Akurasi (%)
+                worksheet.set_column('J:J', 18)  # Status
                 
                 # level Distribution Chart Sheet
-                level_sheet = workbook.add_worksheet('Distribusi level')
+                level_sheet = workbook.add_worksheet('Distribusi Level')
                 
                 # Create level distribution data
                 level_data = []
                 for level, count in level_distribution.items():
                     level_data.append({
-                        'level': f"level {level}",
+                        'level': f"Level {level}",
                         'Jumlah Siswa': count,
-                        'Persentase': round((count / total_students * 100), 2) if total_students > 0 else 0
+                        'Persentase': round((count / total_students * 100), 2) if total_students > 0 else 0,
+                        'Keterangan': get_level_description_short(level),
+                        'Taksonomi Bloom': get_bloom_taxonomy(level)
                     })
                 
                 # Write level distribution data
-                level_sheet.write(0, 0, "Distribusi level", title_format)
-                level_headers = ['level', 'Jumlah Siswa', 'Persentase (%)']
+                level_sheet.merge_range('A1:E1', f"DISTRIBUSI LEVEL - {collection.name}", title_format)
+                level_headers = ['Level', 'Jumlah Siswa', 'Persentase (%)', 'Keterangan', 'Taksonomi Bloom']
                 for col, header in enumerate(level_headers):
                     level_sheet.write(2, col, header, header_format)
                 
-                for i, data in enumerate(level_data):
-                    level_sheet.write(i + 3, 0, data['level'])
-                    level_sheet.write(i + 3, 1, data['Jumlah Siswa'])
-                    level_sheet.write(i + 3, 2, data['Persentase'])
+                # Create format for description column
+                desc_format = workbook.add_format({
+                    'align': 'left',
+                    'border': 1,
+                    'text_wrap': True,
+                    'valign': 'top'
+                })
                 
-                # Format columns
-                level_sheet.set_column('A:A', 15)
-                level_sheet.set_column('B:B', 15)
-                level_sheet.set_column('C:C', 15)
+                for i, data in enumerate(level_data):
+                    level_sheet.write(i + 3, 0, data['level'], data_format_teacher)
+                    level_sheet.write(i + 3, 1, data['Jumlah Siswa'], num_format_teacher)
+                    level_sheet.write(i + 3, 2, data['Persentase'], num_format_teacher)
+                    level_sheet.write(i + 3, 3, data['Keterangan'], desc_format)
+                    level_sheet.write(i + 3, 4, data['Taksonomi Bloom'], data_format_teacher)
+                    level_sheet.set_row(i + 3, 25)  # Set row height
+                
+                # Format columns dengan spacing yang lebih baik
+                level_sheet.set_column('A:A', 12)  # Level
+                level_sheet.set_column('B:B', 15)  # Jumlah Siswa
+                level_sheet.set_column('C:C', 15)  # Persentase (%)
+                level_sheet.set_column('D:D', 45)  # Keterangan
+                level_sheet.set_column('E:E', 18)  # Taksonomi Bloom
                 
                 # Create a chart for level distribution
                 chart = workbook.add_chart({'type': 'column'})
@@ -4701,24 +5303,59 @@ def export_all_collection_data():
                 
                 row += 1
             
-            # Format column widths
-            summary_sheet.set_column('A:A', 20)
-            summary_sheet.set_column('B:B', 30)
-            summary_sheet.set_column('C:C', 15)
+            # ===== KETERANGAN LEVEL SECTION =====
+            summary_sheet.write('A19', 'Keterangan Level Soal dan Taksonomi Bloom:', heading_format)
+            
+            # Level descriptions with Bloom taxonomy
+            level_descriptions = [
+                ('Level 1', 'Kesadaran Teknologi: Pemahaman dasar tentang konsep dan istilah', 'C1: Mengingat (Remembering)'),
+                ('Level 2', 'Literasi Teknologi: Mampu menjelaskan konsep dan cara kerjanya', 'C2: Memahami (Understanding)'),
+                ('Level 3', 'Aplikasi Dasar: Mampu menerapkan konsep pada masalah sederhana', 'C3: Menerapkan (Applying)'),
+                ('Level 4', 'Aplikasi Lanjut: Mampu menganalisis dan memecahkan masalah kompleks', 'C4: Menganalisis (Analyzing)'),
+                ('Level 5', 'Kemampuan Rendah: Telah menyelesaikan tes dengan penguasaan pada tingkat dasar', 'C6: Mencipta (Creating) - Tingkat Dasar'),
+                ('Level 6', 'Kemampuan Menengah: Telah menyelesaikan tes dengan penguasaan pada tingkat menengah', 'C6: Mencipta (Creating) - Tingkat Menengah'),
+                ('Level 7', 'Kemampuan Tinggi: Telah menyelesaikan tes dengan penguasaan pada tingkat mahir', 'C5: Mengevaluasi (Evaluating)')
+            ]
+            
+            # Headers for level descriptions
+            summary_sheet.write('A20', 'Level', header_format)
+            summary_sheet.write('B20', 'Keterangan', header_format)
+            summary_sheet.write('C20', 'Taksonomi Bloom', header_format)
+            
+            # Create format for level descriptions with text wrapping
+            description_format = workbook.add_format({
+                'align': 'left',
+                'border': 1,
+                'text_wrap': True,
+                'valign': 'top'
+            })
+            
+            row = 21
+            for level_name, description, bloom in level_descriptions:
+                summary_sheet.write(f'A{row}', level_name, data_format)
+                summary_sheet.write(f'B{row}', description, description_format)
+                summary_sheet.write(f'C{row}', bloom, description_format)
+                summary_sheet.set_row(row-1, 25)  # Set row height for better readability
+                row += 1
+            
+            # Format column widths with better spacing
+            summary_sheet.set_column('A:A', 15)  # Level
+            summary_sheet.set_column('B:B', 50)  # Keterangan
+            summary_sheet.set_column('C:C', 35)  # Taksonomi Bloom
             summary_sheet.set_column('D:D', 20)
             summary_sheet.set_column('E:E', 15)
-            summary_sheet.set_column('F:F', 5)
-            summary_sheet.set_column('G:G', 20)
-            summary_sheet.set_column('H:H', 15)
+            summary_sheet.set_column('F:F', 3)
+            summary_sheet.set_column('G:G', 22)
+            summary_sheet.set_column('H:H', 18)
             
             # ===== STUDENT RESULTS SHEET =====
             students_sheet = workbook.add_worksheet('Data Siswa')
             
-            # Title
-            students_sheet.merge_range('A1:I1', f"DATA SISWA - {collection.name}", title_format)
+            # Title - disesuaikan dengan jumlah kolom baru
+            students_sheet.merge_range('A1:K1', f"DATA SISWA - {collection.name}", title_format)
             
-            # Headers
-            headers = ['No', 'Nama', 'Kelas', 'level', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+            # Headers - tambah kolom Taksonomi Bloom
+            headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Bloom', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
             for col, header in enumerate(headers):
                 students_sheet.write(2, col, header, header_format)
             
@@ -4746,16 +5383,21 @@ def export_all_collection_data():
                     is_completed = False
                     status = "Belum Mulai"
                 
-                # Write to Excel
+                # Write to Excel - tambah kolom Taksonomi Bloom
                 students_sheet.write(row, 0, i, num_format)
                 students_sheet.write(row, 1, student.nama, data_format)
                 students_sheet.write(row, 2, student.kelas or "-", data_format)
                 students_sheet.write(row, 3, current_level, num_format)
-                students_sheet.write(row, 4, correct, num_format)
-                students_sheet.write(row, 5, incorrect, num_format)
-                students_sheet.write(row, 6, total, num_format)
-                students_sheet.write(row, 7, accuracy, num_format)
-                students_sheet.write(row, 8, status, data_format)
+                students_sheet.write(row, 4, get_level_description_short(current_level), data_format)
+                students_sheet.write(row, 5, get_bloom_taxonomy_short(current_level), data_format)
+                students_sheet.write(row, 6, correct, num_format)
+                students_sheet.write(row, 7, incorrect, num_format)
+                students_sheet.write(row, 8, total, num_format)
+                students_sheet.write(row, 9, accuracy, num_format)
+                students_sheet.write(row, 10, status, data_format)
+                
+                # Set row height for better readability
+                students_sheet.set_row(row-1, 25)
                 
                 # Add to data for pandas DataFrame
                 student_data.append({
@@ -4771,16 +5413,18 @@ def export_all_collection_data():
                 
                 row += 1
             
-            # Format columns
-            students_sheet.set_column('A:A', 5)
-            students_sheet.set_column('B:B', 25)
-            students_sheet.set_column('C:C', 10)
-            students_sheet.set_column('D:D', 10)
-            students_sheet.set_column('E:E', 15)
-            students_sheet.set_column('F:F', 15)
-            students_sheet.set_column('G:G', 10)
-            students_sheet.set_column('H:H', 12)
-            students_sheet.set_column('I:I', 18)
+            # Format columns dengan spacing yang lebih baik - tambah kolom Taksonomi Bloom
+            students_sheet.set_column('A:A', 5)   # No
+            students_sheet.set_column('B:B', 25)  # Nama
+            students_sheet.set_column('C:C', 12)  # Kelas
+            students_sheet.set_column('D:D', 8)   # Level
+            students_sheet.set_column('E:E', 20)  # Keterangan Level (singkat)
+            students_sheet.set_column('F:F', 15)  # Taksonomi Bloom (format singkat)
+            students_sheet.set_column('G:G', 15)  # Jawaban Benar
+            students_sheet.set_column('H:H', 15)  # Jawaban Salah
+            students_sheet.set_column('I:I', 10)  # Total
+            students_sheet.set_column('J:J', 12)  # Akurasi (%)
+            students_sheet.set_column('K:K', 18)  # Status
             
             # ===== CLASS SUMMARY SHEET =====
             # Group students by class
@@ -4840,15 +5484,15 @@ def export_all_collection_data():
                 
                 row += 1
             
-            # Format columns
-            class_sheet.set_column('A:A', 20)
-            class_sheet.set_column('B:B', 15)
-            class_sheet.set_column('C:C', 15)
-            class_sheet.set_column('D:D', 15)
-            class_sheet.set_column('E:E', 15)
-            class_sheet.set_column('F:F', 15)
-            class_sheet.set_column('G:G', 15)
-            class_sheet.set_column('H:H', 20)
+            # Format columns with better spacing
+            class_sheet.set_column('A:A', 20)  # Kelas
+            class_sheet.set_column('B:B', 15)  # Jumlah Siswa
+            class_sheet.set_column('C:C', 15)  # Jawaban Benar
+            class_sheet.set_column('D:D', 15)  # Jawaban Salah
+            class_sheet.set_column('E:E', 15)  # Total Jawaban
+            class_sheet.set_column('F:F', 15)  # Akurasi (%)
+            class_sheet.set_column('G:G', 18)  # Siswa Selesai
+            class_sheet.set_column('H:H', 22)  # Persentase Selesai (%)
             
             # ===== QUESTIONS ANALYSIS SHEET =====
             # Get questions in this collection
@@ -4863,11 +5507,11 @@ def export_all_collection_data():
             if questions:
                 question_sheet = workbook.add_worksheet('Analisis Soal')
                 
-                # Title
-                question_sheet.merge_range('A1:H1', f"ANALISIS SOAL - {collection.name}", title_format)
+                # Title - disesuaikan dengan kolom baru
+                question_sheet.merge_range('A1:G1', f"ANALISIS SOAL - {collection.name}", title_format)
                 
-                # Headers
-                question_headers = ['ID', 'level', 'Soal', 'Tingkat Kesulitan (p)', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)']
+                # Headers - tambah Taksonomi Bloom
+                question_headers = ['Level', 'Taksonomi Bloom', 'Soal', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)']
                 for col, header in enumerate(question_headers):
                     question_sheet.write(2, col, header, header_format)
                 
@@ -4884,27 +5528,36 @@ def export_all_collection_data():
                     total_answers = len(answers)
                     accuracy = (correct_count / total_answers * 100) if total_answers > 0 else 0
                     
-                    # Write to Excel
-                    question_sheet.write(row, 0, question.id, num_format)
-                    question_sheet.write(row, 1, question.level, num_format)
-                    question_sheet.write(row, 2, question.soal, data_format)
-                    question_sheet.write(row, 3, question.p, num_format)
-                    question_sheet.write(row, 4, correct_count, num_format)
-                    question_sheet.write(row, 5, incorrect_count, num_format)
-                    question_sheet.write(row, 6, total_answers, num_format)
-                    question_sheet.write(row, 7, accuracy, num_format)
+                    # Create format for question text with text wrapping
+                    question_format = workbook.add_format({
+                        'align': 'left',
+                        'border': 1,
+                        'text_wrap': True,
+                        'valign': 'top'
+                    })
+                    
+                    # Write to Excel - tambah kolom Taksonomi Bloom
+                    question_sheet.write(row, 0, question.level, num_format)
+                    question_sheet.write(row, 1, get_bloom_taxonomy_short(question.level), data_format)
+                    question_sheet.write(row, 2, question.soal, question_format)
+                    question_sheet.write(row, 3, correct_count, num_format)
+                    question_sheet.write(row, 4, incorrect_count, num_format)
+                    question_sheet.write(row, 5, total_answers, num_format)
+                    question_sheet.write(row, 6, accuracy, num_format)
+                    
+                    # Set row height for better readability
+                    question_sheet.set_row(row-1, 30)
                     
                     row += 1
                 
-                # Format columns
-                question_sheet.set_column('A:A', 10)
-                question_sheet.set_column('B:B', 10)
-                question_sheet.set_column('C:C', 50)
-                question_sheet.set_column('D:D', 20)
-                question_sheet.set_column('E:E', 15)
-                question_sheet.set_column('F:F', 15)
-                question_sheet.set_column('G:G', 15)
-                question_sheet.set_column('H:H', 15)
+                # Format columns dengan spacing yang lebih baik - tambah kolom Taksonomi Bloom
+                question_sheet.set_column('A:A', 8)   # Level
+                question_sheet.set_column('B:B', 15)  # Taksonomi Bloom (format singkat)
+                question_sheet.set_column('C:C', 45)  # Soal
+                question_sheet.set_column('D:D', 15)  # Jawaban Benar
+                question_sheet.set_column('E:E', 15)  # Jawaban Salah
+                question_sheet.set_column('F:F', 15)  # Total Jawaban
+                question_sheet.set_column('G:G', 15)  # Akurasi (%)
                 
                 # Create charts worksheet
                 charts_sheet = workbook.add_worksheet('Grafik')
@@ -4976,46 +5629,37 @@ def export_result_pdf():
         user_id = request.args.get('user_id')
         collection_id = request.args.get('collection_id')
         
-        # Validasi parameter
+        # Validasi dan ambil semua data
         if not user_id or not collection_id:
             return jsonify({'success': False, 'message': 'Parameter tidak lengkap'}), 400
-            
-        # Ambil info siswa
         student = Siswa.query.get(user_id)
         if not student:
             return jsonify({'success': False, 'message': 'Siswa tidak ditemukan'}), 404
-            
-        # Ambil info koleksi
         collection = QuestionCollection.query.get(collection_id)
         if not collection:
             return jsonify({'success': False, 'message': 'Koleksi tidak ditemukan'}), 404
-            
-        # Ambil hasil tes
         result = SiswaResult.query.filter_by(
             siswa_id=user_id,
             collection_id=collection_id
         ).first()
-        
         if not result:
             return jsonify({'success': False, 'message': 'Hasil tes tidak ditemukan'}), 404
         
-        # Ambil jawaban siswa
+        # Ambil jawaban siswa dan buat statistik
         answers = get_student_answer_history(user_id, collection_id)
-        
-        # Hitung statistik
         total = result.correct + result.incorrect
         accuracy = round((result.correct / total * 100), 2) if total > 0 else 0
         
-        # Dapatkan rekomendasi dari Gemini
+        # Generate rekomendasi pembelajaran yang ditingkatkan
         recommendations = generate_ai_recommendations(student, result, collection_id)
         
-        # Fungsi helper untuk template
+        # Helper function untuk waktu sekarang
         def now():
             return datetime.datetime.now()
         
-        # Render template HTML untuk PDF
+        # Render template HTML dengan data
         html = render_template(
-            'export_pdf.html',
+            'siswa/export_pdf.html',
             student=student,
             collection=collection,
             result=result,
@@ -5023,39 +5667,73 @@ def export_result_pdf():
             accuracy=accuracy,
             recommendations=recommendations,
             total_questions=total,
-            now=now  # Kirim fungsi now
+            now=now
         )
         
-        # Fungsi untuk mengkonversi HTML ke PDF
+        # Fungsi untuk mengkonversi HTML ke PDF dengan xhtml2pdf yang ditingkatkan
         def html_to_pdf(source_html):
-            # Buat buffer untuk menyimpan PDF
-            result_buffer = BytesIO()
-            
-            # Konversi HTML ke PDF
-            pdf_status = pisa.CreatePDF(
-                source_html,              # HTML string
-                dest=result_buffer        # Output
-            )
-            
-            # Reset pointer ke awal buffer
-            result_buffer.seek(0)
-            
-            # Jika ada error, kembalikan None
-            if pdf_status.err:
-                return None
+            try:
+                # Log debugging info
+                print("Starting PDF conversion...")
                 
-            return result_buffer
-        
-        # Konversi HTML ke PDF dan simpan ke buffer
+                # Buat PDF buffer untuk output
+                result_buffer = BytesIO()
+                
+                # Atur konfigurasi PDF
+                pdf_options = {
+                    "page-size": "A4",
+                    "margin-top": "2cm",
+                    "margin-bottom": "2cm",
+                    "margin-left": "2cm",
+                    "margin-right": "2cm",
+                    "encoding": "UTF-8",
+                    # Tambahan opsi untuk stabilitas
+                    "quiet": 0,
+                }
+                
+                # Konversi HTML ke PDF menggunakan xhtml2pdf
+                pisa_status = pisa.CreatePDF(
+                    source_html,                # HTML sumber
+                    dest=result_buffer,         # Buffer tujuan
+                    encoding='UTF-8',           # Encoding untuk karakter internasional
+                    options=pdf_options         # Opsi format
+                )
+                
+                # Reset pointer buffer ke awal
+                result_buffer.seek(0)
+                
+                # Cek status konversi
+                if pisa_status.err:
+                    print(f"Error pada konversi PDF: {pisa_status.err}")
+                    return None
+                    
+                return result_buffer
+                
+            except Exception as pdf_error:
+                print(f"Exception dalam konversi PDF: {str(pdf_error)}")
+                import traceback
+                traceback.print_exc()
+                return None
+
+        # Konversi HTML ke PDF
         pdf_buffer = html_to_pdf(html)
         
         if pdf_buffer is None:
             return jsonify({'success': False, 'message': 'Gagal membuat PDF'}), 500
         
-        # Buat nama file untuk didownload
-        filename = f"Hasil_Tes_{student.nama}_{collection.name}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
+        # Buat nama file yang lebih deskriptif untuk download
+        current_date = datetime.datetime.now().strftime('%Y%m%d_%H%M')
         
-        # Kirim file
+        # Bersihkan nama file dari karakter yang tidak diperbolehkan
+        safe_student_name = "".join(c for c in student.nama if c.isalnum() or c in ' _-').strip()
+        safe_student_name = safe_student_name.replace(' ', '_')
+        
+        safe_collection_name = "".join(c for c in collection.name if c.isalnum() or c in ' _-').strip()
+        safe_collection_name = safe_collection_name.replace(' ', '_')
+        
+        filename = f"Hasil_Tes_{safe_student_name}_{safe_collection_name}_{current_date}.pdf"
+        
+        # Kirim file PDF
         return send_file(
             pdf_buffer,
             as_attachment=True,
@@ -5069,161 +5747,696 @@ def export_result_pdf():
         traceback.print_exc()
         return jsonify({'success': False, 'message': f"Error: {str(e)}"}), 500
 
-# Fungsi untuk generate rekomendasi AI
 def generate_ai_recommendations(student, result, collection_id):
     try:
-        # Get collection name
+        # Mengambil nama koleksi dan konteks materi
         collection = QuestionCollection.query.get(collection_id)
         collection_name = collection.name if collection else "N/A"
         
-        # Buat prompt untuk Gemini
+        # Ambil konteks materi dan tujuan pembelajaran
+        questions_context = get_questions_context_for_recommendations(collection_id, result.current_level)
+        learning_objectives = extract_learning_objectives(collection_id)
+        performance_analysis = analyze_student_performance(student.id, result, collection_id)
+        
+        # Hitung persentase keberhasilan untuk menentukan tingkat penguasaan
+        total_answers = result.correct + result.incorrect
+        mastery_percentage = (result.correct / total_answers * 100) if total_answers > 0 else 0
+        
+        # Tentukan tingkat penguasaan berdasarkan persentase
+        if mastery_percentage >= 80:
+            mastery_level = "tinggi"
+        elif mastery_percentage >= 60:
+            mastery_level = "sedang"
+        else:
+            mastery_level = "rendah"
+
+        # Prompt AI untuk mendapatkan rekomendasi yang lebih alami seperti dari guru
         prompt = f"""
-        Berikan 4-5 rekomendasi pembelajaran spesifik untuk seorang siswa berdasarkan hasil tes diagnostik berikut:
+        Anda adalah seorang GURU AHLI yang memberikan rekomendasi belajar kepada siswa Anda berdasarkan hasil tes diagnostik.
+        Berikan rekomendasi yang KONKRET, PRAKTIS, dan MEMOTIVASI dengan NADA PERCAKAPAN LANGSUNG, seolah-olah Anda berbicara kepada siswa di kelas.
         
-        Nama Siswa: {student.nama}
-        Kelas: {student.kelas}
-        Materi Tes: {collection_name}
+        DATA SISWA:
+        - Nama: {student.nama}
+        - Kelas: {student.kelas}
+        - Materi Tes: {collection_name}
+        - Level Pencapaian: {result.current_level} dari 7
+        - Tingkat Penguasaan: {mastery_level} ({mastery_percentage:.1f}%)
+        - Jawaban Benar: {result.correct}, Jawaban Salah: {result.incorrect}
         
-        Hasil Tes:
-        - level yang dicapai: {result.current_level}
-        - Jawaban Benar: {result.correct}
-        - Jawaban Salah: {result.incorrect}
-        - Akurasi: {round((result.correct / (result.correct + result.incorrect) * 100), 2) if (result.correct + result.incorrect) > 0 else 0}%
+        ANALISIS PERFORMA:
+        {performance_analysis}
         
-        Keterangan level:
-        - level 1: Kesadaran Teknologi (Pemahaman Dasar)
-        - level 2: Literasi Teknologi (Komprehensi)
-        - level 3: Kemampuan Teknologi Dasar (Aplikasi)
-        - level 4: Kemampuan Teknologi Lanjut (Aplikasi)
-        - level 5: Kreativitas Teknologi Dasar
-        - level 6: Kreativitas Teknologi Menengah
-        - level 7: Kritik Teknologi (Evaluasi Mendalam)
+        TUJUAN PEMBELAJARAN:
+        {chr(10).join([f"- {objective}" for objective in learning_objectives])}
         
-        Berikan rekomendasi spesifik yang relevan dengan materi, tingkat kemampuan (berdasarkan level), dan area yang perlu ditingkatkan.
-        Berikan rekomendasi dalam format bullet points. Setiap poin maksimal 2 kalimat.
+        INSTRUKSI PENTING UNTUK REKOMENDASI:
+        1. Berikan 5-6 rekomendasi KONKRET untuk membantu siswa meningkatkan pemahaman
+        2. Gunakan BAHASA GURU yang JELAS dan PERSONAL (seperti "Kamu perlu..." atau "Coba lakukan...")
+        3. Setiap rekomendasi harus memiliki TINDAKAN SPESIFIK yang bisa langsung dilakukan
+        4. Untuk siswa dengan tingkat penguasaan {mastery_level}, fokuskan pada:
+           - {'Pemahaman konsep dasar dan latihan terstruktur' if mastery_level == 'rendah' else 'Pendalaman konsep dan aplikasi praktis' if mastery_level == 'sedang' else 'Pengembangan kreativitas dan penerapan tingkat lanjut'}
+        5. Hindari terminologi teknis yang sulit dipahami
+        6. Kaitkan setiap saran dengan tujuan pembelajaran spesifik
+        7. Setiap rekomendasi hanya 1-2 kalimat dengan format bullet point
+        
+        JANGAN GUNAKAN:
+        - Kata "domain", "level", atau "prompt"
+        - Huruf tebal, header, atau penanda format lainnya
+        - Format teknis seperti "**Domain Kognitif:**"
+        - Angka urutan pada rekomendasi (cukup gunakan bullet point)
+
+        Berikan rekomendasi dalam format bullet point sederhana ("• ").
         """
-        
-        # Panggil Gemini API
+
+        # Panggil AI untuk mendapatkan rekomendasi
         response = model.generate_content(prompt)
         recommendations_text = response.text
         
-        # Parse hasil menjadi array
-        recommendations = []
-        lines = recommendations_text.split("\n")
+        # Parse hasil ke dalam format yang diinginkan
+        recommendations = parse_ai_recommendations_for_teacher(recommendations_text)
         
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Cek apakah baris mengandung bullet point atau nomor
-            if re.match(r'^[\*\-\•\+\d\.\s]+(.+)$', line):
-                clean_line = re.sub(r'^[\*\-\•\+\d\.\s]+', '', line)
-                recommendations.append(clean_line.strip())
-            else:
-                # Jika tidak ada bullet point, tambahkan sebagai item terpisah
-                recommendations.append(line)
+        # Fallback jika terjadi kegagalan
+        if not recommendations or len(recommendations) < 3:
+            recommendations = get_teacher_style_recommendations(
+                current_level=result.current_level,
+                correct=result.correct,
+                incorrect=result.incorrect,
+                collection_name=collection_name,
+                learning_objectives=learning_objectives,
+                mastery_level=mastery_level
+            )
         
-        # Jika tidak ada rekomendasi dari Gemini, berikan default
-        if not recommendations:
-            recommendations = get_default_recommendations(result.current_level, result.correct, result.incorrect)
-            
         return recommendations
         
     except Exception as e:
         print(f"Error generating AI recommendations: {str(e)}")
-        # Fallback ke rekomendasi default
-        return get_default_recommendations(result.current_level, result.correct, result.incorrect)
+        import traceback
+        traceback.print_exc()
+        
+        # Fallback ke rekomendasi default dengan gaya guru
+        return get_teacher_style_recommendations(
+            current_level=result.current_level if 'result' in locals() else 1,
+            correct=result.correct if 'result' in locals() else 0,
+            incorrect=result.incorrect if 'result' in locals() else 0,
+            collection_name=collection_name if 'collection_name' in locals() else "materi ini",
+            learning_objectives=learning_objectives if 'learning_objectives' in locals() else [],
+            mastery_level=mastery_level if 'mastery_level' in locals() else "sedang"
+        )
 
-def get_default_recommendations(current_level, correct, incorrect):
-    # Hitung akurasi
-    total = correct + incorrect
-    accuracy = round((correct / total * 100), 2) if total > 0 else 0
+# Fungsi helper untuk fokus rekomendasi berdasarkan tingkat penguasaan
+def get_focus_by_mastery_level(mastery_level, domain_type):
+    if domain_type == "konsep":
+        if mastery_level == "rendah":
+            return "memperkuat DASAR-DASAR materi dengan scaffolding dan visualisasi"
+        elif mastery_level == "sedang":
+            return "memperdalam HUBUNGAN ANTAR KONSEP dan aplikasi kontekstual"
+        else:  # tinggi
+            return "mengeksplorasi PERSPEKTIF LANJUTAN dan transfer pengetahuan"
+    elif domain_type == "praktik":
+        if mastery_level == "rendah":
+            return "memberikan LATIHAN TERSTRUKTUR dengan panduan bertahap"
+        elif mastery_level == "sedang":
+            return "mencakup VARIASI KONTEKS dan pemecahan masalah mandiri"
+        else:  # tinggi
+            return "melibatkan KOMPLEKSITAS TINGGI dan potensi inovasi"
+    elif domain_type == "evaluasi":
+        if mastery_level == "rendah":
+            return "berfokus pada IDENTIFIKASI KESENJANGAN pemahaman dan diagnosis kesulitan"
+        elif mastery_level == "sedang":
+            return "melibatkan EVALUASI STRATEGI belajar dan efektivitas pendekatan"
+        else:  # tinggi
+            return "mendorong SINTESIS PENGETAHUAN dan refleksi metakognitif"
+    return ""
+
+# Fungsi untuk mengekstrak tujuan pembelajaran dari modul
+def extract_learning_objectives(collection_id):
+    """
+    Mengekstrak tujuan pembelajaran dari modul berdasarkan collection_id
+    """
+    try:
+        # Ambil referensi modul dari koleksi soal
+        questions = Question.query.filter_by(collection_id=collection_id).all()
+        modul_references = []
+        learning_objectives = {}
+        
+        # Pertama coba ekstrak dari question.modul_reference jika ada
+        for question in questions:
+            # Check if modul_reference attribute exists
+            if hasattr(question, 'modul_reference') and question.modul_reference and question.modul_reference.strip():
+                modul_ref = question.modul_reference.strip()
+                modul_references.append(modul_ref)
+        
+        # Hapus duplikat
+        unique_modules = list(set(modul_references))
+        
+        # Fallback: ekstrak dari konten soal
+        for question in questions:
+            if hasattr(question, 'explanation') and question.explanation:
+                explanation_lower = question.explanation.lower()
+                
+                # Cari frasa yang mengandung kata tujuan pembelajaran
+                if any(term in explanation_lower for term in ["tujuan pembelajaran", "learning objective", "capaian pembelajaran", "kompetensi"]):
+                    # Coba ekstrak tujuan pembelajaran dari penjelasan soal
+                    objective_text = extract_objective_from_text(question.explanation)
+                    if objective_text:
+                        ref = question.modul_reference if hasattr(question, 'modul_reference') else "unknown"
+                        if ref not in learning_objectives:
+                            learning_objectives[ref] = []
+                        learning_objectives[ref].append(objective_text)
+        
+        # Format tujuan pembelajaran
+        formatted_objectives = []
+        for modul, objectives in learning_objectives.items():
+            if isinstance(objectives, list):
+                for obj in objectives:
+                    formatted_objectives.append(f"Modul {modul}: {obj}")
+            else:
+                formatted_objectives.append(f"Modul {modul}: {objectives}")
+        
+        # Jika masih belum menemukan tujuan pembelajaran, coba ekstrak dari pertanyaan
+        if not formatted_objectives:
+            # Kategorikan pertanyaan berdasarkan level
+            questions_by_level = {}
+            for question in questions:
+                if hasattr(question, 'level'):
+                    level = question.level
+                    if level not in questions_by_level:
+                        questions_by_level[level] = []
+                    questions_by_level[level].append(question)
+            
+            # Untuk setiap level, buat perkiraan tujuan pembelajaran
+            for level, level_questions in sorted(questions_by_level.items()):
+                # Ekstrak kata kunci dari soal-soal di level ini
+                level_text = " ".join([q.soal for q in level_questions if hasattr(q, 'soal') and q.soal])
+                keywords = extract_keywords_from_text(level_text, 3)
+                
+                if keywords:
+                    keyword_phrase = ", ".join(keywords)
+                    if level <= 2:
+                        formatted_objectives.append(f"Level {level}: Memahami dan mengidentifikasi konsep {keyword_phrase}")
+                    elif level <= 4:
+                        formatted_objectives.append(f"Level {level}: Menerapkan dan menganalisis konsep {keyword_phrase}")
+                    else:
+                        formatted_objectives.append(f"Level {level}: Mengevaluasi dan mencipta berdasarkan konsep {keyword_phrase}")
+        
+        # Jika masih tidak menemukan tujuan pembelajaran, buat tujuan umum
+        if not formatted_objectives:
+            # Buat perkiraan tujuan pembelajaran dari konten soal
+            all_text = " ".join([q.soal for q in questions if hasattr(q, 'soal') and q.soal])
+            concepts = extract_keywords_from_text(all_text, 5)
+            
+            if concepts:
+                for i, concept in enumerate(concepts[:3]):
+                    if i == 0:
+                        formatted_objectives.append(f"Memahami dan menerapkan konsep {concept}")
+                    elif i == 1:
+                        formatted_objectives.append(f"Menganalisis hubungan antara {concepts[0]} dan {concept}")
+                    else:
+                        formatted_objectives.append(f"Mengevaluasi penerapan {concept} dalam konteks nyata")
+            else:
+                # Jika tidak ada konsep spesifik, berikan tujuan generik
+                formatted_objectives = [
+                    "Memahami konsep-konsep dasar materi",
+                    "Menerapkan pengetahuan dalam pemecahan masalah",
+                    "Menganalisis dan mengevaluasi situasi berdasarkan konsep yang dipelajari"
+                ]
+        
+        return formatted_objectives
     
+    except Exception as e:
+        print(f"Error extracting learning objectives: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return ["Memahami dan menerapkan konsep dasar materi"]
+    
+def extract_keywords_from_text(text, count=5):
+    """
+    Ekstrak kata kunci dari teks berdasarkan frekuensi
+    """
+    if not text:
+        return []
+        
+    # Bersihkan teks
+    clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
+    
+    # Hitung frekuensi kata
+    words = clean_text.split()
+    word_freq = {}
+    
+    stopwords = ["yang", "dan", "atau", "adalah", "untuk", "dalam", "pada", "ini", "itu", "dengan", 
+                "akan", "dari", "jika", "maka", "oleh", "ada", "tidak", "kita", "saya", "kami", 
+                "mereka", "dia", "suatu", "dapat", "bisa", "harus", "sebagai", "saat", "ketika"]
+    
+    for word in words:
+        if len(word) > 3 and word not in stopwords:
+            word_freq[word] = word_freq.get(word, 0) + 1
+    
+    # Ambil kata dengan frekuensi tertinggi
+    sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+    return [word for word, freq in sorted_words[:count]]
+
+def extract_objective_from_text(text):
+    """
+    Ekstrak tujuan pembelajaran dari teks penjelasan
+    """
+    # Cari kalimat yang memuat kata 'tujuan'
+    sentences = re.split(r'[.!?]', text)
+    for sentence in sentences:
+        if re.search(r'\b(tujuan|kompetensi|capaian)\b', sentence.lower()):
+            return sentence.strip()
+    return None
+
+def extract_key_concepts_from_questions(questions):
+    """
+    Ekstrak konsep kunci dari kumpulan soal
+    """
+    # Gabungkan semua soal dan penjelasan
+    all_text = ""
+    for question in questions:
+        if hasattr(question, 'soal') and question.soal:
+            all_text += question.soal + " "
+        if hasattr(question, 'explanation') and question.explanation:
+            all_text += question.explanation + " "
+    
+    # Bersihkan teks
+    all_text = re.sub(r'[^\w\s]', '', all_text.lower())
+    
+    # Kata-kata yang sering muncul bisa jadi merupakan konsep kunci
+    # Tambahkan logika NLP di sini untuk ekstrak konsep kunci
+    # Sebagai contoh sederhana, kita menggunakan frekuensi kata dengan filter
+    words = all_text.split()
+    word_freq = {}
+    
+    stopwords = ["yang", "dan", "atau", "adalah", "untuk", "dalam", "pada", "ini", "itu", "dengan"]
+    for word in words:
+        if len(word) > 4 and word not in stopwords:
+            word_freq[word] = word_freq.get(word, 0) + 1
+    
+    # Ambil kata dengan frekuensi tertinggi
+    sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+    return [word for word, freq in sorted_words[:10]]  # Return top 10 konsep
+
+def identify_learning_domains(collection_id):
+    """
+    Identifikasi domain pembelajaran yang diukur dalam koleksi soal
+    """
+    try:
+        questions = Question.query.filter_by(collection_id=collection_id).all()
+        domains = {
+            "kognitif": 0,
+            "praktis": 0,
+            "reflektif": 0
+        }
+        
+        for question in questions:
+            # Analisis soal untuk menentukan domain
+            if hasattr(question, 'soal') and question.soal:
+                text = question.soal.lower()
+                
+                # Indikator domain kognitif
+                if any(word in text for word in ["jelaskan", "definisikan", "sebutkan", "identifikasi"]):
+                    domains["kognitif"] += 1
+                
+                # Indikator domain praktis
+                if any(word in text for word in ["terapkan", "implementasikan", "lakukan", "bagaimana", "cara"]):
+                    domains["praktis"] += 1
+                
+                # Indikator domain reflektif
+                if any(word in text for word in ["evaluasi", "analisis", "bandingkan", "mengapa", "refleksikan"]):
+                    domains["reflektif"] += 1
+        
+        # Format output
+        domain_text = []
+        total_questions = len(questions)
+        if total_questions > 0:
+            for domain, count in domains.items():
+                if count > 0:
+                    percentage = round((count / total_questions * 100), 1)
+                    domain_text.append(f"{domain.capitalize()}: {percentage}%")
+            
+            return ", ".join(domain_text) if domain_text else "Domain tidak teridentifikasi"
+        else:
+            return "Domain Kognitif, Praktis, dan Reflektif"
+    
+    except Exception as e:
+        print(f"Error identifying learning domains: {str(e)}")
+        return "Domain Kognitif, Praktis, dan Reflektif"
+
+def get_questions_context_for_recommendations(collection_id, current_level):
+    """
+    Ambil konteks dari soal-soal untuk rekomendasi yang lebih spesifik
+    dengan fokus pada tujuan pembelajaran dari modul ajar
+    """
+    try:
+        questions = Question.query.filter_by(collection_id=collection_id).all()
+        
+        if not questions:
+            return "Tidak ada konteks materi yang tersedia."
+        
+        # Analisis konten soal
+        context_parts = []
+        
+        # 1. Referensi modul ajar
+        module_refs = []
+        module_content = {}
+        
+        for question in questions:
+            # Ekstrak referensi modul
+            if hasattr(question, 'modul_reference') and question.modul_reference:
+                module_ref = question.modul_reference.strip()
+                module_refs.append(module_ref)
+                
+                # Kumpulkan konten berdasarkan modul
+                if module_ref not in module_content:
+                    module_content[module_ref] = []
+                
+                # Tambahkan soal dan penjelasan ke konten modul
+                content = question.soal[:150] if hasattr(question, 'soal') and question.soal else ""
+                if hasattr(question, 'explanation') and question.explanation:
+                    content += " | " + question.explanation[:150]
+                    
+                if content:
+                    module_content[module_ref].append(content)
+        
+        # 2. Ekstrak konsep-konsep kunci
+        concepts = []
+        for question in questions:
+            # Ekstrak konsep dari explanation
+            if hasattr(question, 'explanation') and question.explanation:
+                # Identifikasi frasa kunci dalam penjelasan
+                explanation = question.explanation.lower()
+                
+                # Cari frasa yang menandakan konsep penting
+                for marker in ["konsep", "prinsip", "teori", "metode", "rumus"]:
+                    pattern = fr'{marker}\s+(\w+[\s\w]+?)(?:\.|\,|\;|\:)'
+                    matches = re.findall(pattern, explanation)
+                    for match in matches:
+                        if 3 < len(match) < 50:  # Filter panjang yang masuk akal
+                            concepts.append(f"{marker.capitalize()}: {match.strip()}")
+        
+        # Format konteks
+        # 1. Referensi modul
+        if module_refs:
+            unique_refs = list(set(module_refs))
+            context_parts.append(f"REFERENSI MODUL AJAR: {', '.join(unique_refs)}")
+        
+        # 2. Konsep kunci
+        if concepts:
+            unique_concepts = list(set(concepts))[:5]  # Batasi 5 konsep paling penting
+            context_parts.append(f"KONSEP KUNCI: {'; '.join(unique_concepts)}")
+        
+        # 3. Konten per modul
+        for module, contents in module_content.items():
+            if contents:
+                # Ambil sample konten dari modul
+                sample = contents[0]
+                context_parts.append(f"ISI MODUL {module}: {sample}")
+        
+        # 4. Distribusi level
+        level_dist = {}
+        for question in questions:
+            if hasattr(question, 'level'):
+                level = question.level
+                level_dist[level] = level_dist.get(level, 0) + 1
+        
+        level_info = [f"Level {level}: {count} soal" for level, count in sorted(level_dist.items())]
+        context_parts.append(f"DISTRIBUSI LEVEL: {', '.join(level_info)}")
+        
+        return "\n".join(context_parts)
+        
+    except Exception as e:
+        print(f"Error getting questions context: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return "Tidak dapat menganalisis konteks materi."
+
+def analyze_student_performance(student_id, result, collection_id):
+    """
+    Analisis performa siswa yang lebih detail dengan fokus pada pencapaian tujuan pembelajaran
+    """
+    try:
+        # Ambil semua jawaban siswa untuk collection ini
+        answers = SiswaAnswer.query.filter_by(
+            siswa_id=student_id
+        ).join(
+            Question, SiswaAnswer.question_id == Question.id
+        ).join(
+            CollectionQuestion, 
+            (CollectionQuestion.question_id == Question.id) &
+            (CollectionQuestion.collection_id == collection_id)
+        ).all()
+        
+        if not answers:
+            return "Belum ada data jawaban untuk analisis detail."
+        
+        # Analisis per level
+        level_performance = {}
+        for answer in answers:
+            if hasattr(answer, 'question') and answer.question and hasattr(answer.question, 'level'):
+                level = answer.question.level
+                if level not in level_performance:
+                    level_performance[level] = {'correct': 0, 'total': 0}
+                
+                level_performance[level]['total'] += 1
+                if answer.is_correct:
+                    level_performance[level]['correct'] += 1
+        
+        # Analisis per modul (jika informasi tersedia)
+        module_performance = {}
+        for answer in answers:
+            if (hasattr(answer, 'question') and answer.question and 
+                hasattr(answer.question, 'modul_reference') and 
+                answer.question.modul_reference):
+                    
+                module = answer.question.modul_reference
+                if module not in module_performance:
+                    module_performance[module] = {'correct': 0, 'total': 0}
+                
+                module_performance[module]['total'] += 1
+                if answer.is_correct:
+                    module_performance[module]['correct'] += 1
+        
+        # Format analisis
+        analysis_parts = []
+        
+        # Level performance
+        level_parts = []
+        for level in sorted(level_performance.keys()):
+            perf = level_performance[level]
+            if perf['total'] > 0:
+                accuracy = round((perf['correct'] / perf['total'] * 100), 1)
+                level_parts.append(f"Level {level}: {perf['correct']}/{perf['total']} ({accuracy}%)")
+        
+        if level_parts:
+            analysis_parts.append("PERFORMA PER LEVEL: " + "; ".join(level_parts))
+        
+        # Module performance
+        if module_performance:
+            module_parts = []
+            for module, perf in module_performance.items():
+                if perf['total'] > 0:
+                    accuracy = round((perf['correct'] / perf['total'] * 100), 1)
+                    module_parts.append(f"{module}: {accuracy}%")
+            
+            if module_parts:
+                analysis_parts.append("PERFORMA PER MODUL: " + "; ".join(module_parts))
+        
+        # Identifikasi area yang perlu diperkuat
+        weak_areas = []
+        
+        # Berdasarkan level
+        weak_levels = [level for level, perf in level_performance.items() 
+                      if perf['total'] > 0 and (perf['correct'] / perf['total']) < 0.6]
+        if weak_levels:
+            weak_areas.append(f"Level yang perlu dikuasai: {', '.join(map(str, weak_levels))}")
+        
+        # Berdasarkan modul
+        weak_modules = [module for module, perf in module_performance.items() 
+                       if perf['total'] > 0 and (perf['correct'] / perf['total']) < 0.6]
+        if weak_modules:
+            weak_areas.append(f"Modul yang perlu diperdalam: {', '.join(weak_modules)}")
+        
+        if weak_areas:
+            analysis_parts.append("AREA PENGEMBANGAN: " + "; ".join(weak_areas))
+        
+        # Jika tidak ada analisis yang dapat dibuat
+        if not analysis_parts:
+            return "Data belum cukup untuk analisis mendalam."
+            
+        return "\n".join(analysis_parts)
+        
+    except Exception as e:
+        print(f"Error analyzing student performance: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return "Tidak dapat menganalisis performa detail."
+
+def parse_ai_recommendations_for_teacher(recommendations_text):
+    """
+    Mengubah teks rekomendasi dari AI menjadi format bullet point yang bersih dan alami
+    """
     recommendations = []
     
-    # Rekomendasi berdasarkan akurasi
-    if accuracy < 50:
-        recommendations.append("Fokus pada peningkatan pemahaman dasar materi.")
-        recommendations.append("Perbaiki konsep dasar untuk meningkatkan kemampuan.")
-        recommendations.append("Cari sumber belajar tambahan untuk materi yang belum dipahami.")
-    elif accuracy < 75:
-        recommendations.append("Tingkatkan pemahaman pada level menengah (3-4).")
-        recommendations.append("Pelajari kembali materi yang berkaitan dengan soal yang dijawab salah.")
-        recommendations.append("Latih kemampuan aplikasi konsep pada konteks berbeda.")
-    else:
-        recommendations.append("Lanjutkan pembelajaran ke materi yang lebih kompleks.")
-        recommendations.append("Coba tes pada koleksi lain untuk memperluas penguasaan materi.")
-        recommendations.append("Bantu teman yang mungkin kesulitan dengan materi yang sudah Anda kuasai.")
+    # Bersihkan teks dan split berdasarkan baris
+    lines = recommendations_text.strip().split('\n')
     
-    # Rekomendasi berdasarkan level
-    if current_level < 5:
-        recommendations.append(f"Ulangi tes untuk mencapai level yang lebih tinggi (saat ini: {current_level}).")
-    else:
-        recommendations.append("Selamat mencapai level akhir! Coba tes lain untuk tantangan baru.")
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Hapus format domain dan header
+        if any(header in line.lower() for header in ["domain", "**", "instruksi", "catatan:", "note:"]):
+            continue
+            
+        # Bersihkan bullet point dan format
+        clean_line = re.sub(r'^[\*\-\•\+\d\.\s]+', '', line).strip()
+        
+        # Pastikan gaya bahasa guru yang personal
+        if len(clean_line) > 15:  # Minimal panjang yang masuk akal
+            # Pastikan dimulai dengan kata kerja atau kalimat personal
+            if not any(clean_line.lower().startswith(word) for word in ["coba", "lakukan", "buatlah", "kamu", "anda", "mulailah", "praktekkan", "gunakan"]):
+                clean_line = f"Coba {clean_line[0].lower()}{clean_line[1:]}"
+                
+            recommendations.append(clean_line)
+    
+    # Jika rekomendasi terlalu sedikit, tambahkan dari default
+    if len(recommendations) < 3:
+        print("Warning: AI recommendations too few, adding default recommendations")
     
     return recommendations
 
-@app.route('/api/collections/<int:collection_id>/questions/<int:question_id>', methods=['DELETE'])
-@login_required
-def delete_question_from_collection(collection_id, question_id):
-    try:
-        # 1. Verifikasi kepemilikan koleksi dan hak akses guru
-        collection = QuestionCollection.query.filter_by(id=collection_id, guru_id=current_user.id).first()
-        if not collection:
-            return jsonify({'success': False, 'message': 'Koleksi tidak ditemukan atau Anda tidak memiliki izin.'}), 404
+def get_teacher_style_recommendations(current_level, correct, incorrect, collection_name, learning_objectives=[], mastery_level="sedang"):
+    """
+    Membuat rekomendasi dengan gaya guru berdasarkan tingkat penguasaan
+    """
+    # Ekstrak kata kunci dari tujuan pembelajaran
+    keywords = []
+    for objective in learning_objectives:
+        words = re.findall(r'\b\w{3,}\b', objective.lower())
+        keywords.extend([w for w in words if w not in ["yang", "dan", "atau", "dengan", "untuk", "pada", "dari"]])
+    
+    # Gunakan keywords yang paling sering muncul
+    from collections import Counter
+    common_keywords = [word for word, count in Counter(keywords).most_common(5)] if keywords else []
+    keyword = common_keywords[0] if common_keywords else collection_name
+    
+    recommendations = []
+    
+    if mastery_level == "rendah":
+        recommendations = [
+            f"Buatlah kartu belajar sederhana untuk konsep {keyword} dan latih pemahaman dasar setiap hari selama 15 menit.",
+            f"Coba rangkum materi {collection_name} dengan kata-katamu sendiri dan mintalah guru atau temanmu mengoreksinya.",
+            f"Latih pemahaman dasarmu dengan mengerjakan soal-soal tingkat awal secara bertahap dan catat bagian yang masih membingungkan.",
+            f"Gunakan video pembelajaran pendek untuk memahami konsep {keyword} dari sudut pandang yang berbeda.",
+            f"Bergabunglah dengan kelompok belajar untuk mendiskusikan materi yang masih sulit kamu pahami dan minta bantuan teman yang lebih paham."
+        ]
+    elif mastery_level == "sedang":
+        recommendations = [
+            f"Buatlah peta konsep yang menghubungkan {keyword} dengan konsep-konsep terkait lainnya untuk memperdalam pemahamanmu.",
+            f"Coba kerjakan soal-soal dengan variasi tingkat kesulitan untuk meningkatkan kemampuan aplikasi konsep {collection_name}.",
+            f"Praktekkan penjelasan konsep {keyword} kepada temanmu untuk memastikan kamu benar-benar memahaminya.",
+            f"Gunakan contoh kasus nyata untuk mempraktekkan penerapan konsep yang sudah kamu pelajari dalam situasi berbeda.",
+            f"Identifikasi pola kesalahan yang kamu lakukan dalam tes, dan buatlah strategi khusus untuk memperbaikinya."
+        ]
+    else:  # tinggi
+        recommendations = [
+            f"Kembangkan proyek mini yang mengintegrasikan beberapa konsep dari {collection_name} untuk menguji pemahaman mendalam.",
+            f"Coba cari sumber belajar tambahan yang lebih menantang untuk memperluas wawasanmu tentang {keyword}.",
+            f"Buatlah tutorial atau materi belajar untuk membantu temanmu memahami konsep yang sudah kamu kuasai.",
+            f"Tantang dirimu dengan soal-soal pemecahan masalah kompleks yang membutuhkan analisis mendalam dan penerapan konsep.",
+            f"Diskusikan dengan guru tentang aplikasi lanjutan dari {collection_name} yang bisa kamu eksplorasi lebih jauh."
+        ]
+    
+    # Tambahkan satu rekomendasi motivasi
+    motivational = [
+        f"Ingat, kesalahan adalah bagian dari proses belajar. Terus berlatih dan kamu pasti akan menguasai {collection_name}!",
+        f"Percaya pada kemampuanmu! Dengan konsistensi dan latihan rutin, pemahamanmu tentang {collection_name} akan semakin meningkat.",
+        f"Tetap semangat dan jangan menyerah! Setiap langkah kecil dalam belajar {collection_name} akan membawamu pada pemahaman yang lebih baik."
+    ]
+    
+    import random
+    recommendations.append(random.choice(motivational))
+    
+    return recommendations
 
-        # 2. Cari relasi soal di koleksi
-        collection_question = CollectionQuestion.query.filter_by(
-            collection_id=collection_id,
-            question_id=question_id
-        ).first()
-
-        if not collection_question:
-            return jsonify({'success': False, 'message': 'Soal tidak ditemukan dalam koleksi ini.'}), 404
-
-        # Simpan question_id dan question_obj sebelum dihapus
-        question_obj = Question.query.get(question_id)
-        if not question_obj: # Seharusnya tidak terjadi jika collection_question ada
-             return jsonify({'success': False, 'message': 'Soal tidak ditemukan di database.'}), 404
-        
-        # 3. Hapus relasi dari koleksi
-        db.session.delete(collection_question)
-        db.session.commit() # Commit dulu untuk merefleksikan perubahan relasi
-
-        # 4. Cek apakah soal tersebut masih terkait dengan koleksi lain
-        remaining_links = CollectionQuestion.query.filter_by(question_id=question_id).first()
-
-        if not remaining_links:
-            # Jika soal tidak terkait dengan koleksi lain, hapus soal dan jawaban terkaitnya
-            print(f"Soal ID {question_id} tidak lagi terkait dengan koleksi manapun. Menghapus soal dan jawaban siswa.")
+def get_contextual_default_recommendations(current_level, correct, incorrect, collection_name, 
+                                           questions_context, learning_objectives, mastery_level="sedang"):
+    """
+    Rekomendasi default yang kontekstual dan spesifik berdasarkan tujuan pembelajaran
+    """
+    total = correct + incorrect
+    accuracy = round((correct / total * 100), 2) if total > 0 else 0
+    
+    # Ekstrak kata kunci dari tujuan pembelajaran
+    keywords = []
+    for objective in learning_objectives:
+        words = re.findall(r'\b\w{3,}\b', objective.lower())
+        keywords.extend([w for w in words if w not in ["yang", "dan", "atau", "dengan", "untuk", "pada", "dari"]])
+    
+    # Gunakan keywords yang paling sering muncul
+    from collections import Counter
+    common_keywords = [word for word, count in Counter(keywords).most_common(5)] if keywords else []
+    
+    # Struktur rekomendasi berdasarkan domain
+    recommendations = {
+        "PENGUATAN KONSEP": [],
+        "PRAKTIK TERAPAN": [],
+        "EVALUASI & SINTESIS": []
+    }
+    
+    # Rekomendasi berdasarkan tingkat penguasaan
+    if mastery_level == "rendah":
+        recommendations["PENGUATAN KONSEP"] = [
+            f"Buat kartu belajar (flashcards) untuk konsep dasar {common_keywords[0] if common_keywords else collection_name}. Tulis definisi pada satu sisi kartu dan contoh sederhana pada sisi lainnya. Tinjau kartu-kartu ini selama 15 menit setiap hari untuk membangun pemahaman dasar yang kuat.",
+            f"Gunakan teknik 'chunking' dengan membagi materi {collection_name} menjadi bagian-bagian kecil yang lebih mudah dipahami. Fokus pada satu konsep dalam satu waktu, dan buat diagram atau peta pikiran sederhana untuk visualisasi konsep."
+        ]
+        recommendations["PRAKTIK TERAPAN"] = [
+            f"Selesaikan 5 soal latihan tingkat dasar tentang {common_keywords[0] if common_keywords else collection_name} dengan pendampingan. Tuliskan setiap langkah penyelesaian dan mintalah umpan balik langsung untuk mengidentifikasi kesalahan sedini mungkin.",
+            "Ikuti tutorial terstruktur step-by-step dan praktikkan dengan contoh-contoh sederhana. Ulangi proses yang sama dengan variasi kecil untuk memastikan pemahaman dasar."
+        ]
+        recommendations["EVALUASI & SINTESIS"] = [
+            f"Buat jurnal belajar harian yang mencatat: (1) Konsep {common_keywords[0] if common_keywords else 'utama'} yang dipelajari hari ini, (2) Pertanyaan spesifik yang masih membingungkan, dan (3) Contoh penerapan sederhana. Review jurnal ini setiap minggu untuk melihat kemajuan pemahaman."
+        ]
+    
+    elif mastery_level == "sedang":
+        recommendations["PENGUATAN KONSEP"] = [
+            f"Buat peta hubungan (concept map) yang menghubungkan konsep {common_keywords[0] if common_keywords else 'utama'} dengan {common_keywords[1] if len(common_keywords) > 1 else 'konsep terkait'}. Identifikasi minimal 3 hubungan antar konsep dan jelaskan bagaimana konsep-konsep tersebut saling mempengaruhi.",
+            f"Analisis 3-5 contoh kesalahan umum dalam penerapan {common_keywords[0] if common_keywords else collection_name}. Untuk setiap kesalahan, identifikasi miskonsepsi yang mendasarinya dan tuliskan penjelasan yang benar."
+        ]
+        recommendations["PRAKTIK TERAPAN"] = [
+            f"Kerjakan 7 soal latihan dengan variasi konteks berbeda untuk konsep {common_keywords[0] if common_keywords else 'utama'}. Pilih soal dari tingkat kesulitan sedang dan catat pola/strategi penyelesaian untuk setiap jenis soal.",
+            "Bentuk kelompok diskusi 3-4 orang untuk membahas dan memecahkan kasus penerapan dari materi yang dipelajari. Bergiliran menjelaskan pendekatan penyelesaian dan memberikan umpan balik konstruktif."
+        ]
+        recommendations["EVALUASI & SINTESIS"] = [
+            f"Kembangkan mini proyek 3-hari yang mengintegrasikan konsep {common_keywords[0] if common_keywords else collection_name} dalam situasi praktis. Dokumentasikan: (1) Tujuan proyek, (2) Konsep yang diterapkan, (3) Tantangan yang dihadapi, dan (4) Solusi yang dikembangkan."
+        ]
+    
+    else:  # tinggi
+        recommendations["PENGUATAN KONSEP"] = [
+            f"Telusuri minimal 2 sumber referensi lanjutan tentang {common_keywords[0] if common_keywords else collection_name} di luar materi kelas. Buat ringkasan perbandingan yang mengidentifikasi perspektif berbeda atau pengembangan terbaru dalam topik ini.",
+            f"Kembangkan model analisis untuk mengklasifikasikan dan mengevaluasi berbagai pendekatan dalam {collection_name}. Sertakan kriteria evaluasi dan justifikasi untuk setiap kategori dalam model tersebut."
+        ]
+        recommendations["PRAKTIK TERAPAN"] = [
+            f"Desain dan implementasikan proyek kompleks yang mengintegrasikan minimal 3 konsep utama: {', '.join(common_keywords[:3]) if len(common_keywords) > 2 else collection_name}. Proyek harus mencakup elemen kreatif dan solusi untuk masalah otentik.",
+            "Ciptakan materi pembelajaran (tutorial video 5-10 menit atau panduan tertulis) untuk menjelaskan konsep kompleks kepada teman sekelas. Presentasikan materi ini dan kumpulkan umpan balik untuk perbaikan."
+        ]
+        recommendations["EVALUASI & SINTESIS"] = [
+            f"Kembangkan portofolio digital yang mendokumentasikan perjalanan belajar Anda dalam {collection_name}. Sertakan refleksi mendalam tentang: (1) Perkembangan pemahaman konseptual, (2) Penerapan praktis yang telah dilakukan, (3) Kendala yang dihadapi dan cara mengatasinya, dan (4) Rencana pengembangan kompetensi selanjutnya."
+        ]
+    
+    # Tambahkan konteks spesifik dari tujuan pembelajaran jika ada
+    if learning_objectives and len(learning_objectives) > 0:
+        # Ambil tujuan pembelajaran pertama untuk rekomendasi tambahan
+        objective = learning_objectives[0]
+        if ":" in objective:
+            objective = objective.split(":", 1)[1].strip()
             
-            # Hapus jawaban siswa yang terkait dengan soal ini
-            SiswaAnswer.query.filter_by(question_id=question_id).delete(synchronize_session=False)
-            db.session.commit() # Commit penghapusan jawaban
-            
-            # Hapus soal itu sendiri
-            db.session.delete(question_obj)
-            db.session.commit() # Commit penghapusan soal
-            
-            message = f"Soal ID {question_id} berhasil dihapus dari koleksi dan database."
-        else:
-            message = f"Soal ID {question_id} berhasil dihapus dari koleksi, tetapi tetap ada di database karena masih terkait dengan koleksi lain."
-        
-        # 5. Perbarui statistik SiswaResult jika ada perubahan
-        # Ini penting agar jumlah soal benar/salah dan current_level siswa tetap akurat
-        # setelah soal dihapus. Ini bisa dilakukan dengan memanggil refresh_siswa_answers
-        # untuk setiap siswa yang mungkin terpengaruh atau dengan merefresh data di frontend.
-        # Untuk kesederhanaan di backend, kita bisa mengandalkan frontend untuk me-refresh datanya.
-        
-        return jsonify({'success': True, 'message': message}), 200
-
-    except Exception as e:
-        db.session.rollback() # Rollback jika terjadi kesalahan
-        print(f"Error saat menghapus soal dari koleksi: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': f"Terjadi kesalahan server: {str(e)}"}), 500
+        recommendations["EVALUASI & SINTESIS"].append(
+            f"Lakukan refleksi diri terkait tujuan pembelajaran '{objective}'. Buat rubrik evaluasi dengan skala 1-5 yang menilai tingkat pemahaman dan keterampilan saat ini. Identifikasi bukti konkret untuk setiap skor dan buat rencana spesifik untuk meningkatkan area yang masih lemah."
+        )
+    
+    return recommendations
 # =========================================
 # MAIN ENTRY POINT
 # =========================================
@@ -5236,7 +6449,5 @@ if __name__ == '__main__':
             test_db_connection()
         except Exception as e:
             print(f"Error inisialisasi database: {str(e)}")
-
-
 
     app.run(debug=True)
