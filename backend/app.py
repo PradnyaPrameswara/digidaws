@@ -1889,17 +1889,24 @@ def upload_file():
     if file_ext not in ['doc', 'docx', 'pdf']:
         return jsonify({"message": "Format file tidak didukung. Hanya file .doc, .docx, dan .pdf yang diizinkan"}), 400
 
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-    file.save(file_path)
-    print(f"File disimpan di {file_path}")
+    # =============================================
+    # MODE SAAT INI: MENYIMPAN FILE KE DISK
+    # =============================================
+    # os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    # file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    # file.save(file_path)
+    # print(f"File disimpan di {file_path}")
 
+    # =============================================
+    # MODE TANPA PENYIMPANAN (IN-MEMORY)
+    # =============================================
+    file_stream = file.read()  # bytes
     content_text = ""
     try:
         if file_ext == 'pdf':
-            content_text = extract_text_from_pdf(file_path)
+            content_text = extract_text_from_pdf_bytes(file_stream)
         elif file_ext in ['doc', 'docx']:
-            content_text = extract_text_from_docx(file_path)
+            content_text = extract_text_from_docx_bytes(file_stream, file_ext)
         
         educational_components = extract_educational_components(content_text)
         module_elements, initial_competencies, learning_objectives, pemahaman_bermakna, target_peserta_didik = educational_components
@@ -2464,6 +2471,22 @@ def extract_text_from_pdf(file_path):
         print(f"Error extracting text from PDF: {str(e)}")
         raise
 
+def extract_text_from_pdf_bytes(file_bytes: bytes):
+    """Extract text from PDF given raw bytes (no disk write)."""
+    try:
+        from io import BytesIO
+        bio = BytesIO(file_bytes)
+        pdf_reader = PyPDF2.PdfReader(bio)
+        text = ""
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        return text
+    except Exception as e:
+        print(f"Error extracting text from PDF bytes: {str(e)}")
+        raise
+
 
 # Function to extract text from a Word document (.docx)
 def extract_text_from_docx(file_path):
@@ -2484,6 +2507,29 @@ def extract_text_from_docx(file_path):
         return text
     except Exception as e:
         print(f"Error extracting text from DOCX: {str(e)}")
+        raise
+
+def extract_text_from_docx_bytes(file_bytes: bytes, file_ext: str):
+    """Extract text from a Word document (.doc or .docx) using raw bytes."""
+    from io import BytesIO
+    try:
+        bio = BytesIO(file_bytes)
+        if file_ext == 'docx':
+            doc = Document(bio)
+            text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = []
+                    for cell in row.cells:
+                        row_text.append(cell.text)
+                    if row_text:
+                        text += "\n" + " | ".join(row_text)
+            return text
+        else:  # .doc fallback using mammoth
+            result = mammoth.extract_raw_text(bio)
+            return result.value
+    except Exception as e:
+        print(f"Error extracting text from DOC/DOCX bytes: {str(e)}")
         raise
 
 

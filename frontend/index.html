@@ -83,10 +83,20 @@
         .benefits-section {
             background-color: #ffffff;
         }
+        .benefit-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
         .benefit-item .icon {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             color: #3b82f6;
             margin-right: 15px;
+            flex-shrink: 0;
+            margin-top: 3px;
+        }
+        .benefit-item .content {
+            flex: 1;
         }
 
         /* Call to Action Section */
@@ -101,8 +111,17 @@
             color: #cbd5e1;
             padding: 2rem 0;
             margin-top: 4rem;
-            text-align: center; /* Teks di tengah */
-            font-size: 9px;      /* Ukuran font 9px */
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        /* Gambar untuk guru dan siswa */
+        .teacher-img, .student-img {
+            width: 100%;
+            height: 350px;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
@@ -157,30 +176,56 @@
             </div>
             <div class="row g-5 align-items-center">
                 <div class="col-lg-6" data-aos="fade-right">
-                    <img src="https://images.unsplash.com/photo-1543269865-cbf427effbad?q=80&w=1740&auto=format&fit=crop" class="img-fluid rounded-3" alt="Guru Mengajar">
+                    <img src="https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1740&auto=format&fit=crop" class="teacher-img" alt="Guru Mengajar">
                 </div>
                 <div class="col-lg-6" data-aos="fade-left">
                     <h3>Untuk Guru 👨‍🏫</h3>
                     <p class="text-muted">Fokus pada mengajar, bukan administrasi. Platform kami membantu Anda untuk:</p>
-                    <ul class="list-unstyled">
-                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Menghemat Waktu,</b> dengan pembuatan soal dan penilaian otomatis.</span></li>
-                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Memahami Kebutuhan Siswa,</b> melalui data kemampuan awal yang akurat.</span></li>
-                        <li class="d-flex align-items-start"><i class="bi bi-check-circle-fill icon"></i> <span><b>Merancang Pembelajaran Efektif,</b> berdasarkan rekomendasi dan analisis data.</span></li>
-                    </ul>
+                    <div class="benefit-item">
+                        <i class="bi bi-check-circle-fill icon"></i>
+                        <div class="content">
+                            <b>Menghemat Waktu,</b> dengan pembuatan soal dan penilaian otomatis.
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <i class="bi bi-check-circle-fill icon"></i>
+                        <div class="content">
+                            <b>Memahami Kebutuhan Siswa,</b> melalui data kemampuan awal yang akurat.
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <i class="bi bi-check-circle-fill icon"></i>
+                        <div class="content">
+                            <b>Merancang Pembelajaran Efektif,</b> berdasarkan rekomendasi dan analisis data.
+                        </div>
+                    </div>
                 </div>
             </div>
              <div class="row g-5 align-items-center mt-5 flex-row-reverse">
                 <div class="col-lg-6" data-aos="fade-left">
-                    <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1740&auto=format&fit=crop" class="img-fluid rounded-3" alt="Siswa Belajar">
+                    <img src="https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=1740&auto=format&fit=crop" class="student-img" alt="Siswa Belajar">
                 </div>
                 <div class="col-lg-6" data-aos="fade-right">
                     <h3>Untuk Siswa 👩‍🎓</h3>
                     <p class="text-muted">Ketahui potensi diri dan raih prestasi terbaikmu. Dengan platform ini, kamu bisa:</p>
-                    <ul class="list-unstyled">
-                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Mengenal Kekuatan & Kelemahan,</b> melalui hasil tes yang detail.</span></li>
-                        <li class="d-flex align-items-start mb-3"><i class="bi bi-check-circle-fill icon"></i> <span><b>Mendapatkan Rekomendasi Belajar,</b> yang sesuai dengan kebutuhanmu.</span></li>
-                        <li class="d-flex align-items-start"><i class="bi bi-check-circle-fill icon"></i> <span><b>Belajar Lebih Fokus dan Efisien,</b> pada materi yang paling kamu perlukan.</span></li>
-                    </ul>
+                    <div class="benefit-item">
+                        <i class="bi bi-check-circle-fill icon"></i>
+                        <div class="content">
+                            <b>Mengenal Kekuatan & Kelemahan,</b> melalui hasil tes yang detail.
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <i class="bi bi-check-circle-fill icon"></i>
+                        <div class="content">
+                            <b>Mendapatkan Rekomendasi Belajar,</b> yang sesuai dengan kebutuhanmu.
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <i class="bi bi-check-circle-fill icon"></i>
+                        <div class="content">
+                            <b>Belajar Lebih Fokus dan Efisien,</b> pada materi yang paling kamu perlukan.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
