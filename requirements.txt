@@ -9,3 +9,6 @@ mammoth
 Werkzeug
 pdfkit
 xhtml2pdf
+python-dotenv
+gunicorn
+pymysql

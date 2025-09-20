@@ -7,6 +7,9 @@ import google.generativeai as genai
 import pandas as pd
 import json
 import os
+from dotenv import load_dotenv
+import logging
+from logging.handlers import RotatingFileHandler
 import re
 import random
 import PyPDF2
@@ -41,8 +44,11 @@ app = Flask(__name__,
             template_folder=os.path.join(ROOT_DIR, 'frontend'),
             static_folder=os.path.join(ROOT_DIR, 'img'))
 
-# Add secret key for session
-app.secret_key = '70315ac5aa5fee60d775f2ad95d2a163b24a4ba65583df64620acc3a283ccbc8'  # Replace with a real secret key in production
+# =========================================
+# ENV LOADING & SECRET KEY
+# =========================================
+load_dotenv()
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(32))
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -60,8 +66,10 @@ def load_user(user_id):
             return Siswa.query.get(actual_id)
     return None
 
-# Konfigurasi MySQL
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/asesment_diagnostik_db'
+"""Database configuration: prefer DATABASE_URL env, fallback to local dev."""
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL', 'mysql+pymysql://root:@localhost/asesment_diagnostik_db'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 app.config['SQLALCHEMY_ECHO'] = True  # Tambahan untuk debug SQL queries
@@ -70,12 +78,33 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 db = SQLAlchemy(app)
 
 # =========================================
-# KONFIGURASI GEMINI AI
+# KONFIGURASI GEMINI AI VIA ENV
 # =========================================
-# Gunakan environment variable untuk API key
-my_api_key_gemini = 'AIzaSyCcx9iCB6oGXUPGoW2Ot3Mk7JjIreeCzRQ' 
-genai.configure(api_key=my_api_key_gemini)
-model = genai.GenerativeModel('gemini-2.5-flash-lite')
+gemini_api_key = os.environ.get('GEMINI_API_KEY')
+if gemini_api_key:
+    try:
+        genai.configure(api_key=gemini_api_key)
+    except Exception as e:
+        print(f"Gagal konfigurasi Gemini API: {e}")
+else:
+    print("Peringatan: GEMINI_API_KEY tidak diset. Endpoint AI mungkin gagal.")
+model_name = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+model = genai.GenerativeModel(model_name)
+
+# =========================================
+# LOGGING (PRODUCTION)
+# =========================================
+if not app.debug and not app.testing:
+    log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+    os.makedirs('logs', exist_ok=True)
+    handler = RotatingFileHandler('logs/app.log', maxBytes=1_000_000, backupCount=3)
+    handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    handler.setLevel(getattr(logging, log_level, logging.INFO))
+    app.logger.addHandler(handler)
+    app.logger.setLevel(getattr(logging, log_level, logging.INFO))
+    app.logger.info('DIGIDAWS server started')
 
 # =========================================
 # DATABASE MODELS
@@ -6486,14 +6515,14 @@ def get_contextual_default_recommendations(current_level, correct, incorrect, co
 # =========================================
 # MAIN ENTRY POINT
 # =========================================
-if __name__ == '__main__':  
+if __name__ == '__main__':
+    # Development only. For production use:
+    # gunicorn --bind 0.0.0.0:8000 app:app
     with app.app_context():
         try:
-            # Inisialisasi database
             init_db()
-            # Tes koneksi database
             test_db_connection()
         except Exception as e:
             print(f"Error inisialisasi database: {str(e)}")
-
-    app.run(debug=True)
+    debug_mode = os.environ.get('FLASK_DEBUG', '1') == '1'
+    app.run(debug=debug_mode)
