@@ -1,0 +1,52 @@
+[Unit]
+Description=Cloudflare Tunnel for digidaws.site
+After=network.target network-online.target
+Wants=network-online.target
+Before=multi-user.target
+
+[Service]
+Type=simple
+User=cloudflared
+Group=cloudflared
+
+# Main command with configuration file
+ExecStart=/usr/local/bin/cloudflared tunnel --config /etc/cloudflared/config.yml run
+
+# Restart configuration
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cloudflared
+
+# Environment variables to fix error 1033
+Environment=TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem
+Environment=CLOUDFLARED_CONFIG=/etc/cloudflared/config.yml
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/var/lib/cloudflared
+WorkingDirectory=/var/lib/cloudflared
+
+# Resource limits
+LimitNOFILE=65536
+MemoryHigh=512M
+MemoryMax=1G
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

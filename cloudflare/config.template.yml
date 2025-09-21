@@ -1,0 +1,43 @@
+# Cloudflare Tunnel Configuration Template
+# Copy this to /etc/cloudflared/config.yml and update the values
+
+# REQUIRED: Replace with your actual tunnel ID
+# Get this from: cloudflared tunnel create digidaws-tunnel
+tunnel: YOUR_TUNNEL_ID_REPLACE_ME
+
+# REQUIRED: Replace with your tunnel credentials file path
+# This file is created when you run: cloudflared tunnel create
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_ID_REPLACE_ME.json
+
+# REQUIRED: Origin certificate path - this fixes error 1033
+# Download from: Cloudflare Dashboard > SSL/TLS > Origin Server
+origincert: /etc/cloudflared/cert.pem
+
+# Ingress rules for digidaws.site
+ingress:
+  # Main domain - redirect to www
+  - hostname: digidaws.site
+    service: http_status:301
+    httpHost: www.digidaws.site
+  
+  # WWW subdomain - main application
+  - hostname: www.digidaws.site
+    service: http://localhost:8000
+    originRequest:
+      httpHostHeader: www.digidaws.site
+      connectTimeout: 30s
+      tlsTimeout: 30s
+      tcpKeepAlive: 30s
+      noHappyEyeballs: false
+      keepAliveConnections: 100
+      keepAliveTimeout: 90s
+  
+  # Catch-all rule (required)
+  - service: http_status:404
+
+# Tunnel options
+logLevel: info
+transport-protocol: quic
+
+# Retry configuration for better reliability
+retries: 3
