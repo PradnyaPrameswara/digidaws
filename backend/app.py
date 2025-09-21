@@ -77,19 +77,102 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 db = SQLAlchemy(app)
 
-# =========================================
-# KONFIGURASI GEMINI AI VIA ENV
-# =========================================
-gemini_api_key = os.environ.get('GEMINI_API_KEY')
-if gemini_api_key:
+"""=========================================
+KONFIGURASI GEMINI AI
+Catatan:
+ - Mengutamakan variabel lingkungan GEMINI_API_KEY.
+ - Jika tidak ada, fallback ke fallback_key (sementara – sebaiknya pindahkan ke .env dan HAPUS dari kode).
+ - Melakukan validasi sederhana (panjang & prefix) dan percobaan panggilan dummy.
+ - Menyediakan wrapper safe_generate_content untuk pemanggilan yang aman.
+ - Menyediakan status flag gemini_ready & gemini_error.
+========================================= """
+
+GEMINI_FALLBACK_KEY = "AIzaSyCytiXZ0BlKPxuDeGROq6Gb_hStV1ApyK8"  # HANYA DARURAT. Pindahkan ke .env lalu hapus baris ini.
+
+gemini_ready = False
+gemini_error = None
+gemini_model_name = None
+model = None
+
+def _load_gemini_key():
+    # Prioritas: ENV -> fallback konstanta
+    key = os.environ.get('GEMINI_API_KEY')
+    if key and key.strip():
+        return key.strip()
+    return GEMINI_FALLBACK_KEY  # fallback terakhir
+
+def _validate_key_format(key: str) -> bool:
+    # Kunci Gemini biasanya diawali 'AI' dan panjang > 30
+    return key.startswith('AI') and len(key) > 30
+
+def _configure_gemini():
+    global gemini_ready, gemini_error, gemini_model_name, model
+    api_key = _load_gemini_key()
+    if not api_key:
+        gemini_error = 'GEMINI_API_KEY tidak ditemukan.'
+        print(gemini_error)
+        return
+    if not _validate_key_format(api_key):
+        print(f"Peringatan: Format API key tampak tidak valid: {api_key[:8]}...")
     try:
-        genai.configure(api_key=gemini_api_key)
+        genai.configure(api_key=api_key)
     except Exception as e:
-        print(f"Gagal konfigurasi Gemini API: {e}")
-else:
-    print("Peringatan: GEMINI_API_KEY tidak diset. Endpoint AI mungkin gagal.")
-model_name = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash-lite')
-model = genai.GenerativeModel(model_name)
+        gemini_error = f"Konfigurasi gagal: {e}"
+        print(gemini_error)
+        return
+    # Coba beberapa model (utama -> fallback)
+    candidate_models = [
+        os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash'),
+        'gemini-2.0-flash-lite',
+        'gemini-1.5-flash'
+    ]
+    for name in candidate_models:
+        try:
+            test_model = genai.GenerativeModel(name)
+            # Uji sangat ringan (tanpa biaya besar)
+            test_model.generate_content(["ping"], safety_settings={})
+            model = test_model
+            gemini_model_name = name
+            gemini_ready = True
+            print(f"Gemini siap dengan model: {name}")
+            break
+        except Exception as e:
+            gemini_error = f"Gagal inisialisasi model {name}: {e}"  # simpan terakhir
+            continue
+    if not gemini_ready:
+        print(f"Tidak ada model Gemini yang berhasil diinisialisasi. Terakhir error: {gemini_error}")
+
+def safe_generate_content(prompt: str, **kwargs):
+    """Pembungkus aman pemanggilan Gemini.
+    Return dict dengan keys: success(bool), text(str|None), error(str|None)
+    """
+    global gemini_ready, gemini_error, model
+    if not gemini_ready or model is None:
+        return {"success": False, "text": None, "error": gemini_error or "Gemini tidak siap"}
+    try:
+        resp = model.generate_content(prompt, **kwargs)
+        # Library bisa kembalikan obj dengan .text
+        text = getattr(resp, 'text', None)
+        if not text and hasattr(resp, 'candidates'):
+            # fallback ekstraksi
+            try:
+                text = resp.candidates[0].content.parts[0].text
+            except Exception:
+                pass
+        return {"success": True, "text": text, "error": None}
+    except Exception as e:
+        gemini_error = str(e)
+        return {"success": False, "text": None, "error": gemini_error}
+
+_configure_gemini()
+
+@app.route('/health/ai')
+def health_ai():
+    return jsonify({
+        "gemini_ready": gemini_ready,
+        "model": gemini_model_name,
+        "error": gemini_error
+    })
 
 # =========================================
 # LOGGING (PRODUCTION)
@@ -2103,9 +2186,11 @@ def upload_file():
     """
 
     try:
-        print("Mengirim prompt ke Gemini API")
-        response = model.generate_content(prompt)
-        raw_text = response.text.strip()
+        print("Mengirim prompt ke Gemini API (safe wrapper)")
+        ai_resp = safe_generate_content(prompt)
+        if not ai_resp.get("success"):
+            return jsonify({"message": f"AI gagal: {ai_resp.get('error')}"}), 502
+        raw_text = (ai_resp.get("text") or "").strip()
         
         print("Raw AI response:", raw_text[:500])
         
@@ -5884,8 +5969,19 @@ def generate_ai_recommendations(student, result, collection_id):
         """
 
         # Panggil AI untuk mendapatkan rekomendasi
-        response = model.generate_content(prompt)
-        recommendations_text = response.text
+        ai_resp = safe_generate_content(prompt)
+        if not ai_resp.get("success"):
+            print(f"AI rekomendasi gagal: {ai_resp.get('error')}")
+            # fallback langsung ke rekomendasi default gaya guru
+            return get_teacher_style_recommendations(
+                current_level=result.current_level,
+                correct=result.correct,
+                incorrect=result.incorrect,
+                collection_name=collection_name,
+                learning_objectives=learning_objectives,
+                mastery_level=mastery_level
+            )
+        recommendations_text = ai_resp.get("text") or ""
         
         # Parse hasil ke dalam format yang diinginkan
         recommendations = parse_ai_recommendations_for_teacher(recommendations_text)
