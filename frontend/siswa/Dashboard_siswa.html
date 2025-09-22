@@ -1479,5 +1479,63 @@ async function showTestResultPopup(collectionId) { // Added async keyword here
   }
 }
   </script>
+  
+  <!-- Script tambahan dimasukkan sesuai permintaan user -->
+  <script>
+  // Fungsi ini dipanggil saat siswa mengklik sebuah tes di dashboard (override versi sebelumnya)
+  function startTest(collectionId) {
+    // Mengarahkan siswa ke halaman QnA dengan ID koleksi di URL
+    window.location.href = `/qna?collection_id=${collectionId}`;
+  }
+
+  // Fungsi untuk mengambil data tes dari server
+  async function fetchAndDisplayTests() {
+    try {
+      const container = document.getElementById('teachers-container');
+      if (!container) return; // guard jika elemen belum ada
+      container.innerHTML = '<p>Memuat data guru dan tes...</p>'; // Status loading
+
+      // 1. Meminta data ke API backend
+      const response = await fetch('/api/siswa/collections');
+      if (!response.ok) {
+        throw new Error('Gagal mengambil data dari server');
+      }
+      const result = await response.json();
+
+      // 2. Memeriksa apakah data berhasil diterima dan tidak kosong
+      if (result.success && result.teachers && result.teachers.length > 0) {
+        container.innerHTML = ''; // Hapus tulisan "Memuat..."
+
+        // 3. Membuat elemen HTML untuk setiap tes
+        result.teachers.forEach(teacher => {
+          if (!teacher.collections) return;
+          teacher.collections.forEach(collection => {
+            const testElement = document.createElement('div');
+            testElement.className = 'col-12';
+            testElement.innerHTML = `
+              <div class="collection-item" onclick="startTest(${collection.id})">
+                <strong>${collection.name}</strong>
+                <span>dari Guru: ${teacher.nama || teacher.name || ''}</span>
+              </div>
+            `;
+            container.appendChild(testElement);
+          });
+        });
+      } else {
+        container.innerHTML = '<p>Belum ada tes yang tersedia untuk Anda.</p>';
+      }
+
+    } catch (error) {
+      console.error('Terjadi kesalahan:', error);
+      const container = document.getElementById('teachers-container');
+      if (container) {
+      container.innerHTML = `<div class="alert alert-danger">Gagal memuat tes. Coba refresh halaman.</div>`;
+      }
+    }
+  }
+
+  // 4. Menjalankan semuanya setelah halaman siap
+  document.addEventListener('DOMContentLoaded', fetchAndDisplayTests);
+  </script>
 </body>
 </html>
