@@ -2055,11 +2055,13 @@ def upload_file():
         if missing_required:
             msg = ("Dokumen tidak memenuhi syarat. Bagian wajib hilang: " + ", ".join(missing_required) +
                    ". Pastikan dokumen memuat teks eksplisit untuk setiap bagian tersebut.")
+            app.logger.warning(f"UPLOAD_BLOCK missing_required={missing_required} chars={extracted_chars} method={method_used}")
             return jsonify({
                 "success": False,
                 "message": msg,
                 "missing_sections": missing_required,
                 "extracted_chars": extracted_chars,
+                "method_used": method_used,
                 "warnings": extraction_warnings
             }), 400
 
@@ -2081,10 +2083,13 @@ def upload_file():
         print(f"Ekstraksi selesai dengan metode {method_used}; panjang teks: {extracted_chars} karakter. Komponen hilang: {len(component_warnings)}")
 
     except Exception as e:
-        print(f"Error membaca atau memproses file: {str(e)}")
+        err_msg = str(e)
+        app.logger.error(f"UPLOAD_PREPROCESS_EXCEPTION method={locals().get('method_used')} error={err_msg}")
         return jsonify({
-            "message": f"Error membaca atau memproses file: {str(e)}",
+            "success": False,
+            "message": f"Error membaca atau memproses file: {err_msg}",
             "extracted_chars": 0,
+            "method_used": locals().get('method_used'),
             "warnings": extraction_warnings + ["Gagal memproses file"],
             "question_count": 0
         }), 500
@@ -2237,7 +2242,16 @@ def upload_file():
         print("Mengirim prompt ke Gemini API (safe wrapper)")
         ai_resp = safe_generate_content(prompt)
         if not ai_resp.get("success"):
-            return jsonify({"message": f"AI gagal: {ai_resp.get('error')}"}), 502
+            app.logger.error(f"AI_GENERATE_FAIL error={ai_resp.get('error')}")
+            return jsonify({
+                "success": False,
+                "stage": "ai_generate",
+                "message": f"AI gagal: {ai_resp.get('error')}",
+                "extracted_chars": extracted_chars,
+                "method_used": method_used,
+                "warnings": extraction_warnings + ["Gagal memanggil AI"],
+                "question_count": 0
+            }), 502
         raw_text = (ai_resp.get("text") or "").strip()
         
         print("Raw AI response:", raw_text[:500])
@@ -2248,8 +2262,10 @@ def upload_file():
             cleaned_text = re.sub(r',\s*([}\]])', r'\1', cleaned_text)
             gen_questions = json.loads(cleaned_text)
             print("Berhasil parsing JSON setelah membersihkan markdown")
+            parse_stage = 'markdown_clean'
         except json.JSONDecodeError:
             print("Parsing JSON setelah membersihkan markdown gagal, mencoba metode lain.")
+            parse_stage = 'markdown_clean_failed'
             
             match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)
             if match:
@@ -2259,6 +2275,7 @@ def upload_file():
                     print(f"Ekstraksi JSON dengan regex: {json_text[:100]}...")
                     gen_questions = json.loads(json_text)
                     print("Berhasil parsing JSON dari hasil regex")
+                    parse_stage = 'regex'
                 except json.JSONDecodeError as e:
                     print(f"Error decode JSON setelah regex: {str(e)}")
                     return jsonify({"message": f"Error parsing JSON soal: {str(e)}"}), 500
@@ -2273,6 +2290,7 @@ def upload_file():
                         json_text = re.sub(r',\s*([}\]])', r'\1', json_text)
                         gen_questions = json.loads(json_text)
                         print("Berhasil parsing JSON dari ekstraksi kurung")
+                        parse_stage = 'bracket_extract'
                     except json.JSONDecodeError as e:
                         print(f"Error decode JSON setelah ekstraksi kurung: {str(e)}")
                         cleaned_text = re.sub(r'```json|```|\n|\\n|\\\"', '', json_text)
@@ -2282,22 +2300,47 @@ def upload_file():
                         try:
                             gen_questions = json.loads(cleaned_text)
                             print("Berhasil parsing JSON setelah pembersihan intensif")
+                            parse_stage = 'intensive_clean'
                         except json.JSONDecodeError as e2:
                             print(f"Error decode JSON akhir: {str(e2)}")
                             return jsonify({"message": f"Error parsing JSON soal: {str(e2)}"}), 500
                 else:
                     print("Tidak dapat menemukan array JSON dalam respons")
-                    return jsonify({"message": "Tidak dapat menemukan format JSON dalam respons AI"}), 500
+                    return jsonify({
+                        "success": False,
+                        "stage": "parse",
+                        "message": "Tidak dapat menemukan format JSON dalam respons AI",
+                        "extracted_chars": extracted_chars,
+                        "method_used": method_used,
+                        "warnings": extraction_warnings + ["AI tidak mengembalikan struktur JSON"],
+                        "question_count": 0
+                    }), 500
 
         if not isinstance(gen_questions, list):
             print(f"Diharapkan list, tapi dapat {type(gen_questions)}")
-            return jsonify({"message": "AI tidak mengembalikan array soal yang valid"}), 500
+            return jsonify({
+                "success": False,
+                "stage": "validate_type",
+                "message": "AI tidak mengembalikan array soal yang valid",
+                "extracted_chars": extracted_chars,
+                "method_used": method_used,
+                "warnings": extraction_warnings + [f"Tipe salah: {type(gen_questions)}"],
+                "question_count": 0
+            }), 500
             
         print(f"Berhasil mengekstrak {len(gen_questions)} soal")
         
         if len(gen_questions) < 7:
             print(f"Jumlah soal tidak mencukupi: {len(gen_questions)}")
-            return jsonify({"message": f"AI hanya menghasilkan {len(gen_questions)} soal, minimal diperlukan 7 soal"}), 500
+            return jsonify({
+                "success": False,
+                "stage": "validate_count",
+                "message": f"AI hanya menghasilkan {len(gen_questions)} soal, minimal diperlukan 7 soal",
+                "extracted_chars": extracted_chars,
+                "method_used": method_used,
+                "warnings": extraction_warnings + ["Jumlah soal di bawah ambang"],
+                "question_count": len(gen_questions)
+            }), 500
 
         print(f"Menghapus soal lama yang tidak dalam koleksi dan dimiliki oleh guru_id {current_user.id}...")
         try:
@@ -2329,10 +2372,19 @@ def upload_file():
             
         except Exception as e:
             db.session.rollback()
-            print(f"Error menghapus data lama: {str(e)}")
+            err = str(e)
+            print(f"Error menghapus data lama: {err}")
             import traceback
             traceback.print_exc()
-            return jsonify({"message": f"Error menghapus data lama: {str(e)}"}), 500
+            return jsonify({
+                "success": False,
+                "stage": "cleanup_old",
+                "message": f"Error menghapus data lama: {err}",
+                "extracted_chars": extracted_chars,
+                "method_used": method_used,
+                "warnings": extraction_warnings + ["Gagal hapus soal lama"],
+                "question_count": 0
+            }), 500
             
         # Simpan soal baru ke database
         print("Menyimpan soal baru ke database untuk guru:", current_user.username)
@@ -2365,10 +2417,19 @@ def upload_file():
                     new_questions_from_db.append(new_question) # Tambahkan objek ke daftar
             except Exception as e:
                 db.session.rollback()
-                print(f"Error memproses soal: {str(e)}")
+                err_q = str(e)
+                print(f"Error memproses soal: {err_q}")
                 import traceback
                 traceback.print_exc()
-                return jsonify({"message": f"Error memproses soal: {str(e)}"}), 500
+                return jsonify({
+                    "success": False,
+                    "stage": "store_question",
+                    "message": f"Error memproses soal: {err_q}",
+                    "extracted_chars": extracted_chars,
+                    "method_used": method_used,
+                    "warnings": extraction_warnings + ["Gagal simpan sebagian soal"],
+                    "question_count": len(new_questions_from_db)
+                }), 500
             
         db.session.commit()
         print("Database commit berhasil: soal baru tersimpan.")
@@ -2412,21 +2473,29 @@ def upload_file():
             message += f", dengan mempertahankan {len(preserved_question_ids_in_collections)} soal yang ada dalam koleksi."
 
         return jsonify({
+            "success": True,
+            "stage": "done",
             "message": message,
             "data": questions_for_frontend,
             "extracted_chars": extracted_chars,
+            "method_used": method_used,
+            "parse_stage": locals().get('parse_stage'),
             "warnings": extraction_warnings,
             "question_count": len(questions_for_frontend)
         }), 200
 
     except Exception as e:
-        print(f"Exception in upload_file: {str(e)}")
+        err_final = str(e)
+        app.logger.error(f"UPLOAD_FATAL stage=final error={err_final}")
         db.session.rollback()
         import traceback
         traceback.print_exc()
         return jsonify({
-            "message": f"AI error: {str(e)}",
+            "success": False,
+            "stage": "fatal",
+            "message": f"AI error: {err_final}",
             "extracted_chars": locals().get('extracted_chars', 0),
+            "method_used": locals().get('method_used'),
             "warnings": extraction_warnings + ["Terjadi kesalahan saat generate soal"],
             "question_count": 0
         }), 500
