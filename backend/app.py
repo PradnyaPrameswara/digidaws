@@ -28,7 +28,6 @@ from xhtml2pdf import pisa
 import tempfile
 import os
 from io import BytesIO
-
 import os
 import sys
 from pathlib import Path
@@ -2043,7 +2042,28 @@ def upload_file():
 
         extraction_warnings.extend(component_warnings)
 
-        # Siapkan placeholder agar prompt tetap informatif tanpa gagal total
+        # ====== VALIDASI KATA KUNCI WAJIB (strict) ======
+        # Guru meminta sistem TIDAK mengenerate jika kata kunci inti tidak ada.
+        lowered_full = content_text.lower()
+        required_keywords = {
+            'modul ajar': any(k in lowered_full for k in ['modul ajar','elemen ajar','identitas modul']),
+            'kompetensi awal': any(k in lowered_full for k in ['kompetensi awal','kemampuan awal','prasyarat']),
+            'tujuan pembelajaran': any(k in lowered_full for k in ['tujuan pembelajaran','capaian pembelajaran','learning objective']),
+            'pertanyaan pemantik': any(k in lowered_full for k in ['pertanyaan pemantik','pemantik','pertanyaan pemandu'])
+        }
+        missing_required = [k for k, present in required_keywords.items() if not present]
+        if missing_required:
+            msg = ("Dokumen tidak memenuhi syarat. Bagian wajib hilang: " + ", ".join(missing_required) +
+                   ". Pastikan dokumen memuat teks eksplisit untuk setiap bagian tersebut.")
+            return jsonify({
+                "success": False,
+                "message": msg,
+                "missing_sections": missing_required,
+                "extracted_chars": extracted_chars,
+                "warnings": extraction_warnings
+            }), 400
+
+        # Jika lolos semua required keywords, baru gunakan placeholder untuk komponen lain yang mungkin hilang
         def placeholder(val, label):
             return val if val != "Tidak tersedia" else f"[TIDAK DITEMUKAN – gunakan inferensi dari konten umum untuk {label}]"
 
