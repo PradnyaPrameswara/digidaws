@@ -86,13 +86,6 @@
       border-top-right-radius: 12px;
       border-bottom: none;
     }
-    .teacher-card .teacher-avatar {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background-color: #e9ecef;
-      font-size: 2rem;
-    }
     .collection-item {
       display: flex;
       align-items: center;
@@ -116,77 +109,6 @@
       overflow-y: auto;
       padding: 5px;
     }
-    .modal-content {
-      border-radius: 12px;
-    }
-    .test-item {
-      padding: 12px 15px;
-      margin-bottom: 10px;
-      border-radius: 8px;
-      border: 1px solid #dee2e6;
-      transition: all 0.2s ease;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .test-item:hover {
-      background-color: #f8f9fa;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.05);
-    }
-    .result-modal-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-    .result-modal-stat-item {
-      background-color: #f8f9fa;
-      padding: 1rem;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .result-modal-stat-item .icon {
-      font-size: 2rem;
-    }
-    .result-modal-stat-item .value {
-      font-size: 1.75rem;
-      font-weight: 700;
-    }
-    .result-modal-stat-item .label {
-      font-size: 0.9rem;
-      color: #6c757d;
-    }
-    .answer-item-card {
-      background-color: #fff;
-      border: 1px solid #e9ecef;
-      border-radius: 12px;
-      margin-bottom: 1rem;
-      padding: 1.5rem;
-    }
-    .answer-item-card .question-text {
-      font-weight: 600;
-      color: #343a40;
-      margin-bottom: 1rem;
-    }
-    .answer-item-card .answer-block {
-      padding: 1rem;
-      border-radius: 8px;
-    }
-    .answer-item-card .answer-block.user-answer {
-      background-color: #f8f9fa;
-    }
-    .answer-item-card .answer-block.correct-answer {
-      background-color: var(--bs-success-bg-subtle);
-    }
-    .answer-item-card .explanation {
-      margin-top: 1rem;
-      padding: 1rem;
-      background-color: #f1f3f5;
-      border-radius: 8px;
-      font-size: 0.9rem;
-    }
     .empty-state {
       text-align: center;
       padding: 40px 20px;
@@ -197,12 +119,6 @@
       margin-bottom: 15px;
       opacity: 0.5;
     }
-    .spinner-border-sm {
-      width: 1rem;
-      height: 1rem;
-      border-width: .2em;
-    }
-    /* === PERUBAHAN GAYA KARTU ALUR KERJA === */
     .workflow-card {
       background-color: #fff;
       border: 1px solid #e9ecef;
@@ -222,20 +138,6 @@
       margin-bottom: 1rem;
       display: inline-block;
     }
-    /* ======================================= */
-    /* New styles for improved result modal layout */
-    .answer-item-card h6 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #495057;
-      border-bottom: 1px solid #e9ecef; /* Add a subtle line */
-      padding-bottom: 0.5rem;
-      margin-bottom: 1rem;
-    }
-    /* Styles for the new result popup structure */
-    .result-popup-content {
-      padding: 1.5rem;
-    }
     .result-summary-card {
       background-color: #fff;
       border-radius: 12px;
@@ -249,8 +151,8 @@
       border-radius: 8px;
       background-color: var(--bs-primary-bg-subtle);
       color: var(--bs-primary);
-      flex: 1; /* Make items take equal width */
-      min-width: 120px; /* Ensure minimum width for small screens */
+      flex: 1;
+      min-width: 120px;
     }
     .result-stat-item-large .value {
       font-size: 2.2rem;
@@ -274,32 +176,13 @@
       background-color: var(--bs-info-bg-subtle);
       color: var(--bs-info);
     }
-    .recommendations-list {
-      list-style: none;
-      padding-left: 0;
-    }
-    .recommendations-list li {
-      margin-bottom: 0.75rem;
-      padding-left: 1.5rem;
-      position: relative;
-    }
-    .recommendations-list li::before {
-      content: "\2022"; /* Bullet point character */
-      color: var(--bs-primary);
-      font-weight: bold;
-      display: inline-block;
-      width: 1em;
-      margin-left: -1.5em;
-      position: absolute;
-    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-  <!-- Navigation Bar -->
   <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
     <div class="container">
-  <a class="navbar-brand fw-bold" href="/dashboard" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIGIDAWS</a>
+      <a class="navbar-brand fw-bold" href="/dashboard" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIGIDAWS</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -322,16 +205,13 @@
   </nav>
 
   <div class="container py-5">
-    <!-- Header Halaman -->
     <div class="page-header mb-4">
       <h1 id="siswa-nama-header">Selamat Datang, {{ current_user.nama }}!</h1>
       <p class="text-muted">Ini adalah ringkasan aktivitas tes diagnostik Anda.</p>
     </div>
 
-    <!-- Status Message Area -->
     <div id="statusMessage" class="mb-3"></div>
 
-    <!-- Kata Pengantar -->
     <div class="alert alert-primary bg-primary-subtle border-0 mb-5">
       <h4 class="alert-heading"><i class="bi bi-info-circle-fill"></i> Halo Siswa Hebat!</h4>
       <p>Selamat datang di dasbor tes diagnostik. Di sini, Anda dapat melihat semua tes yang telah dibagikan oleh guru, mengerjakan tes, dan melihat kembali hasil tes yang sudah selesai untuk bahan belajar.</p>
@@ -339,7 +219,6 @@
       <p class="mb-0">Mari mulai perjalanan belajar Anda dan lihat sejauh mana pemahaman Anda!</p>
     </div>
 
-    <!-- Alur Kerja -->
     <div class="mb-5">
       <h3 class="section-title mb-4 text-center">Alur Pengerjaan Tes</h3>
       <div class="row g-4 text-center">
@@ -373,7 +252,6 @@
       </div>
     </div>
 
-    <!-- Statistik Siswa -->
     <h3 class="section-title mb-3">Ringkasan Statistik</h3>
     <div class="row g-4 mb-5">
       <div class="col-md-6 col-lg-3">
@@ -406,7 +284,6 @@
       </div>
     </div>
 
-    <!-- Daftar Guru dan Tes yang Tersedia -->
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
       <h3 class="section-title mb-0">Tes Tersedia</h3>
       <div class="input-group" style="max-width: 350px;">
@@ -425,1117 +302,256 @@
     </div>
   </div>
 
-  <!-- Modal untuk Lihat Semua Tes -->
-  <div class="modal fade" id="tesModal" tabindex="-1" aria-labelledby="tesModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header border-0">
-          <h5 class="modal-title" id="tesModalLabel">Daftar Lengkap Tes</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="tesModalBody">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-              <h6 class="mb-0" id="tesModalTeacherName">Nama Guru</h6>
-              <small class="text-muted" id="tesModalTeacherEmail">Email Guru</small>
-            </div>
-            <input type="text" class="form-control w-50" id="tesModalSearch" placeholder="Cari tes di sini...">
-          </div>
-          <div id="tesModalContent" style="max-height: 60vh; overflow-y: auto; padding: 5px;">
-            <!-- Test items will be loaded here -->
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal untuk Hasil Tes -->
-  <div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header bg-light border-0">
-          <h5 class="modal-title" id="resultModalLabel">Hasil Rinci Tes</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body p-4" id="resultModalBody">
-          <div id="resultModalLoading" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
-            <p class="mt-3 text-muted">Memuat hasil tes...</p>
-          </div>
-          <div id="resultModalContent" style="display: none;">
-            <h4 id="resultModalTestName" class="mb-1 fw-bold">Nama Tes</h4>
-            <p class="text-muted mb-4">Berikut adalah rincian jawaban Anda untuk tes ini.</p>
-            <div class="result-modal-stats">
-              <div class="result-modal-stat-item">
-                <i class="bi bi-check-circle-fill text-success icon"></i>
-                <div>
-                  <div id="resultCorrect" class="value">0</div>
-                  <div class="label">Jawaban Tepat</div>
-                </div>
-              </div>
-              <div class="result-modal-stat-item">
-                <i class="bi bi-x-circle-fill text-danger icon"></i>
-                <div>
-                  <div id="resultIncorrect" class="value">0</div>
-                  <div class="label">Jawaban Kurang Tepat</div>
-                </div>
-              </div>
-              <div class="result-modal-stat-item">
-                <i class="bi bi-bullseye text-primary icon"></i>
-                <div>
-                  <div id="resultAccuracy" class="value">0%</div>
-                  <div class="label">Akurasi</div>
-                </div>
-              </div>
-            </div>
-            <h5 class="mt-5 mb-3">Riwayat Jawaban</h5>
-            <div id="resultItems">
-              <!-- Result items will be loaded here -->
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const collectionId = urlParams.get('collection_id');
-
-    if (!collectionId) {
-        console.log("ID koleksi tidak ditemukan dalam URL");
-    }
-
-    // Data user dari Flask template
     const userId = "{{ current_user.id }}";
-    
-    // Variable untuk menyimpan data guru dan tes
     let teachersData = [];
-    
-    // Inisialisasi modal references
-    let tesModal;
-    let resultModal;
-    
-    // Inisialisasi dashboard
-    async function initDashboard() {
-      try {
-        // Initialize modals
-        tesModal = new bootstrap.Modal(document.getElementById('tesModal'));
-        resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
-        
-        // Cek elemen sebelum addEventListener
-        const tesModalSearchEl = document.getElementById('tesModalSearch');
-        if (tesModalSearchEl) {
-          tesModalSearchEl.addEventListener('input', filterTestsInModal);
-        }
 
-        // Setup pencarian
-        const searchInputEl = document.getElementById('search-input');
-        if (searchInputEl) {
-          searchInputEl.addEventListener('input', handleSearch);
-        }
+    // ### KODE PERBAIKAN ###
 
-        document.getElementById('statusMessage').innerHTML = `
-          <div class="alert alert-info">
-            <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-            Memuat data dashboard...
-          </div>
-        `;
-        
-        // Ambil statistik siswa
-        await fetchStatistics();
-        
-        // Ambil data guru dan tes
-        await fetchTeachers();
-        
-        document.getElementById('statusMessage').innerHTML = '';
-        console.log("Dashboard berhasil diinisialisasi");
-      } catch (error) {
-        console.error("Error menginisialisasi dashboard:", error);
-        document.getElementById('statusMessage').innerHTML = `
-          <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle"></i> Gagal memuat data dashboard. 
-            <button class="btn btn-sm btn-outline-danger mt-2" onclick="initDashboard()">
-              <i class="bi bi-arrow-clockwise"></i> Coba Lagi
-            </button>
-          </div>
-        `;
-      }
-    }
-    
-    // Mengambil statistik siswa dari API dengan better error handling
-    // Fungsi untuk mengambil statistik siswa dari API dengan better error handling
-async function fetchStatistics() {
-  try {
-    console.log("Mengambil statistik siswa...");
-    let url = `/get_summary?user_id=${userId}`;
-    if (collectionId) {
-      url += `&collection_id=${collectionId}`;
-    }
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error server: ${response.status} - ${errorText}`);
-    }
-    const data = await response.json();
-    console.log("Data statistik:", data);
-
-    // Update statistik sesuai data backend
-    document.getElementById("total-tes").textContent = data.total_tests || 0;
-    document.getElementById("tes-selesai").textContent = data.completed_tests || 0;
-    document.getElementById("jawaban-benar").textContent = data.correct || 0;
-    document.getElementById("jawaban-salah").textContent = data.incorrect || 0;
-
-    return {
-      correct: data.correct || 0,
-      incorrect: data.incorrect || 0,
-      total_tests: data.total_tests || 0,
-      completed_tests: data.completed_tests || 0
-    };
-  } catch (error) {
-    document.getElementById("total-tes").textContent = 0;
-    document.getElementById("tes-selesai").textContent = 0;
-    document.getElementById("jawaban-benar").textContent = 0;
-    document.getElementById("jawaban-salah").textContent = 0;
-    throw error;
-  }
-}
-    
-    // Improved teacher collections fetching with better error handling
-    async function fetchTeachers() {
-      try {
-        console.log("Mengambil data guru dan tes...");
-        const container = document.getElementById('teachers-container');
-        
-        // Show loading state
-        container.innerHTML = `
-          <div class="col-12 text-center py-5">
-            <div class="loading-spinner text-primary"></div>
-            <p class="mt-3">Memuat data guru dan tes...</p>
-          </div>
-        `;
-        
-        // Try primary API first
-        try {
-          const response = await fetch('/api/siswa/collections');
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Server error: ${response.status}`, errorText);
-            throw new Error(`Error server: ${response.status}`);
-          }
-          
-          // Try to parse as JSON and handle HTML response gracefully
-          const responseText = await response.text();
-          let result;
-          try {
-            result = JSON.parse(responseText);
-          } catch (e) {
-            console.error("Failed to parse response as JSON:", responseText.substring(0, 100));
-            throw new Error("Invalid JSON response from server");
-          }
-          
-          if (result.success) {
-            teachersData = result.teachers || [];
-            renderTeachers(teachersData);
-            console.log(`Berhasil memuat ${teachersData.length} guru dan tes`);
+    // Fungsi ini dipanggil saat siswa mengklik sebuah tes di dashboard
+    async function startTest(collectionId) {
+        if (!collectionId) {
+            Swal.fire('Error', 'ID koleksi tidak valid.', 'error');
             return;
-          } else {
-            throw new Error(result.message || "Gagal memuat data guru dan tes");
-          }
-        } catch (apiError) {
-          console.error("Error API /api/siswa/collections:", apiError);
-          
-          // Improve error message in UI
-          container.innerHTML = `
-            <div class="col-12">
-              <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i> Gagal memuat data guru dan tes
-                <p>${apiError.message}</p>
-                <button class="btn btn-primary mt-2" onclick="fetchTeachers()">
-                  <i class="bi bi-arrow-clockwise"></i> Coba Lagi
-                </button>
-              </div>
-            </div>
-          `;
-          
-          throw apiError; // Re-throw to be caught by the main function
         }
-      } catch (error) {
-        console.error("Error mengambil data guru:", error);
-        throw error;
-      }
-    }
-    
-    // Render daftar guru dan tes
-    function renderTeachers(teachers) {
-  const container = document.getElementById('teachers-container');
-  if (!teachers || teachers.length === 0) {
-    container.innerHTML = `
-      <div class="col-12">
-        <div class="card">
-          <div class="card-body empty-state">
-            <i class="bi bi-inbox"></i>
-            <h5>Belum Ada Tes Tersedia</h5>
-            <p class="text-muted">Guru belum membagikan tes apa pun kepada Anda.</p>
-          </div>
-        </div>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = teachers.map(teacher => {
-    const collections = teacher.collections || [];
-    return `
-      <div class="col-md-6 col-lg-4">
-        <div class="card teacher-card h-100">
-          <div class="card-header bg-primary text-white">
-            <div>
-              <h5 class="mb-0">${teacher.nama} <span class="badge bg-light text-primary ms-2">Guru</span></h5>
-              <small class="text-light">${teacher.email}</small>
-            </div>
-          </div>
-          <div class="card-body">
-            <h6 class="border-bottom pb-2 mb-3">Tes Tersedia:</h6>
-            <div class="test-collection-container">
-              ${collections.length > 0 ? 
-                collections.map(collection => `
-                  <div class="collection-item" data-id="${collection.id}" style="cursor:pointer;">
-                    <strong>${collection.name}</strong>
-                    ${collection.is_new ? '<span class="badge bg-success ms-2">Baru</span>' : ''}
-                  </div>
-                `).join('') 
-                : 
-                '<p class="text-center text-muted my-3">Tidak ada tes tersedia</p>'
-              }
-            </div>
-          </div>
-          <div class="card-footer bg-transparent border-0 pt-0">
-            <button class="btn btn-outline-primary w-100" onclick="viewAllTests(${teacher.id}, '${teacher.nama}', '${teacher.email}')">
-              <i class="bi bi-list-check"></i> Lihat Detail Tes
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  // Hapus event listener duplikat sebelum menambah yang baru
-  document.querySelectorAll('.collection-item').forEach(item => {
-    item.onclick = null;
-    item.addEventListener('click', function () {
-      const collectionId = this.getAttribute('data-id');
-      startTest(collectionId);
-    });
-  });
-}
-    
-    // Fungsi pencarian
-    function handleSearch() {
-      const searchTerm = document.getElementById('search-input').value.toLowerCase();
-      
-      if (!teachersData || teachersData.length === 0) {
-        return;
-      }
-      
-      // Filter guru dan tes berdasarkan kata kunci
-      const filteredTeachers = teachersData.map(teacher => {
-        // Cek apakah guru cocok dengan kata kunci
-        const teacherMatch = teacher.nama.toLowerCase().includes(searchTerm) || 
-                             teacher.email.toLowerCase().includes(searchTerm);
         
-        // Filter collections yang cocok dengan kata kunci
-        const filteredCollections = (teacher.collections || []).filter(collection => 
-          collection.name.toLowerCase().includes(searchTerm)
-        );
-        
-        // Jika guru cocok, tampilkan semua collections
-        // Jika tidak, tampilkan hanya collections yang cocok
-        if (teacherMatch) {
-          return teacher;
-        } else if (filteredCollections.length > 0) {
-          return {
-            ...teacher,
-            collections: filteredCollections
-          };
-        } else {
-          return null;
-        }
-      }).filter(Boolean); // Hapus null
-      
-      renderTeachers(filteredTeachers);
-      
-      console.log(`Pencarian dengan kata kunci "${searchTerm}": ${filteredTeachers.length} hasil`);
-    }
-    
-    // Filter tests in modal
-    function filterTestsInModal() {
-      const searchTerm = document.getElementById('tesModalSearch').value.toLowerCase();
-      const testItems = document.querySelectorAll('.test-item');
-      
-      testItems.forEach(item => {
-        const testName = item.querySelector('.test-item-title').textContent.toLowerCase();
-        if (testName.includes(searchTerm)) {
-          item.style.display = 'flex';
-        } else {
-          item.style.display = 'none';
-        }
-      });
-    }
-    
-    // Mulai mengerjakan tes
-    function startTest(collectionId) {
-  if (!collectionId) {
-    showError("ID koleksi tidak valid");
-    return;
-  }
-  
-  console.log(`Memulai tes dengan ID: ${collectionId}`);
-  
-  // Cek apakah tes sudah selesai sebelum memulai
-  checkTestCompletionStatus(collectionId).then(isCompleted => {
-    if (!isCompleted) {
-      // Tampilkan konfirmasi sebelum memulai tes
-      Swal.fire({
-        title: 'Mulai Tes',
-        html: `
-          <div class="text-start">
-            <p><i class="bi bi-info-circle text-primary me-2"></i> Anda akan memulai tes diagnostik.</p>
-            <p><i class="bi bi-check-circle text-success me-2"></i> Pastikan Anda berada di tempat yang tenang.</p>
-            <p><i class="bi bi-clock text-warning me-2"></i> Siapkan waktu yang cukup untuk mengerjakan tes.</p>
-            <p><i class="bi bi-question-circle text-info me-2"></i> Jawablah setiap pertanyaan dengan teliti.</p>
-            <p><strong>Apakah Anda siap untuk memulai tes?</strong></p>
-          </div>
-        `,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Saya Siap',
-        cancelButtonText: 'Belum, Nanti Saja',
-        confirmButtonColor: '#0d6efd',
-        cancelButtonColor: '#6c757d',
-        reverseButtons: true,
-        focusConfirm: false
-      }).then((result) => {
-        if (result.isConfirmed) {
-          // Tampilkan indikator loading
-          document.getElementById('statusMessage').innerHTML = `
-            <div class="alert alert-info">
-              <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-              Mempersiapkan tes...
-            </div>
-          `;
-          
-          // Jika sudah siap, lanjutkan ke halaman QnA
-          window.location.href = `/qna?collection_id=${collectionId}`;
-        }
-      });
-    }
-    // Jika sudah selesai, fungsi showTestResultPopup sudah dipanggil
-  });
-}
-    
-    // Lihat semua tes dari guru tertentu (updated to use modal)
-    // Perbaikan pada fungsi viewAllTests - tambahkan pembaruan status
-async function viewAllTests(teacherId, teacherName, teacherEmail) {
-  console.log(`Melihat semua tes dari guru dengan ID: ${teacherId}`);
-  
-  // Set teacher info in modal
-  document.getElementById('tesModalTeacherName').textContent = teacherName || 'Nama Guru';
-  document.getElementById('tesModalTeacherEmail').textContent = teacherEmail || 'Email Guru';
-  
-  // Show loading in modal
-  document.getElementById('tesModalContent').innerHTML = `
-    <div class="text-center py-4">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <p class="mt-2">Memuat daftar tes...</p>
-    </div>
-  `;
-  
-  // Show modal
-  tesModal.show();
-  
-  try {
-    // Find teacher in teachersData
-    const teacher = teachersData.find(t => t.id === teacherId);
-    if (!teacher) {
-      throw new Error("Data guru tidak ditemukan");
-    }
-    
-    // Get test collections
-    const collections = teacher.collections || [];
-    
-    // PERBAIKAN: Periksa status tes ke server untuk setiap koleksi
-    const tesResults = await fetchUpdatedTestResults(collections);
-    
-    // Render test items
-    const tesModalContent = document.getElementById('tesModalContent');
-    
-    if (collections.length === 0) {
-      tesModalContent.innerHTML = `
-        <div class="empty-state">
-          <i class="bi bi-inbox"></i>
-          <h5>Belum Ada Tes Tersedia</h5>
-          <p class="text-muted">Guru belum membagikan tes apa pun kepada Anda.</p>
-        </div>
-      `;
-      return;
-    }
-    
-    tesModalContent.innerHTML = collections.map(collection => {
-      // Check if this collection has results
-      const result = tesResults.find(r => r.collection_id === collection.id);
-      const isCompleted = result && [5, 6, 7].includes(result.current_level);
-      const statusBadge = isCompleted 
-        ? '<span class="badge bg-success">Selesai</span>' 
-        : result 
-          ? '<span class="badge bg-warning text-dark">Sedang Berlangsung</span>'
-          : '<span class="badge bg-secondary">Belum Dikerjakan</span>';
-          
-      return `
-        <div class="test-item">
-          <div>
-            <div class="test-item-title">${collection.name}</div>
-            <div class="test-item-info">
-              ${statusBadge}
-              ${result ? `<small class="ms-2">level: ${result.current_level}</small>` : ''}
-            </div>
-          </div>
-          <div class="test-item-actions">
-            ${isCompleted ? 
-              `<button class="btn btn-sm btn-outline-primary" onclick="viewTestResult(${collection.id}, '${collection.name}')">
-                <i class="bi bi-card-checklist"></i> Lihat Hasil
-              </button>` : ''
-            }
-            <button class="btn btn-sm btn-primary" onclick="startTest(${collection.id})">
-  <i class="bi bi-play-fill"></i> Mulai Tes
-</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-    
-  } catch (error) {
-    console.error("Error loading tests:", error);
-    document.getElementById('tesModalContent').innerHTML = `
-      <div class="alert alert-danger">
-        <i class="bi bi-exclamation-triangle"></i> Gagal memuat daftar tes: ${error.message}
-        <button class="btn btn-sm btn-outline-danger mt-2" onclick="viewAllTests(${teacherId}, '${teacherName}', '${teacherEmail}')">
-          <i class="bi bi-arrow-clockwise"></i> Coba Lagi
-        </button>
-      </div>
-    `;
-  }
-}
-async function fetchUpdatedTestResults(collections) {
-  try {
-    // Buat array untuk menyimpan hasil yang diperbarui
-    let updatedResults = [];
-    
-    // Cek status masing-masing koleksi
-    for (const collection of collections) {
-      try {
-        const response = await fetch(`/api/siswa/test_status?collection_id=${collection.id}&user_id=${userId}`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          if (data.success) {
-            // Tambahkan ke hasil yang diperbarui
-            updatedResults.push({
-              collection_id: collection.id,
-              current_level: data.current_level || 1,
-              is_completed: data.is_completed || false,
-              correct: data.correct || 0,
-              incorrect: data.incorrect || 0
-            });
-            
-            // Perbarui localStorage jika tes sudah selesai
-            if (data.is_completed || (data.current_level && [5, 6, 7].includes(parseInt(data.current_level)))) {
-              localStorage.setItem(`test_completed_${collection.id}`, 'true');
-            }
-          }
-        }
-      } catch (err) {
-        console.error(`Error checking status for collection ${collection.id}:`, err);
-      }
-    }
-    
-    // Jika tidak ada hasil yang diperbarui, gunakan fallback ke fetchTestResults
-    if (updatedResults.length === 0) {
-      const fallbackResults = await fetchTestResults();
-      return fallbackResults;
-    }
-    
-    return updatedResults;
-  } catch (error) {
-    console.error("Error fetching updated test results:", error);
-    return [];
-  }
-}
-    
-    // Perbaikan fungsi fetchTestResults
-async function fetchTestResults() {
-  try {
-    // Mendapatkan semua hasil tes untuk siswa ini
-    let results = [];
-    
-    // Jika ada collectionId spesifik dari URL, gunakan itu saja
-    if (collectionId) {
-      console.log(`Fetching test results for collection: ${collectionId}`);
-      
-      // Tambahkan timestamp untuk mencegah caching
-      const timestamp = new Date().getTime();
-      const response = await fetch(`/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error server: ${response.status} - ${errorText}`);
-      }
-      
-      const data = await response.json();
-      console.log("Data results untuk koleksi spesifik:", data);
-      
-      // Format data menjadi array (karena endpoint ini mengembalikan objek tunggal)
-      if (data.success) {
-        results = [{
-          collection_id: parseInt(collectionId),
-          correct: parseInt(data.correct || 0),
-          incorrect: parseInt(data.incorrect || 0),
-          current_level: parseInt(data.current_level || 1)
-        }];
-      }
-    } else {
-      // Jika tidak ada collectionId spesifik, coba dapatkan dari status siswa
-      console.log("Fetching global test results");
-      
-      const response = await fetch(`/get_summary?user_id=${userId}&t=${new Date().getTime()}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error server: ${response.status} - ${errorText}`);
-      }
-      
-      // Ubah format data untuk kompatibilitas
-      const data = await response.json();
-      console.log("Data results global:", data);
-      
-      if (data.status === "success" || data.correct !== undefined) {
-        // Konversi data statistik global menjadi format yang diharapkan
-        const collectionsData = teachersData?.flatMap(teacher => 
-          (teacher.collections || []).map(collection => ({
-            collection_id: collection.id,
-            current_level: data.current_level || 1,
-            correct: parseInt(data.correct || 0),
-            incorrect: parseInt(data.incorrect || 0),
-            is_completed: data.current_level ? [5, 6, 7].includes(parseInt(data.current_level)) : false
-          }))
-        ) || [];
-        
-        results = collectionsData.length > 0 ? collectionsData : [{
-          // Fallback data jika tidak ada koleksi
-          collection_id: null,
-          current_level: data.current_level || 1,
-          correct: parseInt(data.correct || 0),
-          incorrect: parseInt(data.incorrect || 0)
-        }];
-      }
-    }
-    
-    console.log("Hasil akhir fetchTestResults:", results);
-    return results;
-  } catch (error) {
-    console.error("Error fetching test results:", error);
-    return [];
-  }
-}
-    
-    // View test result in modal
-async function viewTestResult(collectionId, collectionName) {
-  console.log(`Melihat hasil tes dengan ID: ${collectionId}`);
-  document.getElementById('resultModalTestName').textContent = collectionName || 'Hasil Tes';
-  document.getElementById('resultModalLoading').style.display = 'block';
-  document.getElementById('resultModalContent').style.display = 'none';
-  resultModal.show();
-
-  try {
-    await fixStatisticsInconsistency();
-    const timestamp = new Date().getTime();
-    const response = await fetch(`/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`);
-    if (!response.ok) throw new Error(`Error server: ${response.status}`);
-    const data = await response.json();
-
-    document.getElementById('resultModalLoading').style.display = 'none';
-    document.getElementById('resultModalContent').style.display = 'block';
-
-    const correct = parseInt(data.correct || 0);
-    const incorrect = parseInt(data.incorrect || 0);
-    const total = correct + incorrect;
-    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-    const currentLevel = parseInt(data.current_level || 1);
-    const isCompleted = currentLevel >= 5; // Assuming levels 5, 6, 7 are final
-
-    document.getElementById('resultCorrect').textContent = correct;
-    document.getElementById('resultIncorrect').textContent = incorrect;
-    document.getElementById('resultAccuracy').textContent = `${accuracy}%`;
-
-    const resultItems = document.getElementById('resultItems');
-    if ((!data.answers || data.answers.length === 0) && (correct > 0 || incorrect > 0)) {
-      resultItems.innerHTML = `
-        <div class="alert alert-warning">
-          <i class="bi bi-exclamation-triangle"></i>
-          <h5>Data Tidak Lengkap</h5>
-          <p>Sistem mendeteksi bahwa Anda telah menjawab pertanyaan, tetapi detail jawaban tidak tersedia.</p>
-          <button class="btn btn-sm btn-primary mt-2" onclick="forceReloadAnswers(${collectionId})">
-            <i class="bi bi-arrow-clockwise"></i> Muat Ulang Data
-          </button>
-        </div>
-      `;
-      return;
-    } else if (!data.answers || data.answers.length === 0) {
-      resultItems.innerHTML = `
-        <div class="empty-state">
-          <i class="bi bi-inbox"></i>
-          <h5>Tidak Ada Riwayat Jawaban</h5>
-          <p class="text-muted">Anda belum menjawab pertanyaan apa pun dalam tes ini.</p>
-        </div>
-      `;
-      return;
-    }
-
-    // Fetch AI recommendations - This section is removed from the initial popup for brevity
-    // let recommendations = [];
-    // try {
-    //     const recResponse = await fetch(`/api/export_result_pdf?user_id=${userId}&collection_id=${collectionId}`);
-    //     if (recResponse.ok) {
-    //         const recData = await recResponse.json();
-    //         if (recData.recommendations) {
-    //             recommendations = recData.recommendations;
-    //         }
-    //     }
-    // } catch (recError) {
-    //     console.error("Error fetching AI recommendations:", recError);
-    //     recommendations = [
-    //       "Pelajari kembali materi dasar yang berkaitan dengan soal yang salah.",
-    //       "Coba latihan soal serupa dengan tingkat kesulitan yang lebih rendah.",
-    //       "Diskusikan materi yang sulit dengan guru atau teman."
-    //     ];
-    // }
-
-
-    // Build modal content - Simplified for brevity
-    let modalContentHtml = `
-      <div class="result-summary-card mb-4">
-        <h5 class="text-center mb-3">Ringkasan Hasil Tes</h5>
-        <div class="d-flex justify-content-around align-items-center flex-wrap gap-3">
-          <div class="result-stat-item-large correct">
-            <div class="value">${correct}</div>
-            <div class="label">Benar</div>
-          </div>
-          <div class="result-stat-item-large incorrect">
-            <div class="value">${incorrect}</div>
-            <div class="label">Salah</div>
-          </div>
-          <div class="result-stat-item-large accuracy">
-            <div class="value">${accuracy}%</div>
-            <div class="label">Akurasi</div>
-          </div>
-        </div>
-        ${isCompleted ? `
-          <div class="alert alert-success text-center mt-4 mb-0">
-            <i class="bi bi-award-fill me-2"></i> Selamat! Anda telah menyelesaikan tes ini!
-          </div>
-        ` : `
-          <div class="alert alert-info text-center mt-4 mb-0">
-            <i class="bi bi-info-circle-fill me-2"></i> Anda telah mencapai level ${currentLevel}. Lanjutkan belajar untuk mencapai level akhir!
-          </div>
-        `}
-      </div>
-
-      <p class="text-center">Untuk melihat detail jawaban Anda dan rekomendasi belajar, klik tombol di bawah.</p>
-    `;
-
-    // Update the modal body with the new content
-    // Note: The original #resultModalBody is used for the full detail modal.
-    // This function is for the SweetAlert popup. The content should be passed directly to Swal.fire.
-    // The previous implementation was already doing this correctly.
-    Swal.fire({
-      title: 'Hasil Tes',
-      html: modalContentHtml, // Use the simplified modalContentHtml
-      icon: 'info',
-      confirmButtonText: 'Lihat Detail Hasil',
-      showCancelButton: true,
-      cancelButtonText: 'Tutup',
-      customClass: {
-          container: 'swal2-container',
-          popup: 'swal2-popup-custom',
-          header: 'swal2-header-custom',
-          title: 'swal2-title-custom',
-          content: 'swal2-content-custom',
-          actions: 'swal2-actions-custom',
-          confirmButton: 'swal2-confirm-button-custom',
-          cancelButton: 'swal2-cancel-button-custom'
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Redirect ke halaman hasil detail
-        window.location.href = `/result?collection_id=${collectionId}`;
-      }
-    });
-
-  } catch (error) {
-    console.error("Error loading test result:", error);
-    Swal.fire({
-      title: 'Error',
-      text: 'Gagal memuat hasil tes: ' + error.message,
-      icon: 'error',
-      confirmButtonText: 'Tutup'
-    });
-  }
-}
-// Fungsi untuk memperbaiki inkonsistensi data statistik
-async function fixStatisticsInconsistency() {
-  try {
-    if (!collectionId || !userId) return false;
-    
-    console.log(`Memperbaiki inkonsistensi data untuk koleksi: ${collectionId}`);
-    
-    // Panggil endpoint khusus untuk menyegarkan data jawaban
-    const response = await fetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}&force=true`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Error memperbaiki data: ${errorText}`);
-      return false;
-    }
-    
-    const result = await response.json();
-    console.log("Hasil perbaikan data:", result);
-    
-    if (result.success) {
-      console.log("Data berhasil diperbaiki");
-      // Perbarui statistik setelah perbaikan
-      // Note: updateStats() is not defined in this snippet. Assuming it's elsewhere or not critical for this specific fix.
-      // If updateStats() is meant to update the main dashboard stats, it should be called here.
-      return true;
-    } else {
-      console.error("Gagal memperbaiki data:", result.message);
-      return false;
-    }
-  } catch (error) {
-    console.error("Error memperbaiki inkonsistensi:", error);
-    return false;
-  }
-}
-
-// Tambahkan fungsi untuk muat ulang jawaban dengan force refresh
-function forceReloadAnswers(collectionId) {
-  // Tampilkan indikator loading
-  Swal.fire({
-    title: 'Menyegarkan Data',
-    html: '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"></div></div><p class="mt-2">Mohon tunggu...</p>',
-    showConfirmButton: false,
-    allowOutsideClick: false
-  });
-  
-  // Panggil endpoint khusus untuk menyegarkan data jawaban
-  fetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}&force=true`)
-    .then(response => {
-      if (!response.ok) throw new Error(`Error server: ${response.status}`);
-      return response.json();
-    })
-    .then(data => {
-      if (data.success) {
-        // Jika berhasil, perbarui statistik
-        // Assuming updateStats() is defined elsewhere
-        // updateStats().then(() => {
-          // Lalu muat ulang hasil tes
-          Swal.close();
-          Swal.fire({
-            title: 'Berhasil',
-            text: 'Data jawaban berhasil disegarkan',
-            icon: 'success',
-            timer: 1500,
-            timerProgressBar: true
-          }).then(() => {
-            // Muat ulang hasil tes
-            if (typeof viewTestResult === 'function') {
-              viewTestResult(collectionId, document.getElementById('resultModalTestName')?.textContent || 'Hasil Tes');
-            } else {
-              // Fallback jika fungsi viewTestResult tidak tersedia
-              window.location.reload();
-            }
-          });
-        // });
-      } else {
         Swal.fire({
-          title: 'Gagal',
-          text: `Gagal menyegarkan data jawaban: ${data.message}`,
-          icon: 'error',
-          confirmButtonText: 'Tutup'
+            title: 'Memeriksa Status Tes...',
+            didOpen: () => Swal.showLoading(),
+            allowOutsideClick: false,
+            allowEscapeKey: false
         });
-      }
-    })
-    .catch(error => {
-      console.error("Error refreshing answers:", error);
-      Swal.fire({
-        title: 'Error',
-        text: `Gagal menyegarkan data jawaban: ${error.message}`,
-        icon: 'error',
-        confirmButtonText: 'Tutup'
-      });
-    });
-}
-    
-    // Tampilkan pesan error
-    function showError(message) {
-      // Buat alert error
-      const alert = document.createElement('div');
-      alert.className = 'alert alert-danger alert-dismissible fade show';
-      alert.role = 'alert';
-      alert.innerHTML = `
-        <i class="bi bi-exclamation-triangle-fill"></i> ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      
-      // Tampilkan di bagian atas container
-      document.querySelector('.container').prepend(alert);
-      
-      // Otomatis hilangkan setelah 5 detik
-      setTimeout(() => {
-        alert.classList.add('fade');
-        setTimeout(() => alert.remove(), 500);
-      }, 5000);
-    }
-    
-    // Tampilkan pesan sukses
-    function showSuccess(message) {
-      // Buat alert success
-      const alert = document.createElement('div');
-      alert.className = 'alert alert-success alert-dismissible fade show';
-      alert.role = 'alert';
-      alert.innerHTML = `
-        <i class="bi bi-check-circle-fill"></i> ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      
-      // Tampilkan di bagian atas container
-      document.querySelector('.container').prepend(alert);
-      
-      // Otomatis hilangkan setelah 5 detik
-      setTimeout(() => {
-        alert.classList.add('fade');
-        setTimeout(() => alert.remove(), 500);
-      }, 5000);
-    }
-    
-    // Inisialisasi saat halaman dimuat
-    window.addEventListener('DOMContentLoaded', initDashboard);
 
+        const isCompleted = await checkTestCompletionStatus(collectionId);
+        
+        if (!isCompleted) {
+            Swal.close();
+            Swal.fire({
+                title: 'Mulai Tes',
+                html: `
+                  <div class="text-start">
+                    <p><i class="bi bi-info-circle text-primary me-2"></i> Anda akan memulai tes diagnostik.</p>
+                    <p><i class="bi bi-check-circle text-success me-2"></i> Pastikan Anda berada di tempat yang tenang.</p>
+                    <p><strong>Apakah Anda siap untuk memulai tes?</strong></p>
+                  </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Saya Siap',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#0d6efd'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = `/qna?collection_id=${collectionId}`;
+                }
+            });
+        }
+    }
+
+    // Fungsi untuk memeriksa apakah tes sudah selesai
     async function checkTestCompletionStatus(collectionId) {
-  if (!collectionId) {
-    console.error("Collection ID tidak valid");
-    return false;
-  }
-  
-  try {
-    console.log(`Memeriksa status penyelesaian untuk koleksi: ${collectionId}`);
-    
-    // Verifikasi dengan server terlebih dahulu (memastikan data terbaru)
-    // Tambahkan timestamp untuk mencegah caching
-    const response = await fetch(`/api/siswa/test_status?collection_id=${collectionId}&user_id=${userId}&t=${new Date().getTime()}`);
-    
-    if (!response.ok) {
-      throw new Error(`Error server: ${response.status}`);
+        try {
+            const response = await fetch(`/api/siswa/test_status?collection_id=${collectionId}&user_id=${userId}&t=${new Date().getTime()}`);
+            if (!response.ok) throw new Error(`Error server: ${response.status}`);
+            
+            const data = await response.json();
+            const currentLevel = parseInt(data.current_level || 0);
+            const isCompleted = data.is_completed === true || [5, 6, 7].includes(currentLevel);
+            
+            if (isCompleted) {
+                await showTestResultPopup(collectionId);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("Error memeriksa status tes:", error);
+            Swal.fire('Error', 'Gagal memeriksa status tes. Coba lagi nanti.', 'error');
+            return false;
+        }
     }
-    
-    const data = await response.json();
-    console.log("Data status tes:", data);
-    
-    // Tentukan status berdasarkan current_level dan pastikan tipe data benar
-    const currentlevel = parseInt(data.current_level || 0);
-    const isCompleted = data.is_completed === true || 
-        (currentlevel > 0 && [5, 6, 7].includes(currentlevel));
-    
-    console.log(`Status tes: ${isCompleted ? 'Selesai' : 'Belum selesai'}, level: ${currentlevel}`);
-    
-    // Selalu perbarui localStorage berdasarkan status terbaru
-    if (isCompleted) {
-      localStorage.setItem(`test_completed_${collectionId}`, 'true');
-      showTestResultPopup(collectionId);
-      return true;
-    } else {
-      // Jika tidak selesai, pastikan localStorage juga tidak menandai selesai
-      localStorage.removeItem(`test_completed_${collectionId}`);
+
+    // Fungsi untuk menampilkan popup hasil jika tes sudah selesai
+    async function showTestResultPopup(collectionId) {
+        try {
+            const response = await fetch(`/api/siswa/results/${collectionId}?user_id=${userId}`);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const data = await response.json();
+
+            const correct = data.correct || 0;
+            const incorrect = data.incorrect || 0;
+            const total = correct + incorrect;
+            const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+            let modalContent = `
+                <div class="result-summary-card mb-4">
+                    <h5 class="text-center mb-3">Ringkasan Hasil Tes</h5>
+                    <div class="d-flex justify-content-around align-items-center flex-wrap gap-3">
+                        <div class="result-stat-item-large correct">
+                            <div class="value">${correct}</div><div class="label">Benar</div>
+                        </div>
+                        <div class="result-stat-item-large incorrect">
+                            <div class="value">${incorrect}</div><div class="label">Salah</div>
+                        </div>
+                        <div class="result-stat-item-large accuracy">
+                            <div class="value">${accuracy}%</div><div class="label">Akurasi</div>
+                        </div>
+                    </div>
+                    <div class="alert alert-success text-center mt-4 mb-0">
+                        <i class="bi bi-award-fill me-2"></i> Anda telah menyelesaikan tes ini!
+                    </div>
+                </div>
+                <p class="text-center">Untuk melihat detail jawaban Anda, klik tombol di bawah.</p>
+            `;
+            
+            Swal.fire({
+                title: 'Hasil Tes',
+                html: modalContent,
+                icon: 'info',
+                confirmButtonText: 'Lihat Detail Hasil',
+                showCancelButton: true,
+                cancelButtonText: 'Tutup',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = `/result?collection_id=${collectionId}`;
+                }
+            });
+        } catch (error) {
+            console.error("Error mengambil hasil tes:", error);
+            Swal.fire('Error', 'Gagal memuat hasil tes: ' + error.message, 'error');
+        }
     }
-    
-    return false;
-  }
-  catch (error) {
-    console.error("Error memeriksa status penyelesaian tes:", error);
-    
-    // Fallback ke localStorage jika server error
-    const isCompletedInStorage = localStorage.getItem(`test_completed_${collectionId}`) === 'true';
-    if (isCompletedInStorage) {
-      showTestResultPopup(collectionId);
-      return true;
+
+    // Fungsi untuk mengambil dan menampilkan daftar tes
+    async function fetchAndDisplayTests() {
+        const container = document.getElementById('teachers-container');
+        try {
+            const response = await fetch('/api/siswa/collections');
+            if (!response.ok) throw new Error(`Gagal mengambil data dari server: ${response.status}`);
+            
+            const result = await response.json();
+
+            if (result.success && result.teachers && result.teachers.length > 0) {
+                teachersData = result.teachers; // Simpan data untuk pencarian
+                renderTeachers(teachersData);
+            } else {
+                container.innerHTML = `
+                  <div class="col-12">
+                    <div class="card">
+                      <div class="card-body empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <h5>Belum Ada Tes Tersedia</h5>
+                        <p class="text-muted">Guru belum membagikan tes apa pun kepada Anda.</p>
+                      </div>
+                    </div>
+                  </div>`;
+            }
+        } catch (error) {
+            console.error('Terjadi kesalahan:', error);
+            container.innerHTML = `<div class="col-12"><div class="alert alert-danger">Gagal memuat tes. Coba refresh halaman.</div></div>`;
+        }
     }
-    
-    return false;
-  }
-}
 
-// Fungsi untuk menampilkan popup hasil tes - tambahkan setelah checkTestCompletionStatus
-async function showTestResultPopup(collectionId) { // Added async keyword here
-  // Tampilkan loading di modal terlebih dahulu
-  Swal.fire({
-    title: 'Memuat Hasil Tes',
-    html: '<div class="text-center"><div class="spinner-border text-primary"></div><p class="mt-2">Mengambil hasil tes...</p></div>',
-    showConfirmButton: false,
-    allowOutsideClick: false
-  });
-  
-  try {
-    // Ambil hasil tes
-    const response = await fetch(`/api/siswa/results/${collectionId}?user_id=${userId}`);
-    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-    const data = await response.json();
+    // Fungsi untuk me-render kartu guru dan tes
+    function renderTeachers(teachers) {
+        const container = document.getElementById('teachers-container');
+        container.innerHTML = ''; // Kosongkan container
 
-    // Hitung statistik
-    const correct = data.correct || 0;
-    const incorrect = data.incorrect || 0;
-    const total = correct + incorrect;
-    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-    const currentLevel = parseInt(data.current_level || 1);
-    const isCompleted = currentLevel >= 5; // Assuming levels 5, 6, 7 are final
+        if (!teachers || teachers.length === 0) {
+            container.innerHTML = `
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-body empty-state">
+                    <i class="bi bi-search-heart"></i>
+                    <h5>Tidak Ditemukan</h5>
+                    <p class="text-muted">Tidak ada guru atau tes yang cocok dengan pencarian Anda.</p>
+                  </div>
+                </div>
+              </div>`;
+            return;
+        }
 
-    // Build modal content - Simplified for brevity
-    let modalContent = `
-      <div class="result-summary-card mb-4">
-        <h5 class="text-center mb-3">Ringkasan Hasil Tes</h5>
-        <div class="d-flex justify-content-around align-items-center flex-wrap gap-3">
-          <div class="result-stat-item-large correct">
-            <div class="value">${correct}</div>
-            <div class="label">Benar</div>
-          </div>
-          <div class="result-stat-item-large incorrect">
-            <div class="value">${incorrect}</div>
-            <div class="label">Salah</div>
-          </div>
-          <div class="result-stat-item-large accuracy">
-            <div class="value">${accuracy}%</div>
-            <div class="label">Akurasi</div>
-          </div>
-        </div>
-        ${isCompleted ? `
-          <div class="alert alert-success text-center mt-4 mb-0">
-            <i class="bi bi-award-fill me-2"></i> Selamat! Anda telah menyelesaikan tes ini!
-          </div>
-        ` : `
-          <div class="alert alert-info text-center mt-4 mb-0">
-            <i class="bi bi-info-circle-fill me-2"></i> Anda telah mencapai level ${currentLevel}. Lanjutkan belajar untuk mencapai level akhir!
-          </div>
-        `}
-      </div>
-
-      <p class="text-center">Untuk melihat detail jawaban Anda dan rekomendasi belajar, klik tombol di bawah.</p>
-    `;
-      
-    // Tampilkan modal dengan hasil
-    Swal.fire({
-      title: 'Hasil Tes',
-      html: modalContent,
-      icon: 'info',
-      confirmButtonText: 'Lihat Detail Hasil',
-      showCancelButton: true,
-      cancelButtonText: 'Tutup',
-      customClass: {
-          container: 'swal2-container',
-          popup: 'swal2-popup-custom',
-          header: 'swal2-header-custom',
-          title: 'swal2-title-custom',
-          content: 'swal2-content-custom',
-          actions: 'swal2-actions-custom',
-          confirmButton: 'swal2-confirm-button-custom',
-          cancelButton: 'swal2-cancel-button-custom'
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Redirect ke halaman hasil detail
-        window.location.href = `/result?collection_id=${collectionId}`;
-      }
-    });
-  } catch (error) {
-    console.error("Error mengambil hasil tes:", error);
-    Swal.fire({
-      title: 'Error',
-      text: 'Gagal memuat hasil tes: ' + error.message,
-      icon: 'error',
-      confirmButtonText: 'Tutup'
-    });
-  }
-}
-  </script>
-  
-  <!-- Script tambahan dimasukkan sesuai permintaan user -->
-  <script>
-  // Fungsi ini dipanggil saat siswa mengklik sebuah tes di dashboard (override versi sebelumnya)
-  function startTest(collectionId) {
-    // Mengarahkan siswa ke halaman QnA dengan ID koleksi di URL
-    window.location.href = `/qna?collection_id=${collectionId}`;
-  }
-
-  // Fungsi untuk mengambil data tes dari server
-  async function fetchAndDisplayTests() {
-    try {
-      const container = document.getElementById('teachers-container');
-      if (!container) return; // guard jika elemen belum ada
-      container.innerHTML = '<p>Memuat data guru dan tes...</p>'; // Status loading
-
-      // 1. Meminta data ke API backend
-      const response = await fetch('/api/siswa/collections');
-      if (!response.ok) {
-        throw new Error('Gagal mengambil data dari server');
-      }
-      const result = await response.json();
-
-      // 2. Memeriksa apakah data berhasil diterima dan tidak kosong
-      if (result.success && result.teachers && result.teachers.length > 0) {
-        container.innerHTML = ''; // Hapus tulisan "Memuat..."
-
-        // 3. Membuat elemen HTML untuk setiap tes
-        result.teachers.forEach(teacher => {
-          if (!teacher.collections) return;
-          teacher.collections.forEach(collection => {
-            const testElement = document.createElement('div');
-            testElement.className = 'col-12';
-            testElement.innerHTML = `
-              <div class="collection-item" onclick="startTest(${collection.id})">
-                <strong>${collection.name}</strong>
-                <span>dari Guru: ${teacher.nama || teacher.name || ''}</span>
+        container.innerHTML = teachers.map(teacher => {
+            const collections = teacher.collections || [];
+            return `
+              <div class="col-md-6 col-lg-4">
+                <div class="card teacher-card h-100">
+                  <div class="card-header bg-primary text-white">
+                    <div>
+                      <h5 class="mb-0">${teacher.nama}</h5>
+                      <small class="text-light">${teacher.email}</small>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <h6 class="border-bottom pb-2 mb-3">Tes Tersedia:</h6>
+                    <div class="test-collection-container">
+                      ${collections.length > 0 ? 
+                          collections.map(collection => `
+                            <div class="collection-item" onclick="startTest(${collection.id})">
+                              <strong>${collection.name}</strong>
+                            </div>
+                          `).join('') 
+                          : 
+                          '<p class="text-center text-muted my-3">Tidak ada tes tersedia dari guru ini</p>'
+                      }
+                    </div>
+                  </div>
+                </div>
               </div>
             `;
-            container.appendChild(testElement);
-          });
-        });
-      } else {
-        container.innerHTML = '<p>Belum ada tes yang tersedia untuk Anda.</p>';
-      }
-
-    } catch (error) {
-      console.error('Terjadi kesalahan:', error);
-      const container = document.getElementById('teachers-container');
-      if (container) {
-      container.innerHTML = `<div class="alert alert-danger">Gagal memuat tes. Coba refresh halaman.</div>`;
-      }
+        }).join('');
     }
-  }
 
-  // 4. Menjalankan semuanya setelah halaman siap
-  document.addEventListener('DOMContentLoaded', fetchAndDisplayTests);
+    // Fungsi untuk menangani pencarian
+    function handleSearch() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        if (!teachersData || teachersData.length === 0) return;
+
+        const filteredTeachers = teachersData.map(teacher => {
+            const teacherMatch = teacher.nama.toLowerCase().includes(searchTerm) || teacher.email.toLowerCase().includes(searchTerm);
+            const filteredCollections = (teacher.collections || []).filter(collection => collection.name.toLowerCase().includes(searchTerm));
+            
+            if (teacherMatch) return teacher; // Jika nama/email guru cocok, tampilkan semua tesnya
+            if (filteredCollections.length > 0) return { ...teacher, collections: filteredCollections }; // Jika hanya nama tes yang cocok
+            return null;
+        }).filter(Boolean); // Hapus hasil null
+        
+        renderTeachers(filteredTeachers);
+    }
+    
+    // Fungsi untuk mengambil statistik
+    async function fetchStatistics() {
+        try {
+            const response = await fetch(`/get_summary?user_id=${userId}`);
+            if (!response.ok) throw new Error(`Error server: ${response.status}`);
+            
+            const data = await response.json();
+            
+            document.getElementById("total-tes").textContent = data.total_tests || 0;
+            document.getElementById("tes-selesai").textContent = data.completed_tests || 0;
+            document.getElementById("jawaban-benar").textContent = data.correct || 0;
+            document.getElementById("jawaban-salah").textContent = data.incorrect || 0;
+        } catch (error) {
+            console.error("Gagal mengambil statistik:", error);
+        }
+    }
+
+    // Menjalankan semuanya setelah halaman siap
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            document.getElementById('search-input').addEventListener('input', handleSearch);
+            document.getElementById('statusMessage').innerHTML = `<div class="alert alert-info d-flex align-items-center"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Memuat data dashboard...</div>`;
+            
+            await fetchStatistics();
+            await fetchAndDisplayTests();
+            
+            document.getElementById('statusMessage').innerHTML = '';
+        } catch (error) {
+            console.error("Error inisialisasi:", error);
+            document.getElementById('statusMessage').innerHTML = `<div class="alert alert-danger">Gagal memuat data.</div>`;
+        }
+    });
+
   </script>
 </body>
 </html>
