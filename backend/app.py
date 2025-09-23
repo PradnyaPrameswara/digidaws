@@ -3308,11 +3308,29 @@ def get_question():
             except:
                 options = []
         
+        # =========================================
+        # RANDOMIZE OPTIONS ORDER (without mutating DB data)
+        # =========================================
+        shuffled_options = options[:]
+        if shuffled_options:
+            try:
+                random.shuffle(shuffled_options)
+            except Exception as shuffle_err:
+                print(f"Warning: gagal shuffle options untuk question {question.id}: {shuffle_err}")
+        
+        # Pastikan jawaban benar tetap ada di dalam opsi (antisipasi jika data rusak)
+        if question.jawaban_benar and question.jawaban_benar not in shuffled_options:
+            # Sisipkan di posisi acak
+            import random as _r
+            insert_pos = _r.randint(0, len(shuffled_options)) if shuffled_options else 0
+            shuffled_options.insert(insert_pos, question.jawaban_benar)
+        
         response_data = {
             "id": question.id,
             "level": question.level,
             "question": question.soal,
-            "options": options,
+            # Kirim opsi yang sudah diacak
+            "options": shuffled_options,
             "question_type": question.question_type or "multiple_choice",
             "bobot": question.bobot,
             "p": question.p,

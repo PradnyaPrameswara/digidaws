@@ -843,47 +843,66 @@
             `;
 
             try {
-                let response = await fetch("/upload", {
-                    method: "POST",
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    let errorText;
-                    try {
-                        const errorJson = await response.json();
-                        errorText = errorJson.message || "Unknown error";
-                    } catch {
-                        errorText = await response.text();
-                    }
-                    throw new Error("Server error: " + errorText);
+                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const rawText = await response.text(); // SINGLE READ
+                let payload;
+                try {
+                    payload = JSON.parse(rawText);
+                } catch (e) {
+                    console.error('Gagal parse JSON upload. Raw:', rawText);
+                    throw new Error('Respons server tidak valid (bukan JSON).');
                 }
 
-                let result = await response.json();
-                statusMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
+                if (!response.ok || payload.status === 'error') {
+                    const msg = payload.message || `Upload gagal (HTTP ${response.status})`;
+                    const missing = payload.missing_sections && payload.missing_sections.length ?
+                        `<div class='mt-2'><strong>Bagian wajib hilang:</strong><ul>${payload.missing_sections.map(s=>`<li>${s}</li>`).join('')}</ul></div>` : '';
+                    const warnings = payload.warnings && payload.warnings.length ?
+                        `<div class='mt-2'><strong>Peringatan:</strong><ul>${payload.warnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>` : '';
+                    statusMessage.innerHTML = `
+                        <div class='alert alert-danger'>
+                            <div><strong>Gagal:</strong> ${msg}</div>
+                            ${missing}
+                            ${warnings}
+                        </div>`;
+                    console.error('Upload gagal:', payload);
+                    return;
+                }
 
-                if (result.data && Array.isArray(result.data)) {
-                    allGeneratedQuestions = result.data;
+                // Sukses
+                const missing = payload.missing_sections && payload.missing_sections.length ?
+                    `<div class='mt-2'><strong>Bagian wajib hilang (blokir):</strong><ul>${payload.missing_sections.map(s=>`<li>${s}</li>`).join('')}</ul></div>` : '';
+                const warnings = payload.warnings && payload.warnings.length ?
+                    `<div class='mt-2'><strong>Peringatan:</strong><ul>${payload.warnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>` : '';
+                const infoDiag = `<small class='d-block mt-2 text-muted'>Ekstrak: ${payload.extracted_chars || 0} chars · Metode: ${payload.method_used || '-'} · Soal: ${payload.question_count || (payload.data ? payload.data.length : 0)}</small>`;
 
-                    updatelevelStatistics(result.data);
+                statusMessage.innerHTML = `
+                    <div class='alert alert-success'>
+                        <div><strong>${payload.message || 'Berhasil memproses dokumen.'}</strong></div>
+                        ${warnings}
+                        ${missing}
+                        ${infoDiag}
+                    </div>`;
 
+                if (payload.data && Array.isArray(payload.data) && payload.data.length) {
+                    allGeneratedQuestions = payload.data;
+                    updatelevelStatistics(payload.data);
                     filterAndDisplayQuestions();
-
                     selectedQuestions = [];
                     updateSelectedCount();
                 } else {
-                    document.getElementById("questionList").innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
-                    document.getElementById("levelSummaryBody").innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
-                    document.getElementById("levelStatCharts").innerHTML = "";
+                    document.getElementById('questionList').innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
+                    document.getElementById('levelSummaryBody').innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
+                    document.getElementById('levelStatCharts').innerHTML = '';
                 }
-
             } catch (error) {
-                statusMessage.innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
-                console.error("Fetch error:", error);
+                statusMessage.innerHTML = `<div class='alert alert-danger'>Terjadi kesalahan upload: ${error.message}</div>`;
+                console.error('Upload exception:', error);
             }
         });
 
-        document.getElementById("checkDbButton").addEventListener("click", async function() {
+    const checkDbBtnEl = document.getElementById("checkDbButton");
+    if (checkDbBtnEl) checkDbBtnEl.addEventListener("click", async function() {
             try {
                 const statusMessage = document.getElementById("statusMessage");
                 statusMessage.innerHTML = `
@@ -942,10 +961,22 @@
             }
         });
 
-        document.getElementById("resetDbButton").addEventListener("click", async function() {
+        const resetDbBtnEl = document.getElementById("resetDbButton");
+        if (resetDbBtnEl) resetDbBtnEl.addEventListener("click", async function() {
             if (confirm("Apakah Anda yakin ingin menghapus semua soal dan jawaban pengguna?")) {
                 try {
-                    const resetMessage = document.getElementById("resetMessage");
+                    let resetMessage = document.getElementById("resetMessage");
+                    if (!resetMessage) {
+                        // Buat container resetMessage dinamis jika belum ada
+                        resetMessage = document.createElement('div');
+                        resetMessage.id = 'resetMessage';
+                        const statusMsg = document.getElementById('statusMessage');
+                        if (statusMsg && statusMsg.parentNode) {
+                            statusMsg.parentNode.insertBefore(resetMessage, statusMsg.nextSibling);
+                        } else {
+                            document.body.appendChild(resetMessage);
+                        }
+                    }
                     resetMessage.innerHTML = `
                         <div class='alert alert-info'>
                             <div class="spinner-container">
