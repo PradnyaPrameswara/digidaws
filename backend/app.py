@@ -2013,34 +2013,61 @@ def upload_file():
     # MODE TANPA PENYIMPANAN (IN-MEMORY)
     # =============================================
     file_stream = file.read()  # bytes
-    content_text = ""
+    extraction_warnings = []
     try:
-        if file_ext == 'pdf':
-            content_text = extract_text_from_pdf_bytes(file_stream)
-        elif file_ext in ['doc', 'docx']:
-            content_text = extract_text_from_docx_bytes(file_stream, file_ext)
-        
+        # Gunakan ekstraksi penuh yang lebih robust
+        extraction_result = extract_full_text(file_stream, file_ext)
+        content_text = extraction_result.get('text', '')
+        extraction_warnings.extend(extraction_result.get('warnings', []))
+        extracted_chars = extraction_result.get('char_count', len(content_text))
+        method_used = extraction_result.get('method_used')
+
+        if not content_text or extracted_chars < 50:
+            extraction_warnings.append("Teks yang diekstrak sangat sedikit atau kosong; mungkin file adalah gambar / PDF hasil scan.")
+
+        # Ekstraksi komponen pembelajaran (fungsi bawaan, mempertahankan kompatibilitas)
         educational_components = extract_educational_components(content_text)
         module_elements, initial_competencies, learning_objectives, pemahaman_bermakna, target_peserta_didik = educational_components
 
-        if module_elements == "Tidak tersedia" or learning_objectives == "Tidak tersedia":
-            print("Validasi gagal: Komponen esensial (Modul Ajar/Tujuan Pembelajaran) tidak ditemukan.")
-            return jsonify({
-                "message": "File gagal diproses. Pastikan file yang diunggah adalah Modul Ajar yang valid dan mengandung kata kunci seperti 'Modul Ajar', 'Elemen Ajar', atau 'Tujuan Pembelajaran' agar soal dapat dibuat."
-            }), 400 
+        component_warnings = []
+        if module_elements == "Tidak tersedia":
+            component_warnings.append("Modul/Elemen Ajar tidak ditemukan di dokumen – generator akan menggunakan konteks umum.")
+        if learning_objectives == "Tidak tersedia":
+            component_warnings.append("Tujuan Pembelajaran tidak ditemukan – kualitas pemetaan level lanjut bisa menurun.")
+        if initial_competencies == "Tidak tersedia":
+            component_warnings.append("Kompetensi Awal tidak ditemukan – soal level awal akan dibuat lebih generik.")
+        if pemahaman_bermakna == "Tidak tersedia":
+            component_warnings.append("Pemahaman Bermakna tidak ditemukan – koneksi konseptual akan diminimalkan.")
+        if target_peserta_didik == "Tidak tersedia":
+            component_warnings.append("Target Peserta Didik tidak ditemukan – asumsi umum siswa kelas X digunakan.")
 
-        print("Validasi konten berhasil. Komponen esensial ditemukan.")
-            
+        extraction_warnings.extend(component_warnings)
+
+        # Siapkan placeholder agar prompt tetap informatif tanpa gagal total
+        def placeholder(val, label):
+            return val if val != "Tidak tersedia" else f"[TIDAK DITEMUKAN – gunakan inferensi dari konten umum untuk {label}]"
+
+        module_elements_p = placeholder(module_elements, "Modul/Elemen Ajar")
+        initial_competencies_p = placeholder(initial_competencies, "Kompetensi Awal")
+        learning_objectives_p = placeholder(learning_objectives, "Tujuan Pembelajaran")
+        pemahaman_bermakna_p = placeholder(pemahaman_bermakna, "Pemahaman Bermakna")
+        target_peserta_didik_p = placeholder(target_peserta_didik, "Target Peserta Didik")
+
         df = convert_text_to_dataframe_improved(content_text)
         if df.empty:
             df = pd.DataFrame({'content': [content_text], 'length': [len(content_text)]})
             print("Menggunakan dataframe sederhana karena tidak dapat mengekstrak data tabular.")
-            
-        print("Berhasil mengekstrak komponen pembelajaran.")
-        
+
+        print(f"Ekstraksi selesai dengan metode {method_used}; panjang teks: {extracted_chars} karakter. Komponen hilang: {len(component_warnings)}")
+
     except Exception as e:
         print(f"Error membaca atau memproses file: {str(e)}")
-        return jsonify({"message": f"Error membaca atau memproses file: {str(e)}"}), 500
+        return jsonify({
+            "message": f"Error membaca atau memproses file: {str(e)}",
+            "extracted_chars": 0,
+            "warnings": extraction_warnings + ["Gagal memproses file"],
+            "question_count": 0
+        }), 500
 
     explanation_text = """
         **Indeks Kesulitan Item untuk Diagnosis Kognitif**
@@ -2065,25 +2092,26 @@ def upload_file():
         Setiap tingkat pada taksonomi ini sesuai dengan level pada sesi multi-tahap dan menentukan karakteristik soal yang harus dibuat.
         """
 
+    # Gunakan versi placeholder agar tetap kaya konteks meskipun ada bagian hilang
     prompt = f"""
     Anda adalah seorang ahli pembuat soal asesmen diagnostik yang bertugas membantu guru untuk membuat soal yang akan diberikan pada siswa SMA X. Soal dibuat berdasarkan Tujuan Pembelajaran yg diunggah dalam Modul Ajar.
 
     ANALISIS MODUL AJAR:
     ========================================
     MODUL/ELEMEN AJAR:
-    {module_elements}
+    {module_elements_p}
 
     KOMPETENSI AWAL:
-    {initial_competencies}
+    {initial_competencies_p}
 
     TUJUAN PEMBELAJARAN:
-    {learning_objectives}
+    {learning_objectives_p}
 
     PEMAHAMAN BERMAKNA:
-    {pemahaman_bermakna}
+    {pemahaman_bermakna_p}
 
     TARGET PESERTA DIDIK:
-    {target_peserta_didik}
+    {target_peserta_didik_p}
 
     DATA SISWA:
     {df.to_string(index=False)}
@@ -2364,8 +2392,11 @@ def upload_file():
             message += f", dengan mempertahankan {len(preserved_question_ids_in_collections)} soal yang ada dalam koleksi."
 
         return jsonify({
-            "message": message,  
-            "data": questions_for_frontend # Kirim data baru yang sudah lengkap dengan ID
+            "message": message,
+            "data": questions_for_frontend,
+            "extracted_chars": extracted_chars,
+            "warnings": extraction_warnings,
+            "question_count": len(questions_for_frontend)
         }), 200
 
     except Exception as e:
@@ -2373,7 +2404,12 @@ def upload_file():
         db.session.rollback()
         import traceback
         traceback.print_exc()
-        return jsonify({"message": f"AI error: {str(e)}"}), 500
+        return jsonify({
+            "message": f"AI error: {str(e)}",
+            "extracted_chars": locals().get('extracted_chars', 0),
+            "warnings": extraction_warnings + ["Terjadi kesalahan saat generate soal"],
+            "question_count": 0
+        }), 500
 
 # New function to extract educational components from document content
 def extract_educational_components(content_text, return_dict=False):
@@ -2645,6 +2681,66 @@ def extract_text_from_docx_bytes(file_bytes: bytes, file_ext: str):
     except Exception as e:
         print(f"Error extracting text from DOC/DOCX bytes: {str(e)}")
         raise
+
+# =========================================
+# FULL TEXT EXTRACTION (ROBUST)
+# =========================================
+def extract_full_text(file_bytes: bytes, file_ext: str):
+    """Robust multi-strategy text extraction returning diagnostics.
+    Returns dict: {text, char_count, method_used, warnings: []}
+    """
+    warnings = []
+    text = ""
+    method_used = ""
+    try:
+        if file_ext == 'pdf':
+            # Try pdfplumber first (layout-aware)
+            try:
+                import pdfplumber  # type: ignore
+                from io import BytesIO
+                with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+                    pages_text = []
+                    for p in pdf.pages:
+                        try:
+                            pages_text.append(p.extract_text() or "")
+                        except Exception as pe:
+                            warnings.append(f"Gagal ekstrak halaman pdfplumber: {pe}")
+                    text = "\n".join(pages_text).strip()
+                    method_used = "pdfplumber"
+            except Exception as pe:
+                warnings.append(f"pdfplumber gagal: {pe}")
+                # Fallback PyPDF2
+                try:
+                    text = extract_text_from_pdf_bytes(file_bytes)
+                    method_used = "PyPDF2"
+                except Exception as se:
+                    warnings.append(f"PyPDF2 gagal: {se}")
+        elif file_ext in ['doc', 'docx']:
+            try:
+                text = extract_text_from_docx_bytes(file_bytes, file_ext)
+                method_used = f"python-docx/{'mammoth' if file_ext=='doc' else 'docx'}"
+            except Exception as de:
+                warnings.append(f"Ekstraksi DOC/DOCX gagal: {de}")
+        else:
+            warnings.append("Ekstensi tidak dikenal untuk ekstraksi penuh")
+        # Final sanitation
+        if text:
+            # Remove excessive null chars or artifacts
+            text = text.replace('\x00', ' ').strip()
+        return {
+            'text': text,
+            'char_count': len(text or ''),
+            'method_used': method_used or 'unknown',
+            'warnings': warnings
+        }
+    except Exception as e:
+        warnings.append(f"Ekstraksi penuh gagal fatal: {e}")
+        return {
+            'text': text,
+            'char_count': len(text or ''),
+            'method_used': method_used or 'error',
+            'warnings': warnings
+        }
 
 
 # =========================================

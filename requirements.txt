@@ -4,6 +4,7 @@ Flask-Login
 google-generativeai
 pandas
 PyPDF2
+pdfplumber
 python-docx
 mammoth
 Werkzeug
