@@ -612,3 +612,35 @@ jinja2.exceptions.TemplateNotFound: DashboardSiswa.html
 2025-09-23 22:32:32,606 INFO: DIGIDAWS server started [in C:\Project_Skripsi\produk_skripsi\asesment_diagnostik _up_2\backend\app.py:190]
 2025-09-23 22:51:23,968 INFO: DIGIDAWS server started [in C:\Project_Skripsi\produk_skripsi\asesment_diagnostik _up_2\backend\app.py:189]
 2025-09-23 23:05:26,331 INFO: DIGIDAWS server started [in C:\Project_Skripsi\produk_skripsi\asesment_diagnostik _up_2\backend\app.py:189]
+2025-09-27 10:19:34,627 INFO: DIGIDAWS server started [in C:\Project_Skripsi\produk_skripsi\asesment_diagnostik _up_2\backend\app.py:189]
+2025-09-27 10:20:21,728 WARNING: UPLOAD_BLOCK missing_required=['modul ajar', 'kompetensi awal', 'tujuan pembelajaran', 'pertanyaan pemantik'] chars=33791 method=python-docx/docx [in C:\Project_Skripsi\produk_skripsi\asesment_diagnostik _up_2\backend\app.py:2058]
+2025-09-27 10:20:21,729 WARNING: UPLOAD_BLOCK missing_required=['modul ajar', 'kompetensi awal', 'tujuan pembelajaran', 'pertanyaan pemantik'] chars=33791 method=python-docx/docx [in C:\Project_Skripsi\produk_skripsi\asesment_diagnostik _up_2\backend\app.py:2058]
+2025-09-27 10:20:43,542 ERROR: Exception on /upload [POST] [in C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py:838]
+Traceback (most recent call last):
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 883, in full_dispatch_request
+    return self.finalize_request(rv)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 902, in finalize_request
+    response = self.make_response(rv)
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1174, in make_response
+    raise TypeError(
+    ...<3 lines>...
+    )
+TypeError: The view function for 'upload_file' did not return a valid response. The function either returned None or ended without a return statement.
+2025-09-27 10:20:43,542 ERROR: Exception on /upload [POST] [in C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py:838]
+Traceback (most recent call last):
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 883, in full_dispatch_request
+    return self.finalize_request(rv)
+           ~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 902, in finalize_request
+    response = self.make_response(rv)
+  File "C:\Users\agung\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1174, in make_response
+    raise TypeError(
+    ...<3 lines>...
+    )
+TypeError: The view function for 'upload_file' did not return a valid response. The function either returned None or ended without a return statement.
+2025-09-28 17:35:07,321 INFO: DIGIDAWS server started [in C:\Project_Skripsi\produk_skripsi\asesment_diagnostik _up_2\backend\app.py:189]

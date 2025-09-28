@@ -2094,6 +2094,56 @@ def upload_file():
             "question_count": 0
         }), 500
 
+    # =============================================
+    # TAMBAHKAN RETURN STATEMENT YANG LENGKAP DI SINI
+    # =============================================
+    return jsonify({
+        "success": False,
+        "message": "Endpoint upload sedang dalam pengembangan",
+        "extracted_chars": extracted_chars,
+        "method_used": method_used,
+        "warnings": extraction_warnings
+    }), 501
+
+@app.route('/upload/inspect', methods=['POST'])
+@login_required
+def inspect_upload():
+    """Endpoint ringan untuk guru mengecek hasil ekstraksi & keyword tanpa generate soal.
+    Mengembalikan: extracted_chars, method_used, warnings, snippet, keyword_presence, missing_required.
+    """
+    if not current_user.is_authenticated or current_user.user_type != 'guru':
+        return jsonify({"success": False, "message": "Hanya guru yang dapat menginspeksi dokumen"}), 403
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "File tidak ditemukan dalam request"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"success": False, "message": "Nama file kosong"}), 400
+    ext = file.filename.rsplit('.',1)[-1].lower()
+    if ext not in ['pdf','doc','docx']:
+        return jsonify({"success": False, "message": "Format tidak didukung"}), 400
+    raw_bytes = file.read()
+    extraction = extract_full_text(raw_bytes, ext)
+    text = extraction.get('text','')
+    lowered = text.lower()
+    required_keywords = {
+        'modul ajar': any(k in lowered for k in ['modul ajar','elemen ajar','identitas modul']),
+        'kompetensi awal': any(k in lowered for k in ['kompetensi awal','kemampuan awal','prasyarat']),
+        'tujuan pembelajaran': any(k in lowered for k in ['tujuan pembelajaran','capaian pembelajaran','learning objective']),
+        'pertanyaan pemantik': any(k in lowered for k in ['pertanyaan pemantik','pemantik','pertanyaan pemandu'])
+    }
+    missing = [k for k,v in required_keywords.items() if not v]
+    snippet = text[:1200] if text else ''
+    return jsonify({
+        'success': True,
+        'message': 'Inspeksi berhasil',
+        'extracted_chars': extraction.get('char_count',0),
+        'method_used': extraction.get('method_used'),
+        'warnings': extraction.get('warnings',[]),
+        'keyword_presence': required_keywords,
+        'missing_required': missing,
+        'snippet': snippet
+    }), 200
+
     explanation_text = """
         **Indeks Kesulitan Item untuk Diagnosis Kognitif**
         Indeks kesulitan item sangat penting dalam menilai kemampuan kognitif individu di berbagai domain. Hal ini penting untuk mendapatkan pemahaman mendalam tentang kekuatan dan kelemahan kognitif individu.
