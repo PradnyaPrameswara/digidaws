@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="js/debug-helpers.js"></script>
     <style>
         /* Styles untuk tampilan umum */
         .option-badge {
@@ -159,13 +158,16 @@
         <div class="card mt-4">
             <div class="card-body">
                 <form id="uploadForm" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="fileInput" class="form-label">Pilih Dokumen Modul Ajar (.pdf/.doc/.docx)</label>
-                        <input class="form-control" type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx">
+                    <label for="fileInput" class="form-label">Pilih File (doc/pdf)</label>
+                    <input type="file" id="fileInput" name="file" class="form-control mb-3" accept=".doc, .docx, .pdf" required>
+                    <div class="alert alert-info">
+                        <strong>Informasi:</strong> Sistem akan menghasilkan soal pilihan ganda berdasarkan konten dari file yang diunggah
                     </div>
-                    <button type="submit" class="btn btn-primary">Generate Soal</button>
-                    <button type="button" id="inspectButton" class="btn btn-outline-secondary ms-2">Inspeksi Dokumen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-file-earmark-arrow-up"></i> Upload & Generate Soal Pilihan Ganda
+                    </button>
                 </form>
+
                 <div id="statusMessage" class="mt-3"></div>
             </div>
         </div>
@@ -437,21 +439,18 @@
                     console.log("Raw response length:", responseText.length);
                     console.log("Response preview:", responseText.substring(0, 200) + "...");
 
-                    // VALIDASI JSON DENGAN TRY-CATCH
+                    try {
+                        localStorage.setItem('lastQuestionResponse', responseText.substring(0, 5000));
+                    } catch (e) {
+                        console.warn("Couldn't save to localStorage:", e);
+                    }
+
                     let result;
                     try {
                         result = JSON.parse(responseText);
-                    } catch (parseError) {
-                        console.error("Gagal parse JSON:", parseError);
-                        console.error("Raw response yang tidak bisa di-parse:", responseText.substring(0, 500));
-                        
-                        // Simpan untuk debugging
-                        try {
-                            localStorage.setItem('lastInvalidJSON', responseText.substring(0, 5000));
-                        } catch (e) {
-                            console.warn("Couldn't save to localStorage:", e);
-                        }
-                        
+                    } catch (e) {
+                        console.error("Gagal parse JSON:", e);
+                        console.error("Raw response yang tidak bisa di-parse:", responseText);
                         throw new Error("Invalid JSON response from server");
                     }
 
@@ -691,40 +690,182 @@
                     collectionBadgeHtml = '<span class="collection-badge">Dalam Koleksi</span>';
                 }
 
-                card.innerHTML = `
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div class="form-check">
-                                <input class="form-check-input question-checkbox" type="checkbox" value="${q.id}" id="check-${q.id}" ${selectedQuestions.includes(q.id) ? 'checked' : ''}>
-                                <label class="form-check-label" for="check-${q.id}">Pilih soal ini</label>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="question-info position-relative">
-                                    <span class="badge ${levelClass}">${levelText}</span>
-                                    <span class="badge bg-secondary">p: ${q.p}</span>
-                                    ${collectionBadgeHtml}
-                                </div>
-                                <button class="btn btn-danger btn-sm delete-question-btn" data-question-id="${q.id}" title="Hapus soal">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <h5 class="card-title">${q.soal || 'Tidak ada teks soal'}</h5>
-                        ${optionsHtml}
-                        <div class="mt-3">
-                            <p class="text-muted mb-0"><strong>Jawaban Benar:</strong> ${q.jawaban_benar || 'Tidak ada jawaban'}</p>
-                        </div>
-                        <div class="mt-2">
-                            <small class="text-muted"><strong>Penjelasan:</strong> ${q.explanation || 'Tidak ada penjelasan'}</small>
-                        </div>
-                    </div>
-                `;
+                // Create card structure with DOM methods instead of innerHTML
+                const cardBody = document.createElement("div");
+                cardBody.className = "card-body";
+                
+                // Create checkbox container
+                const checkboxContainer = document.createElement("div");
+                checkboxContainer.className = "d-flex justify-content-between align-items-center mb-2";
+                
+                const formCheck = document.createElement("div");
+                formCheck.className = "form-check";
+                
+                // Create checkbox with direct event listener
+                const checkbox = document.createElement("input");
+                checkbox.className = "form-check-input question-checkbox";
+                checkbox.type = "checkbox";
+                checkbox.value = q.id;
+                checkbox.id = `check-${q.id}`;
+                if (selectedQuestions.includes(q.id)) {
+                    checkbox.checked = true;
+                }
+                // Add event listener directly here
+                checkbox.addEventListener('change', handleCheckboxChange);
+                
+                const checkLabel = document.createElement("label");
+                checkLabel.className = "form-check-label";
+                checkLabel.setAttribute("for", `check-${q.id}`);
+                checkLabel.textContent = "Pilih soal ini";
+                
+                formCheck.appendChild(checkbox);
+                formCheck.appendChild(checkLabel);
+                
+                // Create info container
+                const infoContainer = document.createElement("div");
+                infoContainer.className = "d-flex align-items-center gap-2";
+                
+                const questionInfo = document.createElement("div");
+                questionInfo.className = "question-info position-relative";
+                
+                const levelBadge = document.createElement("span");
+                levelBadge.className = `badge ${levelClass}`;
+                levelBadge.textContent = levelText;
+                
+                const pBadge = document.createElement("span");
+                pBadge.className = "badge bg-secondary";
+                pBadge.textContent = `p: ${q.p}`;
+                
+                questionInfo.appendChild(levelBadge);
+                questionInfo.appendChild(pBadge);
+                
+                if (questionsInCollection.includes(q.id)) {
+                    const collectionBadge = document.createElement("span");
+                    collectionBadge.className = "collection-badge";
+                    collectionBadge.textContent = "Dalam Koleksi";
+                    questionInfo.appendChild(collectionBadge);
+                }
+                
+                // Create delete button
+                const deleteBtn = document.createElement("button");
+                deleteBtn.className = "btn btn-danger btn-sm delete-question-btn";
+                deleteBtn.setAttribute("data-question-id", q.id);
+                deleteBtn.setAttribute("title", "Hapus soal");
+                
+                const trashIcon = document.createElement("i");
+                trashIcon.className = "bi bi-trash";
+                deleteBtn.appendChild(trashIcon);
+                deleteBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const questionId = q.id;
+                    
+                    // Show confirmation dialog
+                    const result = await Swal.fire({
+                        title: 'Hapus Soal?',
+                        text: 'Apakah Anda yakin ingin menghapus soal ini? Tindakan ini tidak dapat dibatalkan.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Ya, Hapus!',
+                        cancelButtonText: 'Batal'
+                    });
 
+                    if (result.isConfirmed) {
+                        try {
+                            const response = await fetch(`/api/questions/${questionId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                }
+                            });
+
+                            if (response.ok) {
+                                Swal.fire({
+                                    title: 'Berhasil!',
+                                    text: 'Soal berhasil dihapus.',
+                                    icon: 'success',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+
+                                // Remove from selected questions if it was selected
+                                selectedQuestions = selectedQuestions.filter(id => id !== questionId);
+                                
+                                // Remove from generated questions array
+                                allGeneratedQuestions = allGeneratedQuestions.filter(q => q.id !== questionId);
+                                
+                                // Refresh the question list using existing filter function
+                                filterAndDisplayQuestions();
+                            } else {
+                                const errorData = await response.json();
+                                throw new Error(errorData.message || errorData.error || 'Gagal menghapus soal');
+                            }
+                        } catch (error) {
+                            console.error('Error deleting question:', error);
+                            Swal.fire({
+                                title: 'Error!',
+                                text: error.message || 'Terjadi kesalahan saat menghapus soal',
+                                icon: 'error',
+                            });
+                        }
+                    }
+                });
+                
+                infoContainer.appendChild(questionInfo);
+                infoContainer.appendChild(deleteBtn);
+                
+                checkboxContainer.appendChild(formCheck);
+                checkboxContainer.appendChild(infoContainer);
+                
+                // Create question title
+                const title = document.createElement("h5");
+                title.className = "card-title";
+                title.textContent = q.soal || 'Tidak ada teks soal';
+                
+                // Add card elements to card body
+                cardBody.appendChild(checkboxContainer);
+                cardBody.appendChild(title);
+                
+                // Add options
+                if (optionsHtml) {
+                    const optionsDiv = document.createElement("div");
+                    optionsDiv.className = "mt-2";
+                    optionsDiv.innerHTML = optionsHtml;
+                    cardBody.appendChild(optionsDiv);
+                }
+                
+                // Add correct answer
+                const answerDiv = document.createElement("div");
+                answerDiv.className = "mt-3";
+                const answerP = document.createElement("p");
+                answerP.className = "text-muted mb-0";
+                const answerStrong = document.createElement("strong");
+                answerStrong.textContent = "Jawaban Benar: ";
+                answerP.appendChild(answerStrong);
+                answerP.appendChild(document.createTextNode(q.jawaban_benar || 'Tidak ada jawaban'));
+                answerDiv.appendChild(answerP);
+                cardBody.appendChild(answerDiv);
+                
+                // Add explanation
+                const explDiv = document.createElement("div");
+                explDiv.className = "mt-2";
+                const explSmall = document.createElement("small");
+                explSmall.className = "text-muted";
+                const explStrong = document.createElement("strong");
+                explStrong.textContent = "Penjelasan: ";
+                explSmall.appendChild(explStrong);
+                explSmall.appendChild(document.createTextNode(q.explanation || 'Tidak ada penjelasan'));
+                explDiv.appendChild(explSmall);
+                cardBody.appendChild(explDiv);
+                
+                card.appendChild(cardBody);
                 questionList.appendChild(card);
             });
 
-            setupCheckboxHandlers();
-            setupDeleteHandlers();
+            // Don't need setupCheckboxHandlers and setupDeleteHandlers anymore since we added listeners directly
             updateSelectedCount();
         }
 
@@ -818,7 +959,7 @@
             tbody.appendChild(totalRow);
         }
 
-        document.getElementById("uploadForm").addEventListener("submit", async function(event) {
+        document.getElementById("uploadForm").addEventListener("submit", async function (event) {
             event.preventDefault();
 
             let fileInput = document.getElementById("fileInput");
@@ -844,90 +985,62 @@
             `;
 
             try {
-                const response = await fetch('/upload', { method: 'POST', body: formData });
-                const rawText = await response.text();
-                
-                console.log("Raw response:", rawText.substring(0, 500)); // Debug
-                
-                // VALIDASI JSON SEBELUM PARSE
-                let payload;
-                try {
-                    // Coba parse JSON
-                    payload = JSON.parse(rawText);
-                } catch (parseError) {
-                    console.error('Gagal parse JSON upload. Raw:', rawText);
-                    
-                    // Cek jika response adalah HTML error page
-                    if (rawText.includes('<!DOCTYPE html>') || rawText.includes('<html>')) {
-                        throw new Error('Server mengembalikan halaman error. Mungkin server down.');
-                    } else {
-                        throw new Error('Respons server tidak valid (bukan JSON). Server mungkin error.');
+                let response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        const errorJson = await response.json();
+                        errorText = errorJson.message || "Unknown error";
+                    } catch {
+                        errorText = await response.text();
                     }
+                    throw new Error("Server error: " + errorText);
                 }
 
-                if (!response.ok || payload.status === 'error' || payload.success === false) {
-                    const msg = payload.message || `Upload gagal (HTTP ${response.status})`;
-                    const missing = payload.missing_sections && payload.missing_sections.length ?
-                        `<div class='mt-2'><strong>Bagian wajib hilang:</strong><ul>${payload.missing_sections.map(s=>`<li>${s}</li>`).join('')}</ul></div>` : '';
-                    const warnings = payload.warnings && payload.warnings.length ?
-                        `<div class='mt-2'><strong>Peringatan:</strong><ul>${payload.warnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>` : '';
-                    
-                    statusMessage.innerHTML = `
-                        <div class='alert alert-danger'>
-                            <div><strong>Gagal:</strong> ${msg}</div>
-                            ${missing}
-                            ${warnings}
-                        </div>`;
-                    console.error('Upload gagal:', payload);
-                    return;
-                }
+                let result = await response.json();
+                statusMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
 
-                // Sukses
-                const missing = payload.missing_sections && payload.missing_sections.length ?
-                    `<div class='mt-2'><strong>Bagian wajib hilang (blokir):</strong><ul>${payload.missing_sections.map(s=>`<li>${s}</li>`).join('')}</ul></div>` : '';
-                const warnings = payload.warnings && payload.warnings.length ?
-                    `<div class='mt-2'><strong>Peringatan:</strong><ul>${payload.warnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>` : '';
-                const infoDiag = `<small class='d-block mt-2 text-muted'>Ekstrak: ${payload.extracted_chars || 0} chars · Metode: ${payload.method_used || '-'} · Soal: ${payload.question_count || (payload.data ? payload.data.length : 0)}</small>`;
+                if (result.data && Array.isArray(result.data)) {
+                    allGeneratedQuestions = result.data;
 
-                statusMessage.innerHTML = `
-                    <div class='alert alert-success'>
-                        <div><strong>${payload.message || 'Berhasil memproses dokumen.'}</strong></div>
-                        ${warnings}
-                        ${missing}
-                        ${infoDiag}
-                    </div>`;
+                    updatelevelStatistics(result.data);
 
-                if (payload.data && Array.isArray(payload.data) && payload.data.length) {
-                    allGeneratedQuestions = payload.data;
-                    updatelevelStatistics(payload.data);
                     filterAndDisplayQuestions();
+
                     selectedQuestions = [];
                     updateSelectedCount();
                 } else {
-                    document.getElementById('questionList').innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
-                    document.getElementById('levelSummaryBody').innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
-                    document.getElementById('levelStatCharts').innerHTML = '';
+                    document.getElementById("questionList").innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
+                    document.getElementById("levelSummaryBody").innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
+                    document.getElementById("levelStatCharts").innerHTML = "";
                 }
+
             } catch (error) {
-                statusMessage.innerHTML = `<div class='alert alert-danger'>Terjadi kesalahan upload: ${error.message}</div>`;
-                console.error('Upload exception:', error);
+                statusMessage.innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
+                console.error("Fetch error:", error);
             }
         });
 
-    const checkDbBtnEl = document.getElementById("checkDbButton");
-    if (checkDbBtnEl) checkDbBtnEl.addEventListener("click", async function() {
-            try {
-                const statusMessage = document.getElementById("statusMessage");
-                statusMessage.innerHTML = `
-                    <div class='alert alert-info'>
-                        <div class="spinner-container">
-                            <div class="spinner-border spinner-border-sm" role="status">
-                                <span class="visually-hidden">Loading...</span>
+        // Event listener for the check database button if it exists
+        const checkDbButton = document.getElementById("checkDbButton");
+        if (checkDbButton) {
+            checkDbButton.addEventListener("click", async function() {
+                try {
+                    const statusMessage = document.getElementById("statusMessage");
+                    statusMessage.innerHTML = `
+                        <div class='alert alert-info'>
+                            <div class="spinner-container">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
                             </div>
+                            Memeriksa database secara langsung...
                         </div>
-                        Memeriksa database secara langsung...
-                    </div>
-                `;
+                    `;
                 console.log("Memanggil endpoint /api/check_questions_count");
 
                 const timestamp = new Date().getTime();
@@ -973,23 +1086,15 @@
                 console.error("Check database error:", error);
             }
         });
+        }
 
-        const resetDbBtnEl = document.getElementById("resetDbButton");
-        if (resetDbBtnEl) resetDbBtnEl.addEventListener("click", async function() {
+        // Event listener for reset database button if it exists
+        const resetDbButton = document.getElementById("resetDbButton");
+        if (resetDbButton) {
+            resetDbButton.addEventListener("click", async function() {
             if (confirm("Apakah Anda yakin ingin menghapus semua soal dan jawaban pengguna?")) {
                 try {
-                    let resetMessage = document.getElementById("resetMessage");
-                    if (!resetMessage) {
-                        // Buat container resetMessage dinamis jika belum ada
-                        resetMessage = document.createElement('div');
-                        resetMessage.id = 'resetMessage';
-                        const statusMsg = document.getElementById('statusMessage');
-                        if (statusMsg && statusMsg.parentNode) {
-                            statusMsg.parentNode.insertBefore(resetMessage, statusMsg.nextSibling);
-                        } else {
-                            document.body.appendChild(resetMessage);
-                        }
-                    }
+                    const resetMessage = document.getElementById("resetMessage");
                     resetMessage.innerHTML = `
                         <div class='alert alert-info'>
                             <div class="spinner-container">
@@ -1030,22 +1135,50 @@
                 }
             }
         });
+        }
 
         function setupCheckboxHandlers() {
-            document.querySelectorAll('.question-checkbox').forEach(checkbox => {
-                const oldCheckbox = checkbox;
-                const parent = oldCheckbox.parentNode;
-                const newCheckbox = oldCheckbox.cloneNode(true); // Correct method: cloneNode()
-
-                if (parent) {
-                    parent.replaceChild(newCheckbox, oldCheckbox);
-                } else {
-                    console.error("Parent node tidak ditemukan untuk checkbox:", oldCheckbox);
+            try {
+                const checkboxes = document.querySelectorAll('.question-checkbox');
+                
+                if (checkboxes.length === 0) {
+                    console.log("No checkboxes found to initialize");
+                    return;
                 }
-
-                newCheckbox.addEventListener('change', handleCheckboxChange);
-            });
-            console.log("Checkbox handlers initialized");
+                
+                checkboxes.forEach(checkbox => {
+                    try {
+                        // Remove existing event listeners by cloning
+                        const oldCheckbox = checkbox;
+                        
+                        // Ensure the element is still in the DOM
+                        if (!document.body.contains(oldCheckbox)) {
+                            console.log("Checkbox is no longer in the DOM, skipping");
+                            return;
+                        }
+                        
+                        const parent = oldCheckbox.parentNode;
+                        if (!parent) {
+                            console.error("Parent node tidak ditemukan untuk checkbox:", oldCheckbox);
+                            return;
+                        }
+                        
+                        // Create a new checkbox with the same attributes
+                        const newCheckbox = oldCheckbox.cloneNode(true);
+                        
+                        // Replace old with new
+                        parent.replaceChild(newCheckbox, oldCheckbox);
+                        
+                        // Add event listener to new checkbox
+                        newCheckbox.addEventListener('change', handleCheckboxChange);
+                    } catch (err) {
+                        console.error("Error setting up individual checkbox handler:", err);
+                    }
+                });
+                console.log("Checkbox handlers initialized");
+            } catch (error) {
+                console.error("Error in setupCheckboxHandlers:", error);
+            }
         }
 
         function handleCheckboxChange(e) {
@@ -1779,90 +1912,6 @@
                     }, 500);
                 }, 5000);
             }
-        }
-
-        const inspectBtn = document.getElementById('inspectButton');
-        if (inspectBtn) {
-          inspectBtn.addEventListener('click', async () => {
-            const fileInput = document.getElementById('fileInput');
-            const statusMessage = document.getElementById('statusMessage');
-            if (!fileInput.files.length) {
-              statusMessage.innerHTML = "<div class='alert alert-danger'>Pilih file terlebih dahulu untuk inspeksi.</div>";
-              return;
-            }
-            const fd = new FormData();
-            fd.append('file', fileInput.files[0]);
-            statusMessage.innerHTML = `<div class='alert alert-info'>Menganalisis dokumen (inspeksi tanpa generate)...</div>`;
-            try {
-              const resp = await fetch('/upload/inspect', {method:'POST', body: fd});
-              const raw = await resp.text();
-              let json = null;
-              try { json = JSON.parse(raw); } catch(e){
-                statusMessage.innerHTML = `<div class='alert alert-danger'>Gagal parse JSON inspeksi.<pre class='small mt-2'>${raw.substring(0,400)}</pre></div>`;
-                return;
-              }
-              if(!resp.ok || json.success === false){
-                statusMessage.innerHTML = `<div class='alert alert-danger'><strong>Gagal inspeksi:</strong> ${json.message || 'Unknown error'}</div>`;
-                return;
-              }
-              const kp = json.keyword_presence || {};
-              const miss = json.missing_required || [];
-              const warn = json.warnings || [];
-              statusMessage.innerHTML = `
-                <div class='alert alert-success'>
-                  <strong>Inspeksi Berhasil</strong><br>
-                  Metode: ${json.method_used || '-'} | Karakter: ${json.extracted_chars}<br>
-                  Keyword Wajib: <ul class='mb-1'>${Object.keys(kp).map(k=>`<li>${k}: <strong>${kp[k]?'OK':'TIDAK DITEMUKAN'}</strong></li>`).join('')}</ul>
-                  ${miss.length?`<div class='text-danger'>Missing: ${miss.join(', ')}</div>`:''}
-                  ${warn.length?`<div class='mt-2'><em>Peringatan:</em><ul>${warn.map(w=>`<li>${w}</li>`).join('')}</ul></div>`:''}
-                  <details class='mt-2'><summary>Snippet Teks (awal)</summary><pre class='small mb-0' style='white-space:pre-wrap; max-height:260px; overflow:auto;'>${(json.snippet||'').replace(/[<>]/g,m=>({'<':'&lt;','>':'&gt;'}[m]))}</pre></details>
-                </div>`;
-            } catch(err){
-              statusMessage.innerHTML = `<div class='alert alert-danger'>Error inspeksi: ${err.message}</div>`;
-            }
-          });
-        }
-
-        // Perkuat handler upload: fallback HTML
-        const originalUploadHandler = document.getElementById("uploadForm");
-        if (originalUploadHandler) {
-          originalUploadHandler.addEventListener('submit', async function(event){
-            event.preventDefault();
-            const fileInput = document.getElementById('fileInput');
-            const statusMessage = document.getElementById('statusMessage');
-            if(!fileInput.files.length){
-              statusMessage.innerHTML = "<div class='alert alert-danger'>Pilih file terlebih dahulu.</div>";return;}
-            const fd = new FormData(); fd.append('file', fileInput.files[0]);
-            statusMessage.innerHTML = `<div class='alert alert-info'>Mengunggah & mengenerate soal...</div>`;
-            try {
-              const resp = await fetch('/upload', {method:'POST', body: fd});
-              const ct = resp.headers.get('Content-Type')||'';
-              const raw = await resp.text();
-              let data = null;
-              if(ct.includes('application/json')){
-                try { data = JSON.parse(raw);} catch(e){ /* akan fallback */ }
-              }
-              if(!data){
-                // Fallback HTML (misal 500 dari proxy / Cloudflare)
-                const shortHtml = raw.substring(0,500).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                statusMessage.innerHTML = `<div class='alert alert-danger'>Server mengembalikan non-JSON (mungkin proxy / Cloudflare 500).<details class='mt-2'><summary>Lihat cuplikan</summary><pre class='small mb-0'>${shortHtml}</pre></details><div class='mt-2 small text-muted'>Coba: (1) Reload halaman (2) Periksa log server (3) Gunakan tombol Inspeksi untuk cek keyword.</div></div>`;
-                return;
-              }
-              if(!resp.ok || data.success === false){
-                const missing = data.missing_sections?.length?`<div class='mt-2 text-danger'>Missing: ${data.missing_sections.join(', ')}</div>`:'',
-                      warns = data.warnings?.length?`<ul class='mt-2 small'>${data.warnings.map(w=>`<li>${w}</li>`).join('')}</ul>`:'';
-                statusMessage.innerHTML = `<div class='alert alert-danger'><strong>Gagal:</strong> ${data.message || 'Error'}<br>Stage: ${data.stage||'-'} | Metode: ${data.method_used||'-'} ${missing} ${warns}</div>`;
-                return;
-              }
-              const warns = data.warnings?.length?`<ul class='mt-2 small'>${data.warnings.map(w=>`<li>${w}</li>`).join('')}</ul>`:'';
-              statusMessage.innerHTML = `<div class='alert alert-success'><strong>${data.message||'Berhasil.'}</strong><br>Metode: ${data.method_used||'-'} | Soal: ${data.question_count} | Karakter: ${data.extracted_chars} ${warns}</div>`;
-              if(Array.isArray(data.data)){
-                allGeneratedQuestions = data.data; filterAndDisplayQuestions(); updatelevelStatistics(data.data); selectedQuestions=[]; updateSelectedCount();
-              }
-            } catch(err){
-              statusMessage.innerHTML = `<div class='alert alert-danger'>Upload exception: ${err.message}</div>`;
-            }
-          });
         }
     </script>
 </body>
