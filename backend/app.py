@@ -1,34 +1,25 @@
 import datetime
-import sys
-from sqlalchemy import func, text
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-import google.generativeai as genai
-import pandas as pd
 import json
 import os
-import re
 import random
+import re
+import sys
+import tempfile
+from io import BytesIO
+from pathlib import Path
+import google.generativeai as genai
+import mammoth
+import pandas as pd
 import PyPDF2
 from docx import Document
-import mammoth
-import tempfile
-import pandas as pd
-from io import BytesIO
-from flask import send_file
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Blueprint, request, jsonify
-from flask_login import login_required, current_user, LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask import send_file
-import pdfkit
+from flask import (Blueprint, Flask, flash, jsonify, redirect,
+                   render_template, request, send_file, url_for)
+from flask_login import (LoginManager, UserMixin, current_user,
+                         login_required, login_user, logout_user)
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func, text
+from werkzeug.security import check_password_hash, generate_password_hash
 from xhtml2pdf import pisa
-import tempfile
-import os
-from io import BytesIO
-
-import os
-import sys
-from pathlib import Path
 
 # Define the root directory (parent of backend)
 ROOT_DIR = Path(__file__).parent.parent
@@ -1889,103 +1880,42 @@ def upload_file():
     if file_ext not in ['doc', 'docx', 'pdf']:
         return jsonify({"message": "Format file tidak didukung. Hanya file .doc, .docx, dan .pdf yang diizinkan"}), 400
 
-    # =============================================
-    # MODE SAAT INI: MENYIMPAN FILE KE DISK
-    # =============================================
-    # os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    # file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-    # file.save(file_path)
-    # print(f"File disimpan di {file_path}")
-
-    # =============================================
-    # MODE TANPA PENYIMPANAN (IN-MEMORY)
-    # =============================================
-    file_stream = file.read()  # bytes
-    content_text = ""
     try:
+        # Read file as bytes
+        file_stream = file.read()
+        content_text = ""
+        
         if file_ext == 'pdf':
             content_text = extract_text_from_pdf_bytes(file_stream)
         elif file_ext in ['doc', 'docx']:
             content_text = extract_text_from_docx_bytes(file_stream, file_ext)
         
         # Check if file has content
-        if not content_text or len(content_text.strip()) < 50:
+        if not content_text or len(content_text.strip()) < 100:
             print("Validasi gagal: File kosong atau terlalu pendek.")
             return jsonify({
-                "message": "File gagal diproses. File yang diunggah kosong atau terlalu pendek."
+                "message": "File gagal diproses. Konten terlalu pendek atau tidak dapat dibaca."
             }), 400
             
-        # Look for keywords that might indicate educational content
-        educational_keywords = ["belajar", "memahami", "menguasai", "pembelajaran", "kompetensi",
-                               "tujuan", "indikator", "materi", "modul", "ajar", "siswa", "peserta didik",
-                               "evaluasi", "penilaian", "soal", "latihan", "tugas", "guru", "pendidik"]
-                        
-        # Count educational keywords
-        content_lower = content_text.lower()
-        keyword_count = 0
-        for keyword in educational_keywords:
-            if keyword in content_lower:
-                keyword_count += 1
-                
-        # Auto-validate if the document has at least some educational content
-        is_educational_content = check_educational_content(content_text)
-        
+        # --- OPTIMALISASI KUNCI: Batasi panjang konteks yang dikirim ke AI ---
+        # Batasi total teks menjadi sekitar 15,000 karakter untuk menjaga kecepatan di VPS
+        MAX_CONTENT_LENGTH = 15000
+        if len(content_text) > MAX_CONTENT_LENGTH:
+            print(f"Konten dipotong dari {len(content_text)} menjadi {MAX_CONTENT_LENGTH} karakter.")
+            content_text = content_text[:MAX_CONTENT_LENGTH]
+            
         # Extract educational components
         educational_components = extract_educational_components(content_text)
         module_elements, initial_competencies, learning_objectives, pemahaman_bermakna, target_peserta_didik = educational_components
         
-        # Log document validation
-        print(f"Validasi dokumen pendidikan: {'Valid' if is_educational_content else 'Tidak valid'}")
-        
-        # Force validation to True to ensure all documents are accepted
-        is_educational_content = True
-        
-        # More lenient validation - as long as we have content and it's somewhat educational, we can process it
-        print(f"Validasi konten berhasil. Dokumen memiliki {keyword_count} kata kunci pendidikan.")
-        print(f"Deteksi konten pendidikan: {'Ya' if is_educational_content else 'Tidak'}")
-        
-        # Debug information about extracted components
-        print(f"Informasi komponen yang diekstrak:")
-        print(f"- Modul/Elemen Ajar: {module_elements[:100]}..." if len(module_elements) > 100 else f"- Modul/Elemen Ajar: {module_elements}")
-        print(f"- Kompetensi Awal: {initial_competencies[:100]}..." if len(initial_competencies) > 100 else f"- Kompetensi Awal: {initial_competencies}")
-        print(f"- Tujuan Pembelajaran: {learning_objectives[:100]}..." if len(learning_objectives) > 100 else f"- Tujuan Pembelajaran: {learning_objectives}")
-        print(f"- Pemahaman Bermakna: {pemahaman_bermakna[:100]}..." if len(pemahaman_bermakna) > 100 else f"- Pemahaman Bermakna: {pemahaman_bermakna}")
-        print(f"- Target Peserta Didik: {target_peserta_didik[:100]}..." if len(target_peserta_didik) > 100 else f"- Target Peserta Didik: {target_peserta_didik}")
-        
-        # Count "Tidak tersedia" values to estimate extraction quality
-        tidak_tersedia_count = sum(1 for comp in [module_elements, initial_competencies, learning_objectives, 
-                                                 pemahaman_bermakna, target_peserta_didik] 
-                                   if comp == "Tidak tersedia")
-        
-        # Log extraction quality
-        if tidak_tersedia_count == 0:
-            print("Kualitas ekstraksi: Sempurna - Semua komponen teridentifikasi")
-        elif tidak_tersedia_count <= 2:
-            print(f"Kualitas ekstraksi: Baik - {5-tidak_tersedia_count} dari 5 komponen teridentifikasi")
-        else:
-            print(f"Kualitas ekstraksi: Terbatas - Hanya {5-tidak_tersedia_count} dari 5 komponen teridentifikasi")
-            
-        # Try to detect the type of document from its content
-        if "modul" in content_text.lower() or "pembelajaran" in content_text.lower():
-            print("Deteksi tipe dokumen: Dokumen pembelajaran terdeteksi.")
-        else:
-            print("Deteksi tipe dokumen: Konten umum terdeteksi.")
-            
-        # Log content length for debugging
-        print(f"Panjang konten dokumen: {len(content_text)} karakter")
-            
+        # Create DataFrame for context
         df = convert_text_to_dataframe_improved(content_text)
         if df.empty:
             df = pd.DataFrame({'content': [content_text], 'length': [len(content_text)]})
             print("Menggunakan dataframe sederhana karena tidak dapat mengekstrak data tabular.")
-            
-        print("Berhasil mengekstrak komponen pembelajaran.")
-        
-    except Exception as e:
-        print(f"Error membaca atau memproses file: {str(e)}")
-        return jsonify({"message": f"Error membaca atau memproses file: {str(e)}"}), 500
 
-    explanation_text = """
+        # Keep the original explanation text
+        explanation_text = """
         **Indeks Kesulitan Item untuk Diagnosis Kognitif**
         Indeks kesulitan item sangat penting dalam menilai kemampuan kognitif individu di berbagai domain. Hal ini penting untuk mendapatkan pemahaman mendalam tentang kekuatan dan kelemahan kognitif individu.
         Kesulitan item dalam diagnosis kognitif menggambarkan seberapa menantang item tes tertentu terhadap konstruk kognitif yang dievaluasi. Tingkat kesulitan ini diukur dengan indeks kesulitan item, yang menghitung persentase peserta tes yang menjawab item dengan benar.
@@ -2008,133 +1938,135 @@ def upload_file():
         Setiap tingkat pada taksonomi ini sesuai dengan level pada sesi multi-tahap dan menentukan karakteristik soal yang harus dibuat.
         """
 
-    prompt = f"""
-    Anda adalah seorang ahli pembuat soal asesmen diagnostik yang bertugas membantu guru untuk membuat soal yang akan diberikan pada siswa SMA X. Soal dibuat berdasarkan Tujuan Pembelajaran yg diunggah dalam Modul Ajar.
+        # Keep the original prompt structure with the extracted components
+        prompt = f"""
+        Anda adalah seorang ahli pembuat soal asesmen diagnostik yang bertugas membantu guru untuk membuat soal yang akan diberikan pada siswa SMA X. Soal dibuat berdasarkan Tujuan Pembelajaran yg diunggah dalam Modul Ajar.
 
-    ANALISIS MODUL AJAR:
-    ========================================
-    MODUL/ELEMEN AJAR:
-    {module_elements}
+        ANALISIS MODUL AJAR:
+        ========================================
+        MODUL/ELEMEN AJAR:
+        {module_elements}
 
-    KOMPETENSI AWAL:
-    {initial_competencies}
+        KOMPETENSI AWAL:
+        {initial_competencies}
 
-    TUJUAN PEMBELAJARAN:
-    {learning_objectives}
+        TUJUAN PEMBELAJARAN:
+        {learning_objectives}
 
-    PEMAHAMAN BERMAKNA:
-    {pemahaman_bermakna}
+        PEMAHAMAN BERMAKNA:
+        {pemahaman_bermakna}
 
-    TARGET PESERTA DIDIK:
-    {target_peserta_didik}
+        TARGET PESERTA DIDIK:
+        {target_peserta_didik}
 
-    DATA SISWA:
-    {df.to_string(index=False)}
-    ========================================
+        DATA SISWA:
+        {df.to_string(index=False)}
+        ========================================
 
-    {explanation_text}
+        {explanation_text}
 
-    INSTRUKSI PEMBUATAN SOAL:
-    ========================================
+        INSTRUKSI PEMBUATAN SOAL:
+        ========================================
 
-    Berdasarkan analisis modul ajar di atas, buatlah soal pilihan ganda untuk sistem multi-stage dengan alur:
+        Berdasarkan analisis modul ajar di atas, buatlah soal pilihan ganda untuk sistem multi-stage dengan alur:
 
-    ALUR MULTI-STAGE:
-    Level 1 → Level 2
-    Level 2 → Jika BENAR ke Level 4, jika SALAH ke Level 3
-    Level 3 → Jika BENAR ke Level 6, jika SALAH ke Level 5
-    Level 4 → Jika BENAR ke Level 7, jika SALAH ke Level 6
-    Level 5, 6, 7 = Level Final
+        ALUR MULTI-STAGE:
+        Level 1 → Level 2
+        Level 2 → Jika BENAR ke Level 4, jika SALAH ke Level 3
+        Level 3 → Jika BENAR ke Level 6, jika SALAH ke Level 5
+        Level 4 → Jika BENAR ke Level 7, jika SALAH ke Level 6
+        Level 5, 6, 7 = Level Final
 
-    SPESIFIKASI SOAL PER LEVEL:
+        SPESIFIKASI SOAL PER LEVEL:
 
-    LEVEL 1 (KESADARAN TEKNOLOGI - p=0.95):
-    - Fokus: Konsep dan istilah dasar dari MODUL/ELEMEN AJAR
-    - Materi: Ambil dari elemen ajar yang paling fundamental
-    - Hubungkan dengan PEMAHAMAN BERMAKNA
-    - Hindari penggunaan kata MODUL pada soalnya
-    - Kata kerja: mengenali, mengidentifikasi, menyebutkan
-    - Contoh: "Apa yang dimaksud dengan [konsep dasar dari modul]?"
+        LEVEL 1 (KESADARAN TEKNOLOGI - p=0.95):
+        - Fokus: Konsep dan istilah dasar dari MODUL/ELEMEN AJAR
+        - Materi: Ambil dari elemen ajar yang paling fundamental
+        - Hubungkan dengan PEMAHAMAN BERMAKNA
+        - Hindari penggunaan kata MODUL pada soalnya
+        - Kata kerja: mengenali, mengidentifikasi, menyebutkan
+        - Contoh: "Apa yang dimaksud dengan [konsep dasar dari modul]?"
 
-    LEVEL 2 (LITERASI TEKNOLOGI - p=0.90):
-    - Fokus: Pemahaman konsep dari KOMPETENSI AWAL
-    - Materi: Elaborasi konsep yang sudah dikenali di level 1
-    - Hubungkan dengan PEMAHAMAN BERMAKNA
-    - Hindari penggunaan kata Siswa pada soalnya
-    - Kata kerja: menjelaskan, membandingkan, mengklasifikasi
-    - Contoh: "Bagaimana cara kerja [konsep dari modul] dalam konteks nyata?"
+        LEVEL 2 (LITERASI TEKNOLOGI - p=0.90):
+        - Fokus: Pemahaman konsep dari KOMPETENSI AWAL
+        - Materi: Elaborasi konsep yang sudah dikenali di level 1
+        - Hubungkan dengan PEMAHAMAN BERMAKNA
+        - Hindari penggunaan kata Siswa pada soalnya
+        - Kata kerja: menjelaskan, membandingkan, mengklasifikasi
+        - Contoh: "Bagaimana cara kerja [konsep dari modul] dalam konteks nyata?"
 
-    LEVEL 3 (APLIKASI DASAR - p=0.75):
-    - Fokus: Penerapan sederhana dari materi modul
-    - Materi: Aplikasi konsep untuk siswa kemampuan rendah-menengah
-    - Kata kerja: menerapkan, menggunakan, mendemonstrasikan
-    - Hubungkan dengan PEMAHAMAN BERMAKNA
-    - Hubungkan dengan TARGET PESERTA DIDIK
+        LEVEL 3 (APLIKASI DASAR - p=0.75):
+        - Fokus: Penerapan sederhana dari materi modul
+        - Materi: Aplikasi konsep untuk siswa kemampuan rendah-menengah
+        - Kata kerja: menerapkan, menggunakan, mendemonstrasikan
+        - Hubungkan dengan PEMAHAMAN BERMAKNA
+        - Hubungkan dengan TARGET PESERTA DIDIK
 
-    LEVEL 4 (APLIKASI LANJUT - p=0.67):
-    - Fokus: Penerapan kompleks dari materi modul
-    - Materi: Aplikasi konsep untuk siswa kemampuan menengah-tinggi
-    - Kata kerja: menganalisis, memecahkan masalah
-    - Hubungkan dengan PEMAHAMAN BERMAKNA
-    - Hubungkan dengan TUJUAN PEMBELAJARAN
+        LEVEL 4 (APLIKASI LANJUT - p=0.67):
+        - Fokus: Penerapan kompleks dari materi modul
+        - Materi: Aplikasi konsep untuk siswa kemampuan menengah-tinggi
+        - Kata kerja: menganalisis, memecahkan masalah
+        - Hubungkan dengan PEMAHAMAN BERMAKNA
+        - Hubungkan dengan TUJUAN PEMBELAJARAN
 
-    LEVEL 5 (FINAL - KEMAMPUAN RENDAH - p=0.20):
-    - Fokus: Kreativitas teknologi dasar dari materi modul
-    - Materi: Inovasi sederhana berdasarkan PEMAHAMAN BERMAKNA
-    - Kata kerja: merancang, mengembangkan (level dasar)
+        LEVEL 5 (FINAL - KEMAMPUAN RENDAH - p=0.20):
+        - Fokus: Kreativitas teknologi dasar dari materi modul
+        - Materi: Inovasi sederhana berdasarkan PEMAHAMAN BERMAKNA
+        - Kata kerja: merancang, mengembangkan (level dasar)
 
-    LEVEL 6 (FINAL - KEMAMPUAN MENENGAH - p=0.17):
-    - Fokus: Kreativitas teknologi menengah dari materi modul
-    - Materi: Sintesis konsep untuk solusi praktis
-    - Kata kerja: mengintegrasikan, menciptakan solusi
-    - Hubungkan dengan PEMAHAMAN BERMAKNA
+        LEVEL 6 (FINAL - KEMAMPUAN MENENGAH - p=0.17):
+        - Fokus: Kreativitas teknologi menengah dari materi modul
+        - Materi: Sintesis konsep untuk solusi praktis
+        - Kata kerja: mengintegrasikan, menciptakan solusi
+        - Hubungkan dengan PEMAHAMAN BERMAKNA
 
-    LEVEL 7 (FINAL - KEMAMPUAN TINGGI - p=0.15):
-    - Fokus: Kritik dan evaluasi mendalam dari TUJUAN PEMBELAJARAN
-    - Materi: Penilaian kritis terhadap implementasi konsep modul
-    - Kata kerja: mengevaluasi, mengkritisi, merefleksikan
-    - Hubungkan dengan PEMAHAMAN BERMAKNA
+        LEVEL 7 (FINAL - KEMAMPUAN TINGGI - p=0.15):
+        - Fokus: Kritik dan evaluasi mendalam dari TUJUAN PEMBELAJARAN
+        - Materi: Penilaian kritis terhadap implementasi konsep modul
+        - Kata kerja: mengevaluasi, mengkritisi, merefleksikan
+        - Hubungkan dengan PEMAHAMAN BERMAKNA
 
-    ATURAN WAJIB:
-    - Setiap soal HARUS merujuk langsung pada konten modul ajar yang dianalisis.
-    - **Konten Soal**: Jangan menyebutkan frasa seperti "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Pemahaman Bermakna", atau "Target Peserta Didik" secara eksplisit di dalam teks soal atau pilihan jawaban. Fokus pada *isi* dari bagian-bagian tersebut, bukan *nama* bagiannya.
-    - Gunakan terminologi dan konsep spesifik dari modul/elemen ajar.
-    - Soal level 1-2 berbasis pada KOMPETENSI AWAL.
-    - Soal level 5-7 berbasis pada TUJUAN PEMBELAJARAN.
-    - Konteks soal disesuaikan dengan TARGET PESERTA DIDIK.
-    - 4 pilihan jawaban (A, B, C, D) untuk setiap soal.
-    - **Panjang Opsi Jawaban**: Buat semua opsi jawaban (A, B, C, D) sesingkat mungkin, idealnya tidak lebih dari 15 kata per opsi. Hindari membuat opsi pengecoh yang terlalu panjang dan berbelit-belit.
-    - **Variasi Kunci Jawaban Benar**: Posisikan jawaban yang benar secara acak. Sangat penting bahwa **jawaban yang benar tidak selalu menjadi opsi yang paling panjang atau paling detail**. Variasikan panjang kalimat jawaban benar (kadang pendek, kadang sedang), dan pastikan untuk tidak mengungkapkan informasi yang terlalu jelas.
-    - Hindari penggunaan ID atau nomor urut spesifik.
-    - Bahasa soal yang diajukan mudah dipahami untuk jenjang siswa kelas X.
+        ATURAN WAJIB:
+        - Setiap soal HARUS merujuk langsung pada konten modul ajar yang dianalisis.
+        - **Konten Soal**: Jangan menyebutkan frasa seperti "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Pemahaman Bermakna", atau "Target Peserta Didik" secara eksplisit di dalam teks soal atau pilihan jawaban. Fokus pada *isi* dari bagian-bagian tersebut, bukan *nama* bagiannya.
+        - Gunakan terminologi dan konsep spesifik dari modul/elemen ajar.
+        - Soal level 1-2 berbasis pada KOMPETENSI AWAL.
+        - Soal level 5-7 berbasis pada TUJUAN PEMBELAJARAN.
+        - Konteks soal disesuaikan dengan TARGET PESERTA DIDIK.
+        - 4 pilihan jawaban (A, B, C, D) untuk setiap soal.
+        - **Panjang Opsi Jawaban**: Buat semua opsi jawaban (A, B, C, D) sesingkat mungkin, idealnya tidak lebih dari 15 kata per opsi. Hindari membuat opsi pengecoh yang terlalu panjang dan berbelit-belit.
+        - **Variasi Kunci Jawaban Benar**: Posisikan jawaban yang benar secara acak. Sangat penting bahwa **jawaban yang benar tidak selalu menjadi opsi yang paling panjang atau paling detail**. Variasikan panjang kalimat jawaban benar (kadang pendek, kadang sedang), dan pastikan untuk tidak mengungkapkan informasi yang terlalu jelas.
+        - Hindari penggunaan ID atau nomor urut spesifik.
+        - Bahasa soal yang diajukan mudah dipahami untuk jenjang siswa kelas X.
 
-    FORMAT OUTPUT - JSON ARRAY:
-    [
-    {{
-        "level": 1,
-        "question_type": "multiple_choice",
-        "soal": "Pertanyaan berdasarkan elemen ajar spesifik...",
-        "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-        "jawaban_benar": "Opsi A",
-        "p": 0.95,
-        "explanation": "Penjelasan mengapa jawaban benar dan kaitannya dengan modul ajar",
-        "modul_reference": "Bagian spesifik modul yang dirujuk"
-    }},
-    ...dst
-    ]
+        FORMAT OUTPUT - JSON ARRAY:
+        [
+        {{
+            "level": 1,
+            "question_type": "multiple_choice",
+            "soal": "Pertanyaan berdasarkan elemen ajar spesifik...",
+            "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
+            "jawaban_benar": "Opsi A",
+            "p": 0.95,
+            "explanation": "Penjelasan mengapa jawaban benar dan kaitannya dengan modul ajar",
+            "modul_reference": "Bagian spesifik modul yang dirujuk"
+        }},
+        ...dst
+        ]
 
-    TARGET: 35 soal total (5 soal per level)
+        TARGET: 35 soal total (5 soal per level)
 
-    PENTING: Pastikan setiap soal memiliki kaitan langsung dan eksplisit dengan konten modul ajar yang dianalisis. Jangan membuat soal generik!
-    """
+        PENTING: Pastikan setiap soal memiliki kaitan langsung dan eksplisit dengan konten modul ajar yang dianalisis. Jangan membuat soal generik!
+        """
 
-    try:
+        # Send the request to Gemini API
         print("Mengirim prompt ke Gemini API")
         response = model.generate_content(prompt)
         raw_text = response.text.strip()
         
         print("Raw AI response:", raw_text[:500])
         
+        # Parse the JSON response with improved error handling
         gen_questions = []
         try:
             cleaned_text = re.sub(r'```json|```', '', raw_text).strip()
@@ -2166,20 +2098,9 @@ def upload_file():
                         json_text = re.sub(r',\s*([}\]])', r'\1', json_text)
                         gen_questions = json.loads(json_text)
                         print("Berhasil parsing JSON dari ekstraksi kurung")
-                    except json.JSONDecodeError as e:
-                        print(f"Error decode JSON setelah ekstraksi kurung: {str(e)}")
-                        cleaned_text = re.sub(r'```json|```|\n|\\n|\\\"', '', json_text)
-                        cleaned_text = re.sub(r',\s*\}', '}', cleaned_text)
-                        cleaned_text = re.sub(r',\s*\]', ']', cleaned_text)
-                        
-                        try:
-                            gen_questions = json.loads(cleaned_text)
-                            print("Berhasil parsing JSON setelah pembersihan intensif")
-                        except json.JSONDecodeError as e2:
-                            print(f"Error decode JSON akhir: {str(e2)}")
-                            return jsonify({"message": f"Error parsing JSON soal: {str(e2)}"}), 500
+                    except json.JSONDecodeError:
+                        return jsonify({"message": "Tidak dapat memproses respons AI"}), 500
                 else:
-                    print("Tidak dapat menemukan array JSON dalam respons")
                     return jsonify({"message": "Tidak dapat menemukan format JSON dalam respons AI"}), 500
 
         if not isinstance(gen_questions, list):
@@ -2192,7 +2113,7 @@ def upload_file():
             print(f"Jumlah soal tidak mencukupi: {len(gen_questions)}")
             return jsonify({"message": f"AI hanya menghasilkan {len(gen_questions)} soal, minimal diperlukan 7 soal"}), 500
 
-        print(f"Menghapus soal lama yang tidak dalam koleksi dan dimiliki oleh guru_id {current_user.id}...")
+        # Delete old questions not in collections
         try:
             preserved_question_ids_in_collections = db.session.query(CollectionQuestion.question_id).join(
                 Question, Question.id == CollectionQuestion.question_id
@@ -2201,6 +2122,7 @@ def upload_file():
             ).distinct().all()
             preserved_question_ids_in_collections = [id[0] for id in preserved_question_ids_in_collections]
             
+            # Delete student answers for questions to be deleted
             siswa_answers_to_delete_q_ids = db.session.query(Question.id).filter(
                 Question.guru_id == current_user.id,
                 ~Question.id.in_(preserved_question_ids_in_collections)
@@ -2210,15 +2132,13 @@ def upload_file():
                 SiswaAnswer.question_id.in_(siswa_answers_to_delete_q_ids)
             ).delete(synchronize_session=False)
             db.session.commit()
-            print(f"Jumlah jawaban siswa yang dihapus: {SiswaAnswer.query.filter(SiswaAnswer.question_id.in_(siswa_answers_to_delete_q_ids)).count()}")
 
+            # Delete questions not in collections
             Question.query.filter(
                 Question.guru_id == current_user.id,
                 ~Question.id.in_(preserved_question_ids_in_collections)
             ).delete(synchronize_session=False)
             db.session.commit()
-            
-            print(f"Soal pribadi guru {current_user.id} yang tidak terkoleksi dan jawabannya berhasil dihapus.")
             
         except Exception as e:
             db.session.rollback()
@@ -2227,9 +2147,9 @@ def upload_file():
             traceback.print_exc()
             return jsonify({"message": f"Error menghapus data lama: {str(e)}"}), 500
             
-        # Simpan soal baru ke database
+        # Save new questions to database
         print("Menyimpan soal baru ke database untuk guru:", current_user.username)
-        new_questions_from_db = [] # Daftar untuk menampung objek soal baru
+        new_questions_from_db = [] 
         for q in gen_questions:
             try:
                 level_num = int(q.get("level"))
@@ -2255,7 +2175,7 @@ def upload_file():
                         explanation=q.get("explanation", "")
                     )
                     db.session.add(new_question)
-                    new_questions_from_db.append(new_question) # Tambahkan objek ke daftar
+                    new_questions_from_db.append(new_question)
             except Exception as e:
                 db.session.rollback()
                 print(f"Error memproses soal: {str(e)}")
@@ -2266,7 +2186,7 @@ def upload_file():
         db.session.commit()
         print("Database commit berhasil: soal baru tersimpan.")
 
-        # Buat data respons dari objek yang baru disimpan, yang sekarang memiliki ID
+        # Prepare data for frontend
         questions_for_frontend = []
         for q_db in new_questions_from_db:
             options = []
@@ -2276,7 +2196,7 @@ def upload_file():
                 except json.JSONDecodeError:
                     pass
             questions_for_frontend.append({
-                "id": q_db.id, # ID dari database disertakan di sini
+                "id": q_db.id,
                 "guru_id": q_db.guru_id,
                 "collection_id": q_db.collection_id,
                 "level": q_db.level,
@@ -2293,6 +2213,7 @@ def upload_file():
                 "is_validated": q_db.is_validated
             })
 
+        # Count questions by level
         level_counts = {}
         for q in questions_for_frontend:
             level = int(q.get("level"))
@@ -2300,13 +2221,14 @@ def upload_file():
                 
         level_summary = ", ".join([f"level {level}: {count} soal" for level, count in sorted(level_counts.items())])
 
+        # Create success message
         message = f"Total {len(questions_for_frontend)} soal pilihan ganda berhasil digenerate dan disimpan ({level_summary})"
         if preserved_question_ids_in_collections:
             message += f", dengan mempertahankan {len(preserved_question_ids_in_collections)} soal yang ada dalam koleksi."
 
         return jsonify({
             "message": message,  
-            "data": questions_for_frontend # Kirim data baru yang sudah lengkap dengan ID
+            "data": questions_for_frontend
         }), 200
 
     except Exception as e:
