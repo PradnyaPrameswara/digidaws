@@ -1867,7 +1867,7 @@ def upload_file():
         print(f"User {current_user.username} is not a teacher or not authenticated.")
         return jsonify({"message": "Hanya guru yang dapat menggenerate soal"}), 403
 
-    print("Upload file endpoint called by teacher:", current_user.username)
+    print(f"[{datetime.datetime.now()}] Upload file endpoint called by teacher: {current_user.username}")
     
     if 'file' not in request.files:
         return jsonify({"message": "Tidak ada file yang diunggah"}), 400
@@ -1883,35 +1883,40 @@ def upload_file():
     try:
         # Read file as bytes
         file_stream = file.read()
-        content_text = ""
         
+        print(f"[{datetime.datetime.now()}] Memulai ekstraksi teks...")
+        content_text = ""
         if file_ext == 'pdf':
             content_text = extract_text_from_pdf_bytes(file_stream)
         elif file_ext in ['doc', 'docx']:
             content_text = extract_text_from_docx_bytes(file_stream, file_ext)
         
         # Check if file has content
-        if not content_text or len(content_text.strip()) < 100:
+        if not content_text or len(content_text.strip()) < 200:
             print("Validasi gagal: File kosong atau terlalu pendek.")
             return jsonify({
-                "message": "File gagal diproses. Konten terlalu pendek atau tidak dapat dibaca."
+                "message": "File gagal diproses. Konten terlalu sedikit atau tidak dapat dibaca."
             }), 400
             
-        # --- OPTIMALISASI KUNCI: Batasi panjang konteks yang dikirim ke AI ---
-        # Batasi total teks menjadi sekitar 15,000 karakter untuk menjaga kecepatan di VPS
-        MAX_CONTENT_LENGTH = 15000
-        if len(content_text) > MAX_CONTENT_LENGTH:
-            print(f"Konten dipotong dari {len(content_text)} menjadi {MAX_CONTENT_LENGTH} karakter.")
-            content_text = content_text[:MAX_CONTENT_LENGTH]
+        print(f"[{datetime.datetime.now()}] Ekstraksi teks selesai. Panjang asli: {len(content_text)} karakter.")
             
-        # Extract educational components
+        # Extract educational components dari teks yang sudah dipotong
         educational_components = extract_educational_components(content_text)
         module_elements, initial_competencies, learning_objectives, pemahaman_bermakna, target_peserta_didik = educational_components
+
+        if (learning_objectives == "Tidak tersedia" or 
+            pemahaman_bermakna == "Tidak tersedia" or
+            module_elements == "Tidak tersedia"):
+            
+            print("Validasi gagal: Komponen penting tidak ditemukan dalam dokumen.")
+            return jsonify({
+                "message": "File tidak dapat diproses. Pastikan file yang diunggah berisi bagian 'Modul Ajar', 'Tujuan Pembelajaran', dan 'Pemahaman Bermakna' yang jelas."
+            }), 400
         
         # Create DataFrame for context
         df = convert_text_to_dataframe_improved(content_text)
         if df.empty:
-            df = pd.DataFrame({'content': [content_text], 'length': [len(content_text)]})
+            df = pd.DataFrame({'content': [content_text]})
             print("Menggunakan dataframe sederhana karena tidak dapat mengekstrak data tabular.")
 
         # Keep the original explanation text
@@ -1965,79 +1970,68 @@ def upload_file():
 
         {explanation_text}
 
-        INSTRUKSI PEMBUATAN SOAL:
-        ========================================
-
-        Berdasarkan analisis modul ajar di atas, buatlah soal pilihan ganda untuk sistem multi-stage dengan alur:
-
-        ALUR MULTI-STAGE:
-        Level 1 → Level 2
-        Level 2 → Jika BENAR ke Level 4, jika SALAH ke Level 3
-        Level 3 → Jika BENAR ke Level 6, jika SALAH ke Level 5
-        Level 4 → Jika BENAR ke Level 7, jika SALAH ke Level 6
-        Level 5, 6, 7 = Level Final
-
         SPESIFIKASI SOAL PER LEVEL:
+        ========================================
+        Stage I (Bin 1) → Kesadaran Teknologi
+        Probabilitas (p): 0.95
+        Fokus soal: definisi, istilah, identifikasi teknologi dasar
+        Jenis pengetahuan: knowledge that
+        Contoh soal: “Alat yang digunakan untuk menyimpan data berbasis internet adalah...”
 
-        LEVEL 1 (KESADARAN TEKNOLOGI - p=0.95):
-        - Fokus: Konsep dan istilah dasar dari MODUL/ELEMEN AJAR
-        - Materi: Ambil dari elemen ajar yang paling fundamental
-        - Hubungkan dengan PEMAHAMAN BERMAKNA
-        - Hindari penggunaan kata MODUL pada soalnya
-        - Kata kerja: mengenali, mengidentifikasi, menyebutkan
-        - Contoh: "Apa yang dimaksud dengan [konsep dasar dari modul]?"
+        Stage II (Bin 2) → Literasi Teknologi
+        Probabilitas (p): 0.90
+        Fokus soal: klasifikasi, hubungan antar teknologi, penjelasan fungsi
+        Jenis pengetahuan: knowledge that
+        Contoh soal: “Manakah teknologi yang termasuk komunikasi sinkron?”
 
-        LEVEL 2 (LITERASI TEKNOLOGI - p=0.90):
-        - Fokus: Pemahaman konsep dari KOMPETENSI AWAL
-        - Materi: Elaborasi konsep yang sudah dikenali di level 1
-        - Hubungkan dengan PEMAHAMAN BERMAKNA
-        - Hindari penggunaan kata Siswa pada soalnya
-        - Kata kerja: menjelaskan, membandingkan, mengklasifikasi
-        - Contoh: "Bagaimana cara kerja [konsep dari modul] dalam konteks nyata?"
+        Stage III
+        Bin 3 → Kemampuan Teknologi
+        p: 0.75
+        Fokus soal: aplikasi praktis, instruksi, puzzle urutan
+        Jenis pengetahuan: knowledge that + how
+        Contoh soal: “Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim”
 
-        LEVEL 3 (APLIKASI DASAR - p=0.75):
-        - Fokus: Penerapan sederhana dari materi modul
-        - Materi: Aplikasi konsep untuk siswa kemampuan rendah-menengah
-        - Kata kerja: menerapkan, menggunakan, mendemonstrasikan
-        - Hubungkan dengan PEMAHAMAN BERMAKNA
-        - Hubungkan dengan TARGET PESERTA DIDIK
+        Bin 4 → Kreativitas Teknologi (Dasar)
+        p: 0.67
+        Fokus soal: modifikasi, debugging, analisis error sederhana
+        Jenis pengetahuan: knowledge that + how
+        Contoh soal: “Program gagal menyimpan skor. Apa perbaikan yang tepat?”
 
-        LEVEL 4 (APLIKASI LANJUT - p=0.67):
-        - Fokus: Penerapan kompleks dari materi modul
-        - Materi: Aplikasi konsep untuk siswa kemampuan menengah-tinggi
-        - Kata kerja: menganalisis, memecahkan masalah
-        - Hubungkan dengan PEMAHAMAN BERMAKNA
-        - Hubungkan dengan TUJUAN PEMBELAJARAN
+        Stage IV (Final)
+        Bin 5 → Kemampuan Teknologi (penguatan)
+        p: 0.75
+        Soal aplikasi lanjutan, puzzle assembly terbimbing
 
-        LEVEL 5 (FINAL - KEMAMPUAN RENDAH - p=0.20):
-        - Fokus: Kreativitas teknologi dasar dari materi modul
-        - Materi: Inovasi sederhana berdasarkan PEMAHAMAN BERMAKNA
-        - Kata kerja: merancang, mengembangkan (level dasar)
+        Bin 6 → Kritik Teknologi
+        p: 0.20
+        Fokus soal: evaluasi trade-off, menilai solusi, kritik teknologi
+        Jenis pengetahuan: knowledge that + how + why
+        Contoh soal: “Bandingkan cloud storage vs local storage. Faktor utama yang dipertimbangkan adalah...”
 
-        LEVEL 6 (FINAL - KEMAMPUAN MENENGAH - p=0.17):
-        - Fokus: Kreativitas teknologi menengah dari materi modul
-        - Materi: Sintesis konsep untuk solusi praktis
-        - Kata kerja: mengintegrasikan, menciptakan solusi
-        - Hubungkan dengan PEMAHAMAN BERMAKNA
+        Bin 7 → Kreativitas + Kritik Teknologi (Final Tinggi)
+        p: 0.17
+        Fokus soal: merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi
+        Jenis pengetahuan: knowledge that + how + why
+        Contoh soal: “Rancang sistem absen otomatis dengan sensor & database. Komponen wajib yang digunakan adalah...”
 
-        LEVEL 7 (FINAL - KEMAMPUAN TINGGI - p=0.15):
-        - Fokus: Kritik dan evaluasi mendalam dari TUJUAN PEMBELAJARAN
-        - Materi: Penilaian kritis terhadap implementasi konsep modul
-        - Kata kerja: mengevaluasi, mengkritisi, merefleksikan
-        - Hubungkan dengan PEMAHAMAN BERMAKNA
+        ATURAN PENTING:
+        ========================================
+        ✓ Setiap soal merujuk langsung pada konten modul yang dianalisis
+        ✓ Gunakan terminologi spesifik dari modul
+        ✓ 4 pilihan (A, B, C, D), maksimal 15 kata per opsi
+        ✓ Posisi jawaban benar ACAK dan bervariasi
+        ✓ Pengecoh masuk akal, cerminkan miskonsepsi umum
+        ✓ Bahasa lugas, sesuai jenjang siswa
+        ✓ Kalimat soal maksimal 3 baris
 
-        ATURAN WAJIB:
-        - Setiap soal HARUS merujuk langsung pada konten modul ajar yang dianalisis.
-        - **Konten Soal**: Jangan menyebutkan frasa seperti "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Pemahaman Bermakna", atau "Target Peserta Didik" secara eksplisit di dalam teks soal atau pilihan jawaban. Fokus pada *isi* dari bagian-bagian tersebut, bukan *nama* bagiannya.
-        - Gunakan terminologi dan konsep spesifik dari modul/elemen ajar.
-        - Soal level 1-2 berbasis pada KOMPETENSI AWAL.
-        - Soal level 5-7 berbasis pada TUJUAN PEMBELAJARAN.
-        - Konteks soal disesuaikan dengan TARGET PESERTA DIDIK.
-        - 4 pilihan jawaban (A, B, C, D) untuk setiap soal.
-        - **Panjang Opsi Jawaban**: Buat semua opsi jawaban (A, B, C, D) sesingkat mungkin, idealnya tidak lebih dari 15 kata per opsi. Hindari membuat opsi pengecoh yang terlalu panjang dan berbelit-belit.
-        - **Variasi Kunci Jawaban Benar**: Posisikan jawaban yang benar secara acak. Sangat penting bahwa **jawaban yang benar tidak selalu menjadi opsi yang paling panjang atau paling detail**. Variasikan panjang kalimat jawaban benar (kadang pendek, kadang sedang), dan pastikan untuk tidak mengungkapkan informasi yang terlalu jelas.
-        - Hindari penggunaan ID atau nomor urut spesifik.
-        - Bahasa soal yang diajukan mudah dipahami untuk jenjang siswa kelas X.
+        ✗ JANGAN gunakan: "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Siswa", "Peserta didik" dalam teks soal
+        ✗ JANGAN buat soal generik yang lepas dari modul
+        ✗ JANGAN buat jawaban benar selalu yang terpanjang
+
+        ADAPTASI KONTEKS:
+        - Kelas X: contoh sederhana, kehidupan sehari-hari
+        - Kelas XI: aplikasi spesifik, studi kasus
+        - Kelas XII: proyek nyata, analisis mendalam
 
         FORMAT OUTPUT - JSON ARRAY:
         [
@@ -2046,7 +2040,7 @@ def upload_file():
             "question_type": "multiple_choice",
             "soal": "Pertanyaan berdasarkan elemen ajar spesifik...",
             "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-            "jawaban_benar": "Opsi A",
+            "jawaban_benar": "Opsi A/B/C/D",
             "p": 0.95,
             "explanation": "Penjelasan mengapa jawaban benar dan kaitannya dengan modul ajar",
             "modul_reference": "Bagian spesifik modul yang dirujuk"
@@ -2055,14 +2049,25 @@ def upload_file():
         ]
 
         TARGET: 35 soal total (5 soal per level)
+        **Level 1 (Konsep Dasar):**
+        "Ani membagi tugas proyek menjadi: riset, desain, coding, testing. Teknik ini disebut..."
+        Options: ["Dekomposisi", "Abstraksi", "Algoritma", "Debugging"]
 
-        PENTING: Pastikan setiap soal memiliki kaitan langsung dan eksplisit dengan konten modul ajar yang dianalisis. Jangan membuat soal generik!
+        **Level 4 (Aplikasi Kompleks):**
+        "Sistem perlu memproses 1000 data dalam waktu singkat. Struktur data yang paling efisien adalah..."
+        Options: ["Array", "Linked List", "Hash Table", "Stack"]
+
+        **Level 7 (Evaluasi):**
+        "Bandingkan keamanan cloud storage vs local storage untuk data pribadi. Faktor kritis yang harus dipertimbangkan..."
+        Options: [evaluasi mendalam dengan trade-off]
+
+        PRINSIP KUNCI: Soal berkualitas = relevan dengan modul + tingkat kesulitan tepat + membedakan kemampuan siswa dengan efektif.
         """
 
-        # Send the request to Gemini API
-        print("Mengirim prompt ke Gemini API")
+        print(f"[{datetime.datetime.now()}] Mengirim prompt ({len(prompt)} chars) ke Gemini AI...")
         response = model.generate_content(prompt)
         raw_text = response.text.strip()
+        print(f"[{datetime.datetime.now()}] Respons dari Gemini AI diterima.")
         
         print("Raw AI response:", raw_text[:500])
         
