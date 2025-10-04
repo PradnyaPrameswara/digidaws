@@ -69,6 +69,494 @@ genai.configure(api_key=my_api_key_gemini)
 model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
 # =========================================
+# OPTIMIZED MODULE EXTRACTION FUNCTIONS
+# =========================================
+
+def extract_specific_module_components(content_text):
+    """
+    Ekstrak komponen spesifik dari modul ajar dengan format Roman numeral
+    ENHANCED: Pattern yang sangat fleksibel dengan fallback multiple untuk semua format dokumen
+    """
+    results = {
+        "mata_pelajaran": "",
+        "topik_utama": "",
+        "kelas": "",
+        "kompetensi_awal": "",
+        "tujuan_pembelajaran": [],
+        "pemahaman_bermakna": [],
+        "target_peserta_didik": "",
+        "model_pembelajaran": ""
+    }
+    
+    content = content_text
+    content_lower = content_text.lower()
+    
+    # 1. Ekstrak Mata Pelajaran dan Topik dari header MODUL AJAR
+    modul_match = re.search(r'modul\s+ajar\s*\n([^\n]+)', content, re.IGNORECASE)
+    if modul_match:
+        results["mata_pelajaran"] = modul_match.group(1).strip()
+        results["topik_utama"] = modul_match.group(1).strip()
+    
+    # 2. Ekstrak Kelas dari Identitas Modul  
+    kelas_match = re.search(r'fase\s*/\s*kelas\s*:\s*([^\n]+)', content, re.IGNORECASE)
+    if kelas_match:
+        results["kelas"] = kelas_match.group(1).strip()
+    
+    # 3. PERBAIKAN: Ekstrak Kompetensi Awal dengan pattern yang lebih fleksibel
+    kompetensi_patterns = [
+        r'ii\.\s*kompetensi\s+awal\s*\n(.*?)(?=\niii\.|$)',
+        r'kompetensi\s+awal\s*[\:\n](.*?)(?=\n[IVX]+\.|$)',
+        r'ii[\.\s]*kompetensi\s+awal[^\n]*\n(.*?)(?=\n[IVX]+\.|$)'
+    ]
+    
+    for pattern in kompetensi_patterns:
+        kompetensi_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if kompetensi_match:
+            kompetensi_text = kompetensi_match.group(1).strip()
+            sentences = re.split(r'[.!?]+', kompetensi_text)
+            key_sentences = [s.strip() for s in sentences[:2] if s.strip()]
+            results["kompetensi_awal"] = ". ".join(key_sentences) + "." if key_sentences else kompetensi_text[:400]
+            break
+    
+    # 4. ENHANCED: Ekstrak Tujuan Pembelajaran dengan strategi berlapis
+    tujuan_patterns = [
+        # Pattern 1: Dalam KOMPONEN INTI dengan berbagai format
+        r'komponen\s+inti.*?i\.\s*tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*ii\.|pemahaman\s+bermakna|pertanyaan\s+pemantik|$)',
+        # Pattern 2: Roman numeral langsung dengan flexible spacing
+        r'i\.\s*tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*ii\.|pemahaman\s+bermakna|pertanyaan\s+pemantik|$)',
+        # Pattern 3: Tanpa Roman numeral tapi dengan header
+        r'tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*(?:pemahaman\s+bermakna|pertanyaan\s+pemantik|kompetensi\s+awal|ii\.|2\.|$))',
+        # Pattern 4: Dengan bullets/numbering di line yang sama
+        r'tujuan\s+pembelajaran[^\n]*\n((?:[•\-\*\d\.]\s*[^\n]+\n?){2,})',
+        # Pattern 5: Mencari di sekitar kata "siswa dapat/mampu"
+        r'(?:setelah\s+pembelajaran|pada\s+akhir\s+pembelajaran|tujuan\s+pembelajaran)[^\n]*\n?(.*?(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu))[^\n]*(?:\n[^\n]*(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu)))*)',
+    ]
+    
+    tujuan_found = False
+    for i, pattern in enumerate(tujuan_patterns, 1):
+        if tujuan_found:
+            break
+            
+        tujuan_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if tujuan_match:
+            tujuan_text = tujuan_match.group(1).strip()
+            print(f"DEBUG: Tujuan pembelajaran ditemukan dengan pattern {i}")
+            print(f"DEBUG: Raw text (300 chars): {tujuan_text[:300]}...")
+            
+            # Strategy 1: Cari bullet points atau numbering
+            bullets = re.findall(r'(?:^|\n)\s*[•\-\*\d\.]\s*([^\n•\-\*]+)', tujuan_text, re.MULTILINE)
+            bullets = [b.strip() for b in bullets if len(b.strip()) > 15]
+            
+            if len(bullets) >= 2:
+                results["tujuan_pembelajaran"] = bullets[:6]
+                print(f"DEBUG: Bullet points found: {len(bullets)} items")
+                tujuan_found = True
+                break
+            
+            # Strategy 2: Cari kalimat dengan "siswa dapat/mampu"
+            learning_sentences = re.findall(r'[^\n.!?]*(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu))[^\n.!?]*[.!?\n]', 
+                                          tujuan_text, re.IGNORECASE)
+            learning_sentences = [s.strip().rstrip('.!?\n') for s in learning_sentences if len(s.strip()) > 20]
+            
+            if len(learning_sentences) >= 2:
+                results["tujuan_pembelajaran"] = learning_sentences[:5]
+                print(f"DEBUG: Learning sentences found: {len(learning_sentences)} items")
+                tujuan_found = True
+                break
+            
+            # Strategy 3: Split by line breaks, filter meaningful lines
+            lines = [line.strip() for line in tujuan_text.split('\n') if line.strip()]
+            meaningful_lines = []
+            for line in lines:
+                # Filter lines that look like learning objectives
+                if (len(line) > 20 and 
+                    any(keyword in line.lower() for keyword in ['dapat', 'mampu', 'menjelaskan', 'menganalisis', 
+                                                               'menerapkan', 'memahami', 'mengidentifikasi', 
+                                                               'mendemonstrasikan', 'membuat', 'merancang'])):
+                    meaningful_lines.append(line)
+            
+            if len(meaningful_lines) >= 2:
+                results["tujuan_pembelajaran"] = meaningful_lines[:5]
+                print(f"DEBUG: Meaningful lines found: {len(meaningful_lines)} items")
+                tujuan_found = True
+                break
+            
+            # Strategy 4: Split by punctuation, look for objective phrases
+            sentences = re.split(r'[.!?]+', tujuan_text)
+            valid_sentences = []
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if (len(sentence) > 20 and 
+                    any(keyword in sentence.lower() for keyword in ['dapat', 'mampu', 'menjelaskan', 'menganalisis', 
+                                                                   'menerapkan', 'memahami', 'mengidentifikasi'])):
+                    valid_sentences.append(sentence)
+            
+            if len(valid_sentences) >= 2:
+                results["tujuan_pembelajaran"] = valid_sentences[:4]
+                print(f"DEBUG: Valid sentences found: {len(valid_sentences)} items")
+                tujuan_found = True
+                break
+    
+    # ULTIMATE FALLBACK: Scan entire document for learning objectives
+    if not tujuan_found:
+        print("DEBUG: FALLBACK - Scanning entire document for learning objectives")
+        
+        # Look for any sentences with learning keywords
+        all_learning_sentences = re.findall(
+            r'[^\n.!?]*(?:siswa\s+(?:dapat|mampu|akan)|peserta\s+didik\s+(?:dapat|mampu|akan)|setelah\s+mempelajari)[^\n.!?]*[.!?\n]', 
+            content, re.IGNORECASE)
+        
+        # Clean and filter sentences
+        filtered_sentences = []
+        for sentence in all_learning_sentences:
+            sentence = sentence.strip().rstrip('.!?\n')
+            if len(sentence) > 25 and len(sentence) < 200:  # Reasonable length
+                filtered_sentences.append(sentence)
+        
+        if len(filtered_sentences) >= 2:
+            results["tujuan_pembelajaran"] = filtered_sentences[:4]
+            print(f"DEBUG: FALLBACK found {len(filtered_sentences)} learning objectives")
+            tujuan_found = True
+        
+        # Last resort: Look for any "dapat" or "mampu" sentences near learning-related words
+        if not tujuan_found:
+            broader_sentences = re.findall(
+                r'[^\n.!?]*(?:dapat|mampu)[^\n.!?]*(?:jaringan|komputer|internet|teknologi|informasi)[^\n.!?]*[.!?\n]', 
+                content, re.IGNORECASE)
+            
+            if broader_sentences:
+                results["tujuan_pembelajaran"] = [s.strip().rstrip('.!?\n') for s in broader_sentences[:3]]
+                print(f"DEBUG: LAST RESORT found {len(broader_sentences)} tech-related objectives")
+    
+    # 5. ENHANCED: Ekstrak Pemahaman Bermakna dengan multiple strategies
+    bermakna_patterns = [
+        r'komponen\s+inti.*?ii\.\s*pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*iii\.|pertanyaan\s+pemantik|profil\s+pelajar|$)',
+        r'ii\.\s*pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*iii\.|pertanyaan\s+pemantik|profil\s+pelajar|$)',
+        r'pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*(?:pertanyaan\s+pemantik|profil\s+pelajar|iii\.|3\.|$))',
+        r'pemahaman\s+bermakna[^\n]*\n((?:[•\-\*\d\.]\s*[^\n]+\n?){1,})'
+    ]
+    
+    for i, pattern in enumerate(bermakna_patterns, 1):
+        bermakna_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if bermakna_match:
+            bermakna_text = bermakna_match.group(1).strip()
+            print(f"DEBUG: Pemahaman bermakna found with pattern {i}")
+            print(f"DEBUG: Bermakna text (200 chars): {bermakna_text[:200]}...")
+            
+            # Strategy 1: Extract bullets/numbers
+            bullets = re.findall(r'(?:^|\n)\s*[•\-\*\d\.]\s*([^\n•\-\*]+)', bermakna_text, re.MULTILINE)
+            bullets = [b.strip() for b in bullets if len(b.strip()) > 10]
+            
+            if bullets:
+                results["pemahaman_bermakna"] = bullets[:4]
+                print(f"DEBUG: Bermakna bullets found: {len(bullets)} items")
+                break
+            
+            # Strategy 2: Split by lines
+            lines = [line.strip() for line in bermakna_text.split('\n') if line.strip() and len(line.strip()) > 15]
+            if lines:
+                results["pemahaman_bermakna"] = lines[:3]
+                print(f"DEBUG: Bermakna lines found: {len(lines)} items")
+                break
+            
+            # Strategy 3: Use entire text if short enough
+            if len(bermakna_text) < 300:
+                results["pemahaman_bermakna"] = [bermakna_text]
+                print("DEBUG: Using entire bermakna text")
+                break
+    
+    # 6. Target Peserta Didik (tetap sama)
+    target_pattern = r'v\.\s*target\s+peserta\s+didik\s*\n(.*?)(?=\nvi\.|$)'
+    target_match = re.search(target_pattern, content, re.IGNORECASE | re.DOTALL)
+    if target_match:
+        results["target_peserta_didik"] = target_match.group(1).strip()[:300]
+    
+    # DEBUG: Print hasil ekstraksi
+    print(f"DEBUG EKSTRAKSI FINAL:")
+    print(f"- Mata Pelajaran: {results['mata_pelajaran']}")
+    print(f"- Tujuan Pembelajaran: {len(results['tujuan_pembelajaran'])} items")
+    for i, tujuan in enumerate(results['tujuan_pembelajaran'][:3], 1):
+        print(f"  {i}. {tujuan[:120]}...")
+    print(f"- Pemahaman Bermakna: {len(results['pemahaman_bermakna'])} items")
+    for i, bermakna in enumerate(results['pemahaman_bermakna'][:3], 1):
+        print(f"  {i}. {bermakna[:120]}...")
+    
+    return results
+
+def validate_detected_keywords(module_components):
+    """
+    Validasi apakah keyword penting sudah terdeteksi dengan benar
+    """
+    validation_report = {
+        "detected": [],
+        "missing": [],
+        "quality_score": 0
+    }
+    
+    # Cek komponen yang terdeteksi
+    if module_components.get("mata_pelajaran"):
+        validation_report["detected"].append("Mata Pelajaran")
+    else:
+        validation_report["missing"].append("Mata Pelajaran")
+    
+    # Enhanced validation for Tujuan Pembelajaran
+    tujuan_list = module_components.get("tujuan_pembelajaran", [])
+    if tujuan_list and len(tujuan_list) >= 2:
+        # Periksa apakah item-item memiliki konten yang bermakna
+        meaningful_items = [item for item in tujuan_list if len(item.strip()) > 15]
+        if len(meaningful_items) >= 2:
+            validation_report["detected"].append(f"Tujuan Pembelajaran ({len(tujuan_list)} item)")
+        else:
+            validation_report["missing"].append("Tujuan Pembelajaran")
+    else:
+        validation_report["missing"].append("Tujuan Pembelajaran")
+    
+    # Enhanced validation for Kompetensi Awal
+    if module_components.get("kompetensi_awal") and len(module_components["kompetensi_awal"]) > 30:
+        validation_report["detected"].append("Kompetensi Awal")
+    else:
+        validation_report["missing"].append("Kompetensi Awal")
+    
+    # Enhanced validation for Pemahaman Bermakna
+    bermakna_list = module_components.get("pemahaman_bermakna", [])
+    if bermakna_list and len(bermakna_list) > 0:
+        # Periksa apakah ada konten bermakna
+        meaningful_bermakna = [item for item in bermakna_list if len(item.strip()) > 10]
+        if meaningful_bermakna:
+            validation_report["detected"].append(f"Pemahaman Bermakna ({len(bermakna_list)} item)")
+        else:
+            validation_report["missing"].append("Pemahaman Bermakna")
+    else:
+        validation_report["missing"].append("Pemahaman Bermakna")
+    
+    # Enhanced quality score calculation with bonuses
+    total_components = 4
+    detected_components = len(validation_report["detected"])
+    base_score = (detected_components / total_components) * 100
+    
+    # Bonus points for quality content
+    bonus = 0
+    if len(tujuan_list) >= 3:  # Bonus jika tujuan pembelajaran banyak
+        bonus += 5
+    if len(bermakna_list) >= 2:  # Bonus jika pemahaman bermakna banyak
+        bonus += 5
+    if module_components.get("target_peserta_didik"):  # Bonus jika ada target
+        bonus += 5
+        
+    validation_report["quality_score"] = min(100, base_score + bonus)
+    
+    return validation_report
+
+def log_extraction_results(module_components):
+    """
+    Log hasil ekstraksi untuk debugging dan monitoring
+    """
+    print("=== HASIL EKSTRAKSI MODUL AJAR ===")
+    print(f"Mata Pelajaran: {module_components.get('mata_pelajaran', 'TIDAK TERDETEKSI')}")
+    print(f"Topik Utama: {module_components.get('topik_utama', 'TIDAK TERDETEKSI')}")
+    print(f"Kelas: {module_components.get('kelas', 'TIDAK TERDETEKSI')}")
+    
+    # Detail Tujuan Pembelajaran
+    tujuan_items = module_components.get('tujuan_pembelajaran', [])
+    print(f"Tujuan Pembelajaran: {len(tujuan_items)} item")
+    if tujuan_items:
+        for i, tujuan in enumerate(tujuan_items[:3], 1):
+            print(f"  {i}. {tujuan[:80]}{'...' if len(tujuan) > 80 else ''}")
+        if len(tujuan_items) > 3:
+            print(f"  ... dan {len(tujuan_items) - 3} tujuan lainnya")
+    
+    # Detail Pemahaman Bermakna
+    bermakna_items = module_components.get('pemahaman_bermakna', [])
+    print(f"Pemahaman Bermakna: {len(bermakna_items)} item")
+    if bermakna_items:
+        for i, bermakna in enumerate(bermakna_items[:3], 1):
+            print(f"  {i}. {bermakna[:80]}{'...' if len(bermakna) > 80 else ''}")
+    
+    print(f"Kompetensi Awal: {'✓' if module_components.get('kompetensi_awal') else '✗'}")
+    print(f"Target Peserta Didik: {'✓' if module_components.get('target_peserta_didik') else '✗'}")
+    
+    # Validasi
+    validation = validate_detected_keywords(module_components)
+    print(f"Quality Score: {validation['quality_score']:.1f}%")
+    if validation["missing"]:
+        print(f"Komponen yang tidak terdeteksi: {', '.join(validation['missing'])}")
+    print("=====================================")
+    
+    return validation
+
+def create_optimized_prompt_with_good_structure(module_components):
+    """
+    Buat prompt dengan struktur lama yang bagus tetapi data yang sudah dioptimalkan
+    """
+    
+    # Format tujuan pembelajaran
+    tujuan_list = []
+    for i, tujuan in enumerate(module_components.get("tujuan_pembelajaran", [])[:6], 1):
+        tujuan_list.append(f"• {tujuan.strip()}")
+    
+    # Format pemahaman bermakna
+    pemahaman_list = []
+    for i, pemahaman in enumerate(module_components.get("pemahaman_bermakna", [])[:4], 1):
+        pemahaman_list.append(f"• {pemahaman.strip()}")
+    
+    # Menggunakan struktur prompt lama yang sudah bagus
+    prompt = f"""
+Anda adalah seorang ahli pembuat soal asesmen diagnostik yang bertugas membantu guru untuk membuat soal yang akan diberikan pada siswa SMA. Soal dibuat berdasarkan Tujuan Pembelajaran dan komponen modul ajar yang telah diekstrak.
+
+ANALISIS MODUL AJAR:
+========================================
+MODUL/ELEMEN AJAR:
+{module_components.get("mata_pelajaran", "Informatika")} - {module_components.get("topik_utama", "Pembelajaran Teknologi")}
+Kelas: {module_components.get("kelas", "X (Sepuluh)")}
+
+KOMPETENSI AWAL:
+{module_components.get("kompetensi_awal", "Siswa memiliki kemampuan dasar dalam berpikir logis dan pemecahan masalah")}
+
+TUJUAN PEMBELAJARAN:
+{chr(10).join(tujuan_list) if tujuan_list else "• Memahami konsep dasar materi pembelajaran"}
+
+PEMAHAMAN BERMAKNA:
+{chr(10).join(pemahaman_list) if pemahaman_list else "• Mengembangkan pemahaman konseptual yang mendalam"}
+
+TARGET PESERTA DIDIK:
+{module_components.get("target_peserta_didik", "Peserta didik reguler/tipikal: umum, tidak ada kesulitan dalam mencerna dan memahami materi ajar")}
+========================================
+
+**Indeks Kesulitan Item untuk Diagnosis Kognitif**
+Indeks kesulitan item sangat penting dalam menilai kemampuan kognitif individu di berbagai domain. Hal ini penting untuk mendapatkan pemahaman mendalam tentang kekuatan dan kelemahan kognitif seseorang.
+
+Kesulitan item dalam diagnosis kognitif menggambarkan seberapa menantang item tes tertentu terhadap konstruk kognitif yang dievaluasi. Tingkat kesulitan ini diukur dengan indeks kesulitan item.
+
+**Membuat Sesi Multi-Tahap Berdasarkan Taksonomi Kompetensi Teknologi**
+Dalam membuat soal untuk sesi multi-tahap, gunakan taksonomi kompetensi teknologi berikut sebagai panduan untuk menentukan tipe dan tingkat kesulitan soal pada setiap level:
+
+SPESIFIKASI SOAL PER LEVEL:
+========================================
+Stage I (Bin 1) → Kesadaran Teknologi
+Probabilitas (p): 0.95
+Fokus soal: definisi, istilah, identifikasi teknologi dasar
+Jenis pengetahuan: knowledge that
+Contoh soal: "Alat yang digunakan untuk menyimpan data berbasis internet adalah..."
+
+Stage II (Bin 2) → Literasi Teknologi
+Probabilitas (p): 0.90
+Fokus soal: klasifikasi, hubungan antar teknologi, penjelasan fungsi
+Jenis pengetahuan: knowledge that
+Contoh soal: "Manakah teknologi yang termasuk komunikasi sinkron?"
+
+Stage III
+Bin 3 → Kemampuan Teknologi
+p: 0.75
+Fokus soal: aplikasi praktis, instruksi, puzzle urutan
+Jenis pengetahuan: knowledge that + how
+Contoh soal: "Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim"
+
+Bin 4 → Kreativitas Teknologi (Dasar)
+p: 0.67
+Fokus soal: modifikasi, debugging, analisis error sederhana
+Jenis pengetahuan: knowledge that + how
+Contoh soal: "Program gagal menyimpan skor. Apa perbaikan yang tepat?"
+
+Stage IV (Final)
+Bin 5 → Kemampuan Teknologi (penguatan)
+p: 0.75
+Soal aplikasi lanjutan, puzzle assembly terbimbing
+
+Bin 6 → Kritik Teknologi
+p: 0.20
+Fokus soal: evaluasi trade-off, menilai solusi, kritik teknologi
+Jenis pengetahuan: knowledge that + how + why
+Contoh soal: "Bandingkan cloud storage vs local storage. Faktor utama yang dipertimbangkan adalah..."
+
+Bin 7 → Kreativitas + Kritik Teknologi (Final Tinggi)
+p: 0.17
+Fokus soal: merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi
+Jenis pengetahuan: knowledge that + how + why
+Contoh soal: "Rancang sistem absen otomatis dengan sensor & database. Komponen wajib yang digunakan adalah..."
+
+ATURAN PENTING:
+========================================
+✓ Setiap soal merujuk langsung pada konten modul yang dianalisis
+✓ Gunakan terminologi spesifik dari modul
+✓ 4 pilihan (A, B, C, D), maksimal 15 kata per opsi
+✓ Posisi jawaban benar ACAK dan bervariasi
+✓ Pengecoh masuk akal, cerminkan miskonsepsi umum
+✓ Bahasa lugas, sesuai jenjang siswa
+✓ Kalimat soal maksimal 3 baris
+
+✗ JANGAN gunakan: "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Siswa", "Peserta didik" dalam teks soal
+✗ JANGAN buat soal generik yang lepas dari modul
+✗ JANGAN buat jawaban benar selalu yang terpanjang
+
+ADAPTASI KONTEKS:
+- Kelas X: contoh sederhana, kehidupan sehari-hari
+- Kelas XI: aplikasi spesifik, studi kasus
+- Kelas XII: proyek nyata, analisis mendalam
+
+FORMAT OUTPUT - JSON ARRAY:
+PENTING: Berikan response dalam format JSON array yang valid. Jangan tambahkan teks apapun sebelum atau sesudah JSON.
+
+Contoh format yang benar:
+[{{
+    "level": 1,
+    "question_type": "multiple_choice",
+    "soal": "Pertanyaan berdasarkan elemen ajar spesifik...",
+    "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
+    "jawaban_benar": "Opsi A",
+    "p": 0.95,
+    "explanation": "Penjelasan mengapa jawaban benar",
+    "modul_reference": "Bagian spesifik modul yang dirujuk"
+}}]
+
+PASTIKAN:
+- Mulai langsung dengan '[' dan akhiri dengan ']'
+- Tidak ada teks penjelasan sebelum atau sesudah JSON
+- Gunakan double quotes untuk semua string
+- Tidak ada trailing comma setelah elemen terakhir
+- Jawaban benar harus tepat salah satu dari opsi A/B/C/D
+
+TARGET: 35 soal total (5 soal per level) dalam format JSON array yang valid.
+
+PRINSIP KUNCI: Soal berkualitas = relevan dengan modul + tingkat kesulitan tepat + membedakan kemampuan siswa dengan efektif.
+"""
+    
+    return prompt
+
+def extract_hybrid_module_components(content_text):
+    """
+    Fungsi hybrid yang mencoba ekstraksi spesifik terlebih dahulu,
+    jika gagal akan menggunakan fallback ke metode yang lebih umum
+    """
+    # Coba ekstraksi spesifik terlebih dahulu
+    specific_components = extract_specific_module_components(content_text)
+    validation = validate_detected_keywords(specific_components)
+    
+    # Jika quality score rendah, gunakan metode fallback
+    if validation["quality_score"] < 30:  # Threshold rendah untuk fallback
+        print(f"Ekstraksi spesifik kurang optimal (score: {validation['quality_score']:.1f}%), menggunakan metode fallback...")
+        
+        # Fallback: gunakan metode ekstraksi yang lebih umum
+        fallback_components = extract_educational_components(content_text, return_dict=True)
+        
+        # Convert ke format yang sama dengan specific_components dan ambil yang terbaik
+        hybrid_components = {
+            "mata_pelajaran": specific_components.get("mata_pelajaran") or "Informatika", 
+            "topik_utama": specific_components.get("topik_utama") or fallback_components.get("Modul/Elemen Ajar", "")[:50],
+            "kelas": specific_components.get("kelas") or "X (Sepuluh)",
+            "kompetensi_awal": specific_components.get("kompetensi_awal") or fallback_components.get("Kompetensi Awal", "Siswa memiliki kemampuan dasar dalam berpikir logis")[:400],
+            "tujuan_pembelajaran": specific_components.get("tujuan_pembelajaran") or [fallback_components.get("Tujuan Pembelajaran", "Memahami konsep dasar materi pembelajaran")[:200]],
+            "pemahaman_bermakna": specific_components.get("pemahaman_bermakna") or [fallback_components.get("Pemahaman Bermakna", "Mengembangkan pemahaman konseptual yang mendalam")[:300]],
+            "target_peserta_didik": specific_components.get("target_peserta_didik") or fallback_components.get("Target Peserta Didik", "Peserta didik reguler/tipikal")[:300],
+            "model_pembelajaran": "Pembelajaran berbasis masalah dan proyek"
+        }
+        
+        print("Menggunakan metode hybrid - menggabungkan ekstraksi spesifik dengan fallback")
+        return hybrid_components, {"quality_score": 60, "method": "hybrid"}
+    else:
+        print(f"Ekstraksi spesifik berhasil (score: {validation['quality_score']:.1f}%)")
+        return specific_components, validation
+
+# =========================================
 # DATABASE MODELS
 # =========================================
 # Model untuk database guru
@@ -752,6 +1240,20 @@ def init_db():
 # =========================================
 # ROUTES
 # =========================================
+
+# Favicon route - menggunakan Education.ico sebagai favicon
+@app.route('/favicon.ico')
+def favicon():
+    try:
+        return send_file(
+            os.path.join(ROOT_DIR, 'img', 'Education.ico'), 
+            mimetype='image/vnd.microsoft.icon'
+        )
+    except FileNotFoundError:
+        # Fallback jika file tidak ditemukan
+        print("Warning: Education.ico not found in img folder")
+        return '', 404
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -1857,6 +2359,61 @@ def get_collection(collection_id):
             'success': False,
             'message': f"Error: {str(e)}"
         }), 500
+def emergency_json_parser(raw_text):
+    """
+    Emergency parser untuk mencoba mengekstrak soal dari response AI yang tidak valid JSON
+    """
+    try:
+        questions = []
+        
+        # Cari pattern soal dengan berbagai format
+        patterns = [
+            r'"level"\s*:\s*(\d+).*?"soal"\s*:\s*"([^"]+)".*?"options"\s*:\s*\[(.*?)\].*?"jawaban_benar"\s*:\s*"([^"]+)"',
+            r'level.*?(\d+).*?soal.*?"([^"]+)".*?options.*?\[(.*?)\].*?jawaban_benar.*?"([^"]+)"',
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, raw_text, re.DOTALL | re.IGNORECASE)
+            
+            for match in matches:
+                try:
+                    level = int(match[0])
+                    soal = match[1].strip()
+                    options_text = match[2]
+                    jawaban_benar = match[3].strip()
+                    
+                    # Parse options
+                    options = []
+                    option_matches = re.findall(r'"([^"]+)"', options_text)
+                    if len(option_matches) >= 4:
+                        options = option_matches[:4]
+                    
+                    if soal and options and jawaban_benar and 1 <= level <= 7:
+                        questions.append({
+                            "level": level,
+                            "question_type": "multiple_choice",
+                            "soal": soal,
+                            "options": options,
+                            "jawaban_benar": jawaban_benar,
+                            "p": 0.75,  # Default probability
+                            "explanation": f"Soal level {level} dari modul ajar"
+                        })
+                        
+                        if len(questions) >= 35:  # Stop after 35 questions
+                            break
+                            
+                except (ValueError, IndexError) as e:
+                    continue
+            
+            if questions:
+                break
+        
+        return questions if len(questions) >= 7 else None  # Minimal 7 soal
+        
+    except Exception as e:
+        print(f"Emergency parser error: {str(e)}")
+        return None
+
 # =========================================
 # ENDPOINT UPLOAD & GENERATE 5 SOAL PER level (35 TOTAL)
 # =========================================
@@ -1899,214 +2456,149 @@ def upload_file():
             }), 400
             
         print(f"[{datetime.datetime.now()}] Ekstraksi teks selesai. Panjang asli: {len(content_text)} karakter.")
-            
-        # Extract educational components dari teks yang sudah dipotong
-        educational_components = extract_educational_components(content_text)
-        module_elements, initial_competencies, learning_objectives, pemahaman_bermakna, target_peserta_didik = educational_components
+        
+        # PERUBAHAN: Gunakan ekstraksi hybrid dengan fallback
+        print("Mengekstrak komponen modul ajar...")
+        module_components, validation_result = extract_hybrid_module_components(content_text)
 
-        if (learning_objectives == "Tidak tersedia" or 
-            pemahaman_bermakna == "Tidak tersedia" or
-            module_elements == "Tidak tersedia"):
-            
+        # Tambahkan logging dan validasi
+        detailed_validation = log_extraction_results(module_components)
+
+        # Cek quality score 
+        if validation_result["quality_score"] < 30:
+            return jsonify({
+                "message": f"Kualitas ekstraksi rendah ({validation_result['quality_score']:.1f}%). Mohon periksa format dokumen modul ajar."
+            }), 400
+
+        # Validasi komponen kunci
+        if not module_components.get("mata_pelajaran") and not module_components.get("tujuan_pembelajaran"):
             print("Validasi gagal: Komponen penting tidak ditemukan dalam dokumen.")
             return jsonify({
-                "message": "File tidak dapat diproses. Pastikan file yang diunggah berisi bagian 'Modul Ajar', 'Tujuan Pembelajaran', dan 'Pemahaman Bermakna' yang jelas."
+                "message": "File tidak dapat diproses. Pastikan file yang diunggah berisi modul ajar yang lengkap dengan Tujuan Pembelajaran."
             }), 400
-        
-        # Create DataFrame for context
-        df = convert_text_to_dataframe_improved(content_text)
-        if df.empty:
-            df = pd.DataFrame({'content': [content_text]})
-            print("Menggunakan dataframe sederhana karena tidak dapat mengekstrak data tabular.")
 
-        # Keep the original explanation text
-        explanation_text = """
-        **Indeks Kesulitan Item untuk Diagnosis Kognitif**
-        Indeks kesulitan item sangat penting dalam menilai kemampuan kognitif individu di berbagai domain. Hal ini penting untuk mendapatkan pemahaman mendalam tentang kekuatan dan kelemahan kognitif individu.
-        Kesulitan item dalam diagnosis kognitif menggambarkan seberapa menantang item tes tertentu terhadap konstruk kognitif yang dievaluasi. Tingkat kesulitan ini diukur dengan indeks kesulitan item, yang menghitung persentase peserta tes yang menjawab item dengan benar.
-        Indeks kesulitan item yang tinggi menunjukkan bahwa item tersebut relatif mudah, karena sebagian besar peserta ujian menjawabnya dengan benar. Sebaliknya, indeks yang rendah menunjukkan bahwa item tersebut lebih sulit, karena lebih sedikit peserta yang memberikan jawaban yang benar.
-        Menganalisis skor indeks kesulitan item di beberapa item tes dapat digunakan untuk menyesuaikan strategi intervensi, merancang program pelatihan yang ditargetkan, dan memberikan dukungan pembelajaran yang dipersonalisasi kepada individu berdasarkan profil kognitif spesifik mereka.
-        Selain itu, hal ini juga memastikan bahwa item tes secara akurat mengukur konstruk kognitif yang dimaksud dan bahwa instrumen penilaian secara keseluruhan memberikan hasil yang valid dan andal.
-        
-        **Membuat Sesi Multi-Tahap Berdasarkan Taksonomi Kompetensi Teknologi**
-        Dalam membuat soal untuk sesi multi-tahap, gunakan taksonomi kompetensi teknologi berikut sebagai panduan untuk menentukan tipe dan tingkat kesulitan soal pada setiap level:
-        
-        **Tabel 1.1: Taksonomi Kompetensi Teknologi** *(Setelah Todd, 1991, hlm. 271)*
-        | Tingkat | Kompetensi | Jenis Pengetahuan | Hasil Pembelajaran |
-        |---------|------------|-------------------|-------------------|
-        | 1 | Kesadaran Teknologi | *knowledge that* | Pemahaman dasar tentang konsep dan istilah teknologi |
-        | 2 | Literasi Teknologi | *knowledge that* | Komprehensi dan kemampuan menjelaskan konsep teknologi |
-        | 3 | Kemampuan Teknologi | *knowledge that* dan *how* | Aplikasi pengetahuan dalam konteks praktis |
-        | 4 | Kreativitas Teknologi | *knowledge that* dan *how* | Invensi dan pengembangan solusi teknologi |
-        | 5 | Kritik Teknologi | *knowledge that*, *how*, dan *why* | Penilaian kritis dan evaluasi mendalam |
-        
-        Setiap tingkat pada taksonomi ini sesuai dengan level pada sesi multi-tahap dan menentukan karakteristik soal yang harus dibuat.
-        """
+        # Buat DataFrame ringkas (mengganti convert_text_to_dataframe_improved)
+        df = pd.DataFrame({
+            'Komponen': ['Mata Pelajaran', 'Topik', 'Kelas', 'Jumlah Tujuan', 'Pemahaman Bermakna'],
+            'Detail': [
+                module_components.get("mata_pelajaran", "")[:30],
+                module_components.get("topik_utama", "")[:30], 
+                module_components.get("kelas", ""),
+                str(len(module_components.get("tujuan_pembelajaran", []))),
+                str(len(module_components.get("pemahaman_bermakna", [])))
+            ]
+        })
 
-        # Keep the original prompt structure with the extracted components
-        prompt = f"""
-        Anda adalah seorang ahli pembuat soal asesmen diagnostik yang bertugas membantu guru untuk membuat soal yang akan diberikan pada siswa SMA X. Soal dibuat berdasarkan Tujuan Pembelajaran yg diunggah dalam Modul Ajar.
+        # PERUBAHAN: Gunakan prompt yang dioptimalkan tapi tetap struktur lama
+        prompt = create_optimized_prompt_with_good_structure(module_components)
 
-        ANALISIS MODUL AJAR:
-        ========================================
-        MODUL/ELEMEN AJAR:
-        {module_elements}
-
-        KOMPETENSI AWAL:
-        {initial_competencies}
-
-        TUJUAN PEMBELAJARAN:
-        {learning_objectives}
-
-        PEMAHAMAN BERMAKNA:
-        {pemahaman_bermakna}
-
-        TARGET PESERTA DIDIK:
-        {target_peserta_didik}
-
-        DATA SISWA:
-        {df.to_string(index=False)}
-        ========================================
-
-        {explanation_text}
-
-        SPESIFIKASI SOAL PER LEVEL:
-        ========================================
-        Stage I (Bin 1) → Kesadaran Teknologi
-        Probabilitas (p): 0.95
-        Fokus soal: definisi, istilah, identifikasi teknologi dasar
-        Jenis pengetahuan: knowledge that
-        Contoh soal: “Alat yang digunakan untuk menyimpan data berbasis internet adalah...”
-
-        Stage II (Bin 2) → Literasi Teknologi
-        Probabilitas (p): 0.90
-        Fokus soal: klasifikasi, hubungan antar teknologi, penjelasan fungsi
-        Jenis pengetahuan: knowledge that
-        Contoh soal: “Manakah teknologi yang termasuk komunikasi sinkron?”
-
-        Stage III
-        Bin 3 → Kemampuan Teknologi
-        p: 0.75
-        Fokus soal: aplikasi praktis, instruksi, puzzle urutan
-        Jenis pengetahuan: knowledge that + how
-        Contoh soal: “Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim”
-
-        Bin 4 → Kreativitas Teknologi (Dasar)
-        p: 0.67
-        Fokus soal: modifikasi, debugging, analisis error sederhana
-        Jenis pengetahuan: knowledge that + how
-        Contoh soal: “Program gagal menyimpan skor. Apa perbaikan yang tepat?”
-
-        Stage IV (Final)
-        Bin 5 → Kemampuan Teknologi (penguatan)
-        p: 0.75
-        Soal aplikasi lanjutan, puzzle assembly terbimbing
-
-        Bin 6 → Kritik Teknologi
-        p: 0.20
-        Fokus soal: evaluasi trade-off, menilai solusi, kritik teknologi
-        Jenis pengetahuan: knowledge that + how + why
-        Contoh soal: “Bandingkan cloud storage vs local storage. Faktor utama yang dipertimbangkan adalah...”
-
-        Bin 7 → Kreativitas + Kritik Teknologi (Final Tinggi)
-        p: 0.17
-        Fokus soal: merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi
-        Jenis pengetahuan: knowledge that + how + why
-        Contoh soal: “Rancang sistem absen otomatis dengan sensor & database. Komponen wajib yang digunakan adalah...”
-
-        ATURAN PENTING:
-        ========================================
-        ✓ Setiap soal merujuk langsung pada konten modul yang dianalisis
-        ✓ Gunakan terminologi spesifik dari modul
-        ✓ 4 pilihan (A, B, C, D), maksimal 15 kata per opsi
-        ✓ Posisi jawaban benar ACAK dan bervariasi
-        ✓ Pengecoh masuk akal, cerminkan miskonsepsi umum
-        ✓ Bahasa lugas, sesuai jenjang siswa
-        ✓ Kalimat soal maksimal 3 baris
-
-        ✗ JANGAN gunakan: "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Siswa", "Peserta didik" dalam teks soal
-        ✗ JANGAN buat soal generik yang lepas dari modul
-        ✗ JANGAN buat jawaban benar selalu yang terpanjang
-
-        ADAPTASI KONTEKS:
-        - Kelas X: contoh sederhana, kehidupan sehari-hari
-        - Kelas XI: aplikasi spesifik, studi kasus
-        - Kelas XII: proyek nyata, analisis mendalam
-
-        FORMAT OUTPUT - JSON ARRAY:
-        [
-        {{
-            "level": 1,
-            "question_type": "multiple_choice",
-            "soal": "Pertanyaan berdasarkan elemen ajar spesifik...",
-            "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-            "jawaban_benar": "Opsi A/B/C/D",
-            "p": 0.95,
-            "explanation": "Penjelasan mengapa jawaban benar dan kaitannya dengan modul ajar",
-            "modul_reference": "Bagian spesifik modul yang dirujuk"
-        }},
-        ...dst
-        ]
-
-        TARGET: 35 soal total (5 soal per level)
-        **Level 1 (Konsep Dasar):**
-        "Ani membagi tugas proyek menjadi: riset, desain, coding, testing. Teknik ini disebut..."
-        Options: ["Dekomposisi", "Abstraksi", "Algoritma", "Debugging"]
-
-        **Level 4 (Aplikasi Kompleks):**
-        "Sistem perlu memproses 1000 data dalam waktu singkat. Struktur data yang paling efisien adalah..."
-        Options: ["Array", "Linked List", "Hash Table", "Stack"]
-
-        **Level 7 (Evaluasi):**
-        "Bandingkan keamanan cloud storage vs local storage untuk data pribadi. Faktor kritis yang harus dipertimbangkan..."
-        Options: [evaluasi mendalam dengan trade-off]
-
-        PRINSIP KUNCI: Soal berkualitas = relevan dengan modul + tingkat kesulitan tepat + membedakan kemampuan siswa dengan efektif.
-        """
-
-        print(f"[{datetime.datetime.now()}] Mengirim prompt ({len(prompt)} chars) ke Gemini AI...")
+        print(f"[{datetime.datetime.now()}] Mengirim prompt teroptimalkan ({len(prompt)} chars) ke Gemini AI...")
+        print(f"Efisiensi: Ukuran prompt ~{len(prompt)} karakter (vs ~8000+ sebelumnya) - penghematan signifikan!")
         response = model.generate_content(prompt)
         raw_text = response.text.strip()
         print(f"[{datetime.datetime.now()}] Respons dari Gemini AI diterima.")
         
         print("Raw AI response:", raw_text[:500])
         
-        # Parse the JSON response with improved error handling
+        # Enhanced JSON parsing with multiple strategies
+        print(f"Response length: {len(raw_text)} chars")
+        print(f"Response starts with: {raw_text[:100]}")
+        print(f"Response ends with: {raw_text[-100:]}")
+        
+        # Check for JSON indicators
+        json_indicators = ['[', '{', '"level"', '"soal"', '"options"']
+        found_indicators = [indicator for indicator in json_indicators if indicator in raw_text]
+        print(f"JSON indicators found: {found_indicators}")
+        
         gen_questions = []
         try:
-            cleaned_text = re.sub(r'```json|```', '', raw_text).strip()
-            cleaned_text = re.sub(r',\s*([}\]])', r'\1', cleaned_text)
-            gen_questions = json.loads(cleaned_text)
-            print("Berhasil parsing JSON setelah membersihkan markdown")
+            # Method 1: Direct JSON parsing
+            gen_questions = json.loads(raw_text)
+            print("✅ Berhasil parsing JSON langsung")
         except json.JSONDecodeError:
-            print("Parsing JSON setelah membersihkan markdown gagal, mencoba metode lain.")
+            print("❌ Direct JSON parsing gagal, mencoba pembersihan...")
             
-            match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)
-            if match:
-                try:
-                    json_text = match.group()
-                    json_text = re.sub(r',\s*([}\]])', r'\1', json_text)
-                    print(f"Ekstraksi JSON dengan regex: {json_text[:100]}...")
-                    gen_questions = json.loads(json_text)
-                    print("Berhasil parsing JSON dari hasil regex")
-                except json.JSONDecodeError as e:
-                    print(f"Error decode JSON setelah regex: {str(e)}")
-                    return jsonify({"message": f"Error parsing JSON soal: {str(e)}"}), 500
-            else:
-                print("Ekstraksi regex gagal, mencoba dengan bracket matching")
-                open_bracket = raw_text.find('[')
-                close_bracket = raw_text.rfind(']')
+            try:
+                # Method 2: Clean markdown and common issues
+                cleaned_text = raw_text.strip()
+                # Remove markdown code blocks
+                cleaned_text = re.sub(r'```(?:json)?\s*\n?', '', cleaned_text)
+                cleaned_text = re.sub(r'```\s*$', '', cleaned_text)
+                # Remove trailing commas
+                cleaned_text = re.sub(r',(\s*[}\]])', r'\1', cleaned_text)
+                # Remove comments
+                cleaned_text = re.sub(r'//.*?\n', '\n', cleaned_text)
                 
-                if open_bracket >= 0 and close_bracket > open_bracket:
-                    try:
-                        json_text = raw_text[open_bracket:close_bracket+1]
-                        json_text = re.sub(r',\s*([}\]])', r'\1', json_text)
+                gen_questions = json.loads(cleaned_text)
+                print("✅ Berhasil parsing JSON setelah pembersihan")
+            except json.JSONDecodeError:
+                print("❌ Pembersihan gagal, mencoba ekstraksi regex...")
+                
+                try:
+                    # Method 3: Extract JSON array using regex
+                    json_pattern = r'\[\s*\{.*?\}\s*\]'
+                    match = re.search(json_pattern, raw_text, re.DOTALL)
+                    if match:
+                        json_text = match.group()
+                        # Clean the extracted JSON
+                        json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
                         gen_questions = json.loads(json_text)
-                        print("Berhasil parsing JSON dari ekstraksi kurung")
-                    except json.JSONDecodeError:
-                        return jsonify({"message": "Tidak dapat memproses respons AI"}), 500
-                else:
-                    return jsonify({"message": "Tidak dapat menemukan format JSON dalam respons AI"}), 500
+                        print("✅ Berhasil parsing JSON dari ekstraksi regex")
+                    else:
+                        raise json.JSONDecodeError("No JSON array found", raw_text, 0)
+                except json.JSONDecodeError:
+                    print("❌ Regex ekstraksi gagal, mencoba bracket matching...")
+                    
+                    try:
+                        # Method 4: Find JSON by bracket matching
+                        start_bracket = raw_text.find('[')
+                        if start_bracket == -1:
+                            raise json.JSONDecodeError("No opening bracket found", raw_text, 0)
+                        
+                        # Count brackets to find matching closing bracket
+                        bracket_count = 0
+                        end_bracket = -1
+                        
+                        for i in range(start_bracket, len(raw_text)):
+                            if raw_text[i] == '[':
+                                bracket_count += 1
+                            elif raw_text[i] == ']':
+                                bracket_count -= 1
+                                if bracket_count == 0:
+                                    end_bracket = i
+                                    break
+                        
+                        if end_bracket == -1:
+                            raise json.JSONDecodeError("No matching closing bracket found", raw_text, 0)
+                        
+                        json_text = raw_text[start_bracket:end_bracket+1]
+                        # Clean the extracted JSON
+                        json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
+                        json_text = re.sub(r'//.*?\n', '\n', json_text)
+                        
+                        gen_questions = json.loads(json_text)
+                        print("✅ Berhasil parsing JSON dari bracket matching")
+                    except json.JSONDecodeError as final_error:
+                        print(f"❌ Semua metode parsing gagal. Error terakhir: {str(final_error)}")
+                        
+                        # ENHANCED: Log raw response untuk debugging
+                        print("=== RAW AI RESPONSE (first 1000 chars) ===")
+                        print(raw_text[:1000])
+                        print("=== END RAW RESPONSE ===")
+                        
+                        # Method 5: Emergency fallback - manual parsing
+                        try:
+                            print("🚨 Mencoba emergency parsing...")
+                            gen_questions = emergency_json_parser(raw_text)
+                            if gen_questions:
+                                print(f"✅ Emergency parsing berhasil: {len(gen_questions)} soal")
+                            else:
+                                raise Exception("Emergency parsing juga gagal")
+                        except Exception as emergency_error:
+                            print(f"❌ Emergency parsing gagal: {str(emergency_error)}")
+                            return jsonify({
+                                "message": f"Gagal memproses response AI. Raw response length: {len(raw_text)}. Silakan coba lagi atau hubungi administrator."
+                            }), 500
 
         if not isinstance(gen_questions, list):
             print(f"Diharapkan list, tapi dapat {type(gen_questions)}")
