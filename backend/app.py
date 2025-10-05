@@ -432,43 +432,43 @@ Dalam membuat soal untuk sesi multi-tahap, gunakan taksonomi kompetensi teknolog
 
 SPESIFIKASI SOAL PER LEVEL:
 ========================================
-Stage I (Bin 1) → Kesadaran Teknologi
+Stage I (Kotak 1) → Kesadaran Teknologi
 Probabilitas (p): 0.95
 Fokus soal: definisi, istilah, identifikasi teknologi dasar
 Jenis pengetahuan: knowledge that
 Contoh soal: "Alat yang digunakan untuk menyimpan data berbasis internet adalah..."
 
-Stage II (Bin 2) → Literasi Teknologi
+Stage II (Kotak 2) → Literasi Teknologi
 Probabilitas (p): 0.90
 Fokus soal: klasifikasi, hubungan antar teknologi, penjelasan fungsi
 Jenis pengetahuan: knowledge that
 Contoh soal: "Manakah teknologi yang termasuk komunikasi sinkron?"
 
 Stage III
-Bin 3 → Kemampuan Teknologi
+Kotak 3 → Kemampuan Teknologi
 p: 0.75
 Fokus soal: aplikasi praktis, instruksi, puzzle urutan
 Jenis pengetahuan: knowledge that + how
 Contoh soal: "Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim"
 
-Bin 4 → Kreativitas Teknologi (Dasar)
+Kotak 4 → Kreativitas Teknologi (Dasar)
 p: 0.67
 Fokus soal: modifikasi, debugging, analisis error sederhana
 Jenis pengetahuan: knowledge that + how
 Contoh soal: "Program gagal menyimpan skor. Apa perbaikan yang tepat?"
 
 Stage IV (Final)
-Bin 5 → Kemampuan Teknologi (penguatan)
+Kotak 5 → Kemampuan Teknologi (penguatan)
 p: 0.75
 Soal aplikasi lanjutan, puzzle assembly terbimbing
 
-Bin 6 → Kritik Teknologi
+Kotak 6 → Kritik Teknologi
 p: 0.20
 Fokus soal: evaluasi trade-off, menilai solusi, kritik teknologi
 Jenis pengetahuan: knowledge that + how + why
 Contoh soal: "Bandingkan cloud storage vs local storage. Faktor utama yang dipertimbangkan adalah..."
 
-Bin 7 → Kreativitas + Kritik Teknologi (Final Tinggi)
+Kotak 7 → Kreativitas + Kritik Teknologi (Final Tinggi)
 p: 0.17
 Fokus soal: merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi
 Jenis pengetahuan: knowledge that + how + why
@@ -1126,13 +1126,13 @@ def get_level_description(level):
 def get_level_description_short(level):
     """Mengembalikan deskripsi singkat untuk level numerik berdasarkan taksonomi teknologi."""
     descriptions = {
-        1: "Stage I (Bin 1) - Kesadaran Teknologi",
-        2: "Stage II (Bin 2) - Literasi Teknologi",
-        3: "Stage III (Bin 3) - Kemampuan Teknologi",
-        4: "Stage III (Bin 4) - Kreativitas Teknologi (Dasar)",
-        5: "Stage IV (Bin 5) - Kemampuan Teknologi (Penguatan)",
-        6: "Stage IV (Bin 6) - Kritik Teknologi",
-        7: "Stage IV (Bin 7) - Kreativitas + Kritik Teknologi (Final Tinggi)",
+        1: "Stage I (Kotak 1) - Kesadaran Teknologi",
+        2: "Stage II (Kotak 2) - Literasi Teknologi",
+        3: "Stage III (Kotak 3) - Kemampuan Teknologi",
+        4: "Stage III (Kotak 4) - Kreativitas Teknologi (Dasar)",
+        5: "Stage IV (Kotak 5) - Kemampuan Teknologi (Penguatan)",
+        6: "Stage IV (Kotak 6) - Kritik Teknologi",
+        7: "Stage IV (Kotak 7) - Kreativitas + Kritik Teknologi (Final Tinggi)",
     }
     return descriptions.get(level, "Level Tidak Dikenal")
 
@@ -6105,13 +6105,13 @@ def export_all_collection_data():
             
             # Level descriptions with Technology taxonomy
             level_descriptions = [
-                ('Level 1', 'Stage I (Bin 1) - Kesadaran Teknologi: Definisi, istilah, identifikasi teknologi dasar', 'Knowledge That'),
-                ('Level 2', 'Stage II (Bin 2) - Literasi Teknologi: Klasifikasi, hubungan antar teknologi, penjelasan fungsi', 'Knowledge That'),
-                ('Level 3', 'Stage III (Bin 3) - Kemampuan Teknologi: Aplikasi praktis, instruksi, puzzle urutan', 'Knowledge That + How'),
-                ('Level 4', 'Stage III (Bin 4) - Kreativitas Teknologi (Dasar): Modifikasi, debugging, analisis error sederhana', 'Knowledge That + How'),
-                ('Level 5', 'Stage IV (Bin 5) - Kemampuan Teknologi (Penguatan): Aplikasi lanjutan, puzzle assembly terbimbing', 'Knowledge That + How'),
-                ('Level 6', 'Stage IV (Bin 6) - Kritik Teknologi: Evaluasi trade-off, menilai solusi, kritik teknologi', 'Knowledge That + How + Why'),
-                ('Level 7', 'Stage IV (Bin 7) - Kreativitas + Kritik Teknologi (Final Tinggi): Merancang solusi baru, integrasi multi-konsep', 'Knowledge That + How + Why')
+                ('Level 1', 'Stage I (Kotak 1) - Kesadaran Teknologi: Definisi, istilah, identifikasi teknologi dasar', 'Knowledge That'),
+                ('Level 2', 'Stage II (Kotak 2) - Literasi Teknologi: Klasifikasi, hubungan antar teknologi, penjelasan fungsi', 'Knowledge That'),
+                ('Level 3', 'Stage III (Kotak 3) - Kemampuan Teknologi: Aplikasi praktis, instruksi, puzzle urutan', 'Knowledge That + How'),
+                ('Level 4', 'Stage III (Kotak 4) - Kreativitas Teknologi (Dasar): Modifikasi, debugging, analisis error sederhana', 'Knowledge That + How'),
+                ('Level 5', 'Stage IV (Kotak 5) - Kemampuan Teknologi (Penguatan): Aplikasi lanjutan, puzzle assembly terbimbing', 'Knowledge That + How'),
+                ('Level 6', 'Stage IV (Kotak 6) - Kritik Teknologi: Evaluasi trade-off, menilai solusi, kritik teknologi', 'Knowledge That + How + Why'),
+                ('Level 7', 'Stage IV (Kotak 7) - Kreativitas + Kritik Teknologi (Final Tinggi): Merancang solusi baru, integrasi multi-konsep', 'Knowledge That + How + Why')
             ]
             
             # Headers for level descriptions

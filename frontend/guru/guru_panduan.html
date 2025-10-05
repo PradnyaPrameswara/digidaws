@@ -11,7 +11,7 @@
         body {
             background-color: #f8f9fa;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 17px;
+            font-size: 16px;
             line-height: 1.6;
         }
         /* Navbar styles */
@@ -44,9 +44,15 @@
             margin: 1rem auto 0;
         }
         .guide-container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: auto;
-            padding: 3rem 1rem;
+            padding: 3rem 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .guide-container {
+                padding: 2rem 1rem;
+            }
         }
         .guide-section {
             margin-bottom: 3.5rem;
@@ -74,6 +80,45 @@
             margin-top: 2rem;
             margin-bottom: 1rem;
             padding-left: 0.75rem;
+            border-left: 3px solid #0dcaf0;
+        }
+        .info-box {
+            background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%);
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
+        }
+        .warning-box {
+            background: linear-gradient(135deg, #fff3cd 0%, #fef8e7 100%);
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.1);
+        }
+        .success-box {
+            background: linear-gradient(135deg, #d4edda 0%, #e7f3e7 100%);
+            border: 1px solid #28a745;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);
+        }
+        .step-detail {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            border-left: 4px solid #0d6efd;
+        }
+        .sub-step {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 0.5rem 0;
             border-left: 3px solid #0dcaf0;
         }
         .benefit-icon {
@@ -180,7 +225,7 @@
                 </ul>
                 <div class="d-flex align-items-center">
                     <span class="user-info">
-                        <i class="bi bi-person-circle"></i> Guru
+                        <i class="bi bi-person-circle"></i> {{ current_user.nama }} (Guru)
                     </span>
                     <a href="/logout" class="btn btn-outline-light">
                         <i class="bi bi-box-arrow-right"></i> Logout
@@ -201,28 +246,185 @@
             <h2>Memahami Asesmen Diagnostik</h2>
             <article>
                 <h3><i class="bi bi-question-circle-fill text-primary me-2"></i>Apa itu Asesmen Diagnostik?</h3>
-                <p>Secara sederhana, asesmen diagnostik adalah sebuah <strong>evaluasi yang dilakukan di awal proses pembelajaran</strong>. Tujuannya bukan untuk memberikan nilai, melainkan untuk "mendiagnosis" atau mengidentifikasi kondisi awal setiap siswa.</p>
-                <p>Anggap saja seperti seorang dokter yang memeriksa pasien sebelum memberikan resep. Asesmen ini membantu guru memahami:</p>
-                <ul>
-                    <li><strong>Kekuatan:</strong> Materi apa yang sudah dikuasai siswa?</li>
-                    <li><strong>Kelemahan:</strong> Di bagian mana siswa masih mengalami kesulitan atau miskonsepsi?</li>
-                    <li><strong>Kesiapan Belajar:</strong> Sejauh mana siswa siap untuk menerima materi baru?</li>
-                </ul>
+                <p>Asesmen diagnostik adalah <strong>evaluasi komprehensif yang dilakukan di awal proses pembelajaran</strong> untuk mengidentifikasi kondisi kemampuan awal siswa secara individual dan mendalam. Berbeda dengan tes biasa yang mengukur pencapaian, asesmen diagnostik berfokus pada pemahaman kondisi belajar siswa.</p>
+                
+                <div class="info-box">
+                    <h5><i class="bi bi-lightbulb-fill text-primary me-2"></i>Analogi Medis</h5>
+                    <p class="mb-0">Seperti dokter yang melakukan diagnosis menyeluruh sebelum memberikan treatment, guru perlu memahami "kondisi kesehatan belajar" siswa sebelum merancang pembelajaran yang tepat. Asesmen diagnostik adalah "rontgen" kemampuan siswa.</p>
+                </div>
+
+                <p><strong>Asesmen diagnostik membantu guru memahami tiga aspek kunci:</strong></p>
+                
+                <div class="row g-3">
+                    <div class="col-lg-4 col-md-6">
+                        <div class="success-box text-center h-100">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2"><strong>Kekuatan (Strengths)</strong></h6>
+                            <ul class="text-start small mb-0">
+                                <li>Konsep yang sudah dikuasai</li>
+                                <li>Keterampilan yang sudah matang</li>
+                                <li>Pengalaman belajar sebelumnya</li>
+                                <li>Strategi belajar yang efektif</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6">
+                        <div class="warning-box text-center h-100">
+                            <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2"><strong>Kelemahan (Weaknesses)</strong></h6>
+                            <ul class="text-start small mb-0">
+                                <li>Gap pengetahuan yang ada</li>
+                                <li>Miskonsepsi yang mengakar</li>
+                                <li>Kesulitan dalam keterampilan tertentu</li>
+                                <li>Hambatan belajar yang dihadapi</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-12">
+                        <div class="info-box text-center h-100">
+                            <i class="bi bi-graph-up-arrow text-primary" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2"><strong>Kesiapan Belajar (Readiness)</strong></h6>
+                            <ul class="text-start small mb-0">
+                                <li>Level kemampuan saat ini</li>
+                                <li>Kesiapan untuk materi baru</li>
+                                <li>Gaya belajar yang disukai</li>
+                                <li>Motivasi dan minat belajar</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
 
                 <h3><i class="bi bi-bullseye text-primary me-2"></i>Mengapa Asesmen Ini Penting?</h3>
-                <p>Dalam setiap kelas, kemampuan siswa sangat beragam. Mengajar dengan pendekatan "satu ukuran untuk semua" seringkali tidak efektif. Asesmen diagnostik menjadi penting karena:</p>
-                <ul>
-                    <li><strong>Menghindari Asumsi:</strong> Guru tidak lagi berasumsi bahwa semua siswa memulai dari titik yang sama.</li>
-                    <li><strong>Dasar Pembelajaran Terdiferensiasi:</strong> Memberikan data nyata untuk merancang pembelajaran yang sesuai dengan kebutuhan kelompok siswa yang berbeda.</li>
-                    <li><strong>Mendeteksi Miskonsepsi:</strong> Mengidentifikasi kesalahpahaman konsep sejak dini sebelum menjadi masalah yang lebih besar.</li>
-                </ul>
+                <p>Dalam realitas kelas modern, kemampuan siswa sangat beragam—mulai dari latar belakang pendidikan, gaya belajar, hingga tingkat pemahaman konsep. Mengajar dengan pendekatan <em>"satu ukuran untuk semua"</em> seringkali menghasilkan pembelajaran yang tidak optimal.</p>
+                
+                <div class="warning-box">
+                    <h5><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Tantangan Pembelajaran Konvensional</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Risiko untuk Siswa Pintar:</h6>
+                            <ul class="small">
+                                <li>Merasa bosan dengan materi yang terlalu mudah</li>
+                                <li>Tidak mendapat tantangan yang sesuai</li>
+                                <li>Potensi tidak berkembang maksimal</li>
+                                <li>Motivasi belajar menurun</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Risiko untuk Siswa yang Kesulitan:</h6>
+                            <ul class="small">
+                                <li>Semakin tertinggal dari teman-teman</li>
+                                <li>Kehilangan kepercayaan diri</li>
+                                <li>Miskonsepsi semakin mengakar</li>
+                                <li>Stress dan anxiety meningkat</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
 
-                <h3><i class="bi bi-graph-up-arrow text-primary me-2"></i>Manfaat bagi Guru</h3>
+                    <div class="success-box">
+                        <h5><i class="bi bi-shield-check-fill text-success me-2"></i>Solusi dengan Asesmen Diagnostik</h5>
+                        <div class="row g-3">
+                            <div class="col-lg-6 col-md-12">
+                                <div class="step-detail h-100">
+                                    <h6><i class="bi bi-eye-fill text-primary me-2"></i>Menghindari Asumsi Berbahaya</h6>
+                                    <p class="small mb-0">Guru tidak lagi berasumsi bahwa semua siswa memulai dari titik yang sama. Data objektif menggantikan asumsi subjektif dalam perencanaan pembelajaran.</p>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 col-md-12">
+                                <div class="step-detail h-100">
+                                    <h6><i class="bi bi-diagram-3-fill text-primary me-2"></i>Dasar Pembelajaran Terdiferensiasi</h6>
+                                    <p class="small mb-0">Memberikan fondasi data yang kuat untuk merancang pembelajaran yang sesuai dengan kebutuhan berbagai kelompok siswa di kelas.</p>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 col-md-12">
+                                <div class="step-detail h-100">
+                                    <h6><i class="bi bi-bug-fill text-primary me-2"></i>Deteksi Dini Miskonsepsi</h6>
+                                    <p class="small mb-0">Mengidentifikasi kesalahpahaman konsep sejak awal sebelum menjadi masalah yang lebih kompleks dan sulit diperbaiki.</p>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 col-md-12">
+                                <div class="step-detail h-100">
+                                    <h6><i class="bi bi-speedometer2 text-primary me-2"></i>Efisiensi Waktu Mengajar</h6>
+                                    <p class="small mb-0">Memfokuskan waktu dan energi guru pada area yang benar-benar membutuhkan perhatian, bukan pada materi yang sudah dikuasai siswa.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>                <h3><i class="bi bi-graph-up-arrow text-primary me-2"></i>Manfaat Konkret bagi Guru</h3>
+                
+                <div class="info-box">
+                    <h5><i class="bi bi-award-fill text-primary me-2"></i>Transformasi Praktik Mengajar</h5>
+                    <p class="mb-0">Asesmen diagnostik mengubah cara guru mengajar dari <strong>intuisi dan asumsi</strong> menjadi <strong>berbasis data dan evidence</strong>. Ini menghasilkan pembelajaran yang lebih tepat sasaran dan efektif.</p>
+                </div>
+
                 <div class="row g-4 mt-3">
-                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-pencil-square benefit-icon me-3"></i><div><strong>Perancangan Tepat Sasaran</strong><p class="small text-muted">Guru dapat menyesuaikan materi, metode, dan media ajar agar relevan dengan tingkat pemahaman siswa.</p></div></div></div>
-                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-life-preserver benefit-icon me-3"></i><div><strong>Intervensi Dini</strong><p class="small text-muted">Membantu siswa yang kesulitan secara lebih cepat dan efektif sebelum mereka tertinggal lebih jauh.</p></div></div></div>
-                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-lightbulb-fill benefit-icon me-3"></i><div><strong>Peningkatan Efektivitas</strong><p class="small text-muted">Proses mengajar menjadi lebih efisien karena fokus pada kebutuhan belajar yang sesungguhnya di kelas.</p></div></div></div>
-                    <div class="col-md-6"><div class="d-flex"><i class="bi bi-people-fill benefit-icon me-3"></i><div><strong>Komunikasi Lebih Baik</strong><p class="small text-muted">Menyediakan data objektif untuk berdiskusi dengan orang tua atau wali murid mengenai perkembangan siswa.</p></div></div></div>
+                    <div class="col-xl-6 col-lg-12">
+                        <div class="step-detail h-100">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-pencil-square benefit-icon me-3"></i>
+                                <div>
+                                    <strong>Perancangan Pembelajaran Tepat Sasaran</strong>
+                                    <p class="small text-muted mt-1 mb-2">Guru dapat menyesuaikan:</p>
+                                    <ul class="small text-muted mb-0">
+                                        <li><strong>Materi:</strong> Fokus pada gap knowledge yang teridentifikasi</li>
+                                        <li><strong>Metode:</strong> Pilih strategi sesuai gaya belajar siswa</li>
+                                        <li><strong>Media:</strong> Gunakan alat bantu yang sesuai tingkat pemahaman</li>
+                                        <li><strong>Pacing:</strong> Atur kecepatan pembelajaran sesuai kemampuan</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-6 col-lg-12">
+                        <div class="step-detail h-100">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-life-preserver benefit-icon me-3"></i>
+                                <div>
+                                    <strong>Intervensi Dini yang Efektif</strong>
+                                    <p class="small text-muted mt-1 mb-2">Membantu siswa yang kesulitan dengan:</p>
+                                    <ul class="small text-muted mb-0">
+                                        <li><strong>Identifikasi Cepat:</strong> Tahu persis di mana siswa mengalami kesulitan</li>
+                                        <li><strong>Remedial Terarah:</strong> Program perbaikan yang spesifik dan personal</li>
+                                        <li><strong>Monitoring Berkala:</strong> Pantau progress secara kontinu</li>
+                                        <li><strong>Dukungan Tepat Waktu:</strong> Intervensi sebelum masalah membesar</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-6 col-lg-12">
+                        <div class="step-detail h-100">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-lightbulb-fill benefit-icon me-3"></i>
+                                <div>
+                                    <strong>Peningkatan Efektivitas Mengajar</strong>
+                                    <p class="small text-muted mt-1 mb-2">Proses mengajar menjadi lebih efisien:</p>
+                                    <ul class="small text-muted mb-0">
+                                        <li><strong>Waktu Optimal:</strong> Tidak mengulang materi yang sudah dikuasai</li>
+                                        <li><strong>Energi Terfokus:</strong> Konsentrasi pada area yang membutuhkan perhatian</li>
+                                        <li><strong>Hasil Maksimal:</strong> Learning outcomes yang lebih baik</li>
+                                        <li><strong>Kepuasan Mengajar:</strong> Melihat progress nyata setiap siswa</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-6 col-lg-12">
+                        <div class="step-detail h-100">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-people-fill benefit-icon me-3"></i>
+                                <div>
+                                    <strong>Komunikasi & Kolaborasi Lebih Baik</strong>
+                                    <p class="small text-muted mt-1 mb-2">Menyediakan data objektif untuk:</p>
+                                    <ul class="small text-muted mb-0">
+                                        <li><strong>Parent Conference:</strong> Diskusi berbasis data dengan orang tua</li>
+                                        <li><strong>Peer Collaboration:</strong> Sharing best practices dengan sesama guru</li>
+                                        <li><strong>Student Feedback:</strong> Memberikan umpan balik yang konstruktif</li>
+                                        <li><strong>School Reporting:</strong> Laporan kemajuan yang akurat</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </article>
         </section>
@@ -231,10 +433,90 @@
             <h2>Konsep Tes Adaptif Multi-Tahap (MST)</h2>
             <article>
                 <h3><i class="bi bi-diagram-3-fill text-primary me-2"></i>Apa itu Tes Adaptif Multi-Tahap (MST)?</h3>
-                <p><strong>Multi-Stage Testing (MST)</strong> adalah sebuah model tes adaptif di mana alur pengerjaan soal dibagi ke dalam beberapa tahap (*stages*). Soal yang akan diterima siswa pada tahap berikutnya ditentukan oleh performa mereka di tahap sebelumnya. Ini membuat tes menjadi lebih personal dan efisien.</p>
+                <p><strong>Multi-Stage Testing (MST)</strong> adalah teknologi tes adaptif canggih yang membagi proses pengerjaan soal ke dalam beberapa tahap (<em>stages</em>) yang saling terhubung. Berbeda dengan tes konvensional yang memberikan soal sama untuk semua siswa, MST menyesuaikan tingkat kesulitan soal berdasarkan performa siswa di tahap sebelumnya.</p>
                 
-                <h3><i class="bi bi-check-circle-fill text-primary me-2"></i>Tujuan & Pentingnya MST</h3>
-                <p>Tujuan utama MST adalah untuk <strong>mengidentifikasi tingkat kemampuan siswa secara cepat dan akurat</strong> dengan jumlah soal yang lebih sedikit dibandingkan tes konvensional. Dalam asesmen diagnostik, ini sangat penting karena efisien, akurat, dan menghasilkan data yang bermakna.</p>
+                <div class="info-box">
+                    <h5><i class="bi bi-gear-fill text-primary me-2"></i>Cara Kerja MST</h5>
+                    <div class="row g-3">
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="text-center h-100 d-flex flex-column">
+                                <i class="bi bi-play-circle-fill text-primary" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2 flex-grow-1"><strong>Routing Stage</strong></h6>
+                                <p class="small mb-0">Siswa mengerjakan soal awal untuk menentukan jalur selanjutnya</p>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="text-center h-100 d-flex flex-column">
+                                <i class="bi bi-shuffle text-primary" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2 flex-grow-1"><strong>Adaptive Branching</strong></h6>
+                                <p class="small mb-0">Sistem mengarahkan ke soal yang sesuai dengan kemampuan</p>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="text-center h-100 d-flex flex-column">
+                                <i class="bi bi-bullseye text-primary" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2 flex-grow-1"><strong>Precision Measurement</strong></h6>
+                                <p class="small mb-0">Mengukur kemampuan dengan akurasi yang tinggi</p>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="text-center h-100 d-flex flex-column">
+                                <i class="bi bi-flag-fill text-primary" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2 flex-grow-1"><strong>Final Classification</strong></h6>
+                                <p class="small mb-0">Menentukan level kemampuan akhir siswa</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3><i class="bi bi-check-circle-fill text-primary me-2"></i>Tujuan & Keunggulan MST</h3>
+                
+                <div class="success-box">
+                    <h5><i class="bi bi-target text-success me-2"></i>Tujuan Utama MST</h5>
+                    <p>Mengidentifikasi tingkat kemampuan siswa secara <strong>cepat, akurat, dan efisien</strong> dengan menggunakan jumlah soal minimal namun menghasilkan informasi diagnostik yang maksimal.</p>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="step-detail text-center">
+                            <i class="bi bi-speedometer2 text-primary" style="font-size: 2.5rem;"></i>
+                            <h6 class="mt-2"><strong>Efisiensi Maksimal</strong></h6>
+                            <ul class="text-start small">
+                                <li>Hanya 4 soal vs 20+ soal tes konvensional</li>
+                                <li>Waktu pengerjaan: 8-12 menit vs 45-60 menit</li>
+                                <li>Hasil sama akurat dengan tes panjang</li>
+                                <li>Mengurangi fatigue dan boredom siswa</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="step-detail text-center">
+                            <i class="bi bi-crosshair text-primary" style="font-size: 2.5rem;"></i>
+                            <h6 class="mt-2">
+                                <img src="../../img/logo_digidaws.png" alt="DIGIDAWS Logo" style="width: 20px; height: 20px; margin-right: 8px;">
+                                <strong>Akurasi Tinggi</strong>
+                            </h6>
+                            <ul class="text-start small">
+                                <li>Pengukuran presisi dengan margin error rendah</li>
+                                <li>Algoritma adaptif yang teruji secara psikometrik</li>
+                                <li>Reliabilitas tinggi dalam klasifikasi level</li>
+                                <li>Validitas diagnostik yang terjamin</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="step-detail text-center">
+                            <i class="bi bi-heart-fill text-primary" style="font-size: 2.5rem;"></i>
+                            <h6 class="mt-2"><strong>Pengalaman Positif</strong></h6>
+                            <ul class="text-start small">
+                                <li>Siswa tidak frustrasi dengan soal terlalu sulit</li>
+                                <li>Tidak bosan dengan soal terlalu mudah</li>
+                                <li>Meningkatkan motivasi dan engagement</li>
+                                <li>Mengurangi test anxiety secara signifikan</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
 
                 <h3><i class="bi bi-signpost-split-fill text-primary me-2"></i>Alur MST yang Digunakan</h3>
                 
@@ -317,62 +599,605 @@
                     <p class="diagram-caption">Diagram alur Tes Adaptif Multi-Tahap (MST) yang digunakan dalam sistem.</p>
                 </div>
 
-                <p>Sistem ini menggunakan alur tes adaptif 4-tahap seperti yang diilustrasikan pada diagram di atas. Berikut adalah penjelasannya:</p>
+                <p><strong>Sistem DIGIDAWS menggunakan alur tes adaptif 4-tahap</strong> seperti yang diilustrasikan pada diagram di atas. Setiap tahap memiliki fungsi dan tujuan spesifik dalam proses diagnostik:</p>
                 
-                <h4>Tahap 1 & 2: Titik Awal</h4>
-                <p>Semua siswa memulai dari soal <strong>Level 1</strong>, kemudian tanpa terkecuali melanjutkan ke soal <strong>Level 2</strong>. Tahap ini berfungsi sebagai penentu awal (routing) sebelum tes menjadi adaptif.</p>
-                
-                <h4>Tahap 3: Percabangan Pertama</h4>
-                <p>Performa siswa di soal Level 2 menentukan jalur selanjutnya:</p>
-                <ul>
-                    <li>Jika jawaban di Level 2 <strong>Benar</strong>, siswa diarahkan ke soal yang lebih sulit di <strong>Level 4</strong>.</li>
-                    <li>Jika jawaban di Level 2 <strong>Salah</strong>, siswa diarahkan ke soal yang lebih mudah di <strong>Level 3</strong>.</li>
-                </ul>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="step-detail">
+                            <h4><i class="bi bi-1-circle-fill text-primary me-2"></i>Tahap 1 & 2: Foundation Assessment</h4>
+                            <div class="sub-step">
+                                <h6><strong>Tahap 1 - Level 1 (Baseline)</strong></h6>
+                                <ul class="small mb-2">
+                                    <li><strong>Tujuan:</strong> Mengukur kemampuan dasar semua siswa</li>
+                                    <li><strong>Karakteristik Soal:</strong> Tingkat kesulitan rendah-menengah</li>
+                                    <li><strong>Fungsi:</strong> Warming up dan initial screening</li>
+                                    <li><strong>Keputusan:</strong> 100% siswa lanjut ke Tahap 2</li>
+                                </ul>
+                            </div>
+                            <div class="sub-step">
+                                <h6><strong>Tahap 2 - Level 2 (Routing Point)</strong></h6>
+                                <ul class="small mb-0">
+                                    <li><strong>Tujuan:</strong> Menentukan jalur adaptif selanjutnya</li>
+                                    <li><strong>Karakteristik Soal:</strong> Tingkat kesulitan menengah</li>
+                                    <li><strong>Fungsi:</strong> Pemisah kemampuan awal (branching point)</li>
+                                    <li><strong>Keputusan:</strong> Menentukan apakah siswa ke Level 3 atau 4</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="step-detail">
+                            <h4><i class="bi bi-3-circle-fill text-primary me-2"></i>Tahap 3: Adaptive Branching</h4>
+                            <div class="warning-box">
+                                <h6><i class="bi bi-arrow-down-right text-warning me-1"></i> <strong>Jalur Level 3 (Remedial Path)</strong></h6>
+                                <ul class="small mb-2">
+                                    <li><strong>Kondisi:</strong> Siswa salah di Level 2</li>
+                                    <li><strong>Tujuan:</strong> Mengukur kemampuan dasar lebih detail</li>
+                                    <li><strong>Karakteristik:</strong> Soal lebih mudah, fokus konsep fundamental</li>
+                                    <li><strong>Target Siswa:</strong> Yang membutuhkan penguatan dasar</li>
+                                </ul>
+                            </div>
+                            <div class="success-box">
+                                <h6><i class="bi bi-arrow-up-right text-success me-1"></i> <strong>Jalur Level 4 (Advanced Path)</strong></h6>
+                                <ul class="small mb-0">
+                                    <li><strong>Kondisi:</strong> Siswa benar di Level 2</li>
+                                    <li><strong>Tujuan:</strong> Mengukur kemampuan tingkat lanjut</li>
+                                    <li><strong>Karakteristik:</strong> Soal lebih sulit, aplikasi kompleks</li>
+                                    <li><strong>Target Siswa:</strong> Yang siap untuk tantangan lebih besar</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                <h4>Tahap 4: Penentuan Akhir</h4>
-                <p>Ini adalah tahap akhir untuk menentukan level kemampuan siswa secara spesifik:</p>
-                <ul>
-                    <li>Dari Level 4: Jika <strong>Benar</strong>, siswa mencapai <strong>Level 7</strong> (Mahir). Jika <strong>Salah</strong>, siswa ditempatkan di <strong>Level 6</strong> (Cakap).</li>
-                    <li>Dari Level 3: Jika <strong>Benar</strong>, siswa ditempatkan di <strong>Level 6</strong> (Cakap). Jika <strong>Salah</strong>, siswa ditempatkan di <strong>Level 5</strong> (Dasar).</li>
-                </ul>
+                <div class="step-detail">
+                    <h4><i class="bi bi-4-circle-fill text-primary me-2"></i>Tahap 4: Final Classification & Level Determination</h4>
+                    <p class="mb-3">Tahap akhir untuk menentukan level kemampuan siswa secara spesifik berdasarkan performa di tahap sebelumnya:</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <h6><strong>Dari Jalur Level 4 (Advanced Path)</strong></h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="success-box text-center">
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                            <h6 class="small mt-1"><strong>Jika BENAR</strong></h6>
+                                            <div class="badge bg-success">Level 7 - MAHIR</div>
+                                            <p class="small mt-1 mb-0">Siswa menguasai konsep lanjut dan siap untuk materi yang lebih kompleks</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="warning-box text-center">
+                                            <i class="bi bi-x-circle-fill text-warning"></i>
+                                            <h6 class="small mt-1"><strong>Jika SALAH</strong></h6>
+                                            <div class="badge bg-warning">Level 6 - CAKAP</div>
+                                            <p class="small mt-1 mb-0">Siswa cakap pada konsep menengah namun perlu penguatan untuk level lanjut</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <h6><strong>Dari Jalur Level 3 (Remedial Path)</strong></h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="success-box text-center">
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                            <h6 class="small mt-1"><strong>Jika BENAR</strong></h6>
+                                            <div class="badge bg-info">Level 6 - CAKAP</div>
+                                            <p class="small mt-1 mb-0">Siswa memahami konsep dasar dengan baik dan siap untuk level menengah</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="warning-box text-center">
+                                            <i class="bi bi-x-circle-fill text-warning"></i>
+                                            <h6 class="small mt-1"><strong>Jika SALAH</strong></h6>
+                                            <div class="badge bg-secondary">Level 5 - DASAR</div>
+                                            <p class="small mt-1 mb-0">Siswa memerlukan penguatan konsep fundamental sebelum lanjut</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </article>
         </section>
 
         <section class="guide-section">
-            <h2>Alur Penggunaan Sistem untuk Guru</h2>
+            <h2>Panduan Lengkap Penggunaan Sistem DIGIDAWS</h2>
+            <p class="lead">Ikuti 5 langkah komprehensif ini untuk mengimplementasikan asesmen diagnostik yang efektif di kelas Anda</p>
+            
             <div class="flow-step">
                 <div class="flow-step-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
                 <div class="flow-step-content">
-                    <h5>Langkah 1: Generate Soal Otomatis</h5>
-                    <p class="text-muted">Siapkan modul ajar (.pdf/.docx), lalu gunakan tombol "Upload File & Generate Soal" di Dashboard untuk membuat bank soal secara otomatis menggunakan AI.</p>
+                    <h5><i class="bi bi-robot text-primary me-2"></i>Langkah 1: Generate Soal Otomatis dengan AI</h5>
+                    <p class="text-muted mb-3">Manfaatkan kekuatan Artificial Intelligence untuk menghasilkan bank soal berkualitas tinggi secara otomatis berdasarkan materi pembelajaran Anda.</p>
+                    
+                    <div class="step-detail">
+                        <h6><i class="bi bi-upload text-primary me-2"></i>Persiapan File Input</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Format File yang Didukung:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li><strong>.PDF:</strong> File dengan teks yang dapat dibaca (OCR-friendly)</li>
+                                        <li><strong>.DOCX:</strong> Microsoft Word Document</li>
+                                        <li><strong>Ukuran Maksimal:</strong> 10 MB per file</li>
+                                        <li><strong>Bahasa:</strong> Indonesia dan Inggris</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Tips Persiapan Konten:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>Pastikan materi terstruktur dan jelas</li>
+                                        <li>Sertakan contoh-contoh konkret</li>
+                                        <li>Hindari gambar dengan teks penting</li>
+                                        <li>Gunakan heading dan subheading yang konsisten</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-detail">
+                        <h6><i class="bi bi-gear-fill text-primary me-2"></i>Proses Generate & Output</h6>
+                        <div class="info-box">
+                            <h6><strong>Yang Akan Dihasilkan AI:</strong></h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <ul class="small">
+                                        <li><strong>35 Soal Berkualitas</strong></li>
+                                        <li>5 soal per level (1-7)</li>
+                                        <li>Beragam tipe kognitif</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-4">
+                                    <ul class="small">
+                                        <li><strong>Sesuai Taksonomi Teknologi</strong></li>
+                                        <li>Level kesulitan bertahap</li>
+                                        <li>Probabilitas akurasi tinggi</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-4">
+                                    <ul class="small">
+                                        <li><strong>Siap Pakai</strong></li>
+                                        <li>Format multiple choice</li>
+                                        <li>Pengecoh yang relevan</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <div class="flow-step">
                 <div class="flow-step-icon"><i class="bi bi-collection"></i></div>
                 <div class="flow-step-content">
-                    <h5>Langkah 2: Kelola Koleksi Soal</h5>
-                    <p class="text-muted">Buka halaman "Koleksi Soal" untuk membuat paket tes baru, menambahkan soal yang sudah di-generate, dan merevisi konten soal jika diperlukan.</p>
+                    <h5><i class="bi bi-folder-plus text-primary me-2"></i>Langkah 2: Kelola & Organisasi Koleksi Soal</h5>
+                    <p class="text-muted mb-3">Atur dan kelola soal-soal yang telah di-generate menjadi koleksi yang mudah diakses dan didistribusikan.</p>
+                    
+                    <div class="step-detail">
+                        <h6><i class="bi bi-plus-square text-primary me-2"></i>Membuat Koleksi Baru</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Informasi Koleksi:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>Nama koleksi yang deskriptif</li>
+                                        <li>Deskripsi tujuan pembelajaran</li>
+                                        <li>Target kelas/mata pelajaran</li>
+                                        <li>Estimasi waktu pengerjaan</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Tips Penamaan:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>"Jaringan Komputer - Kelas X"</li>
+                                        <li>"Pemrograman Python - Semester 1"</li>
+                                        <li>"Database MySQL - Level Dasar"</li>
+                                        <li>"Web Development - HTML/CSS"</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="success-box">
+                        <h6><i class="bi bi-lightbulb-fill text-success me-2"></i>Best Practices Pengelolaan Koleksi</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="small mb-0">
+                                    <li><strong>Kurasi Soal:</strong> Pilih soal yang paling relevan dengan tujuan pembelajaran</li>
+                                    <li><strong>Distribusi Seimbang:</strong> Pastikan ada representasi yang baik untuk setiap level</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="small mb-0">
+                                    <li><strong>Template Koleksi:</strong> Simpan sebagai template untuk digunakan kembali</li>
+                                    <li><strong>Backup Regular:</strong> Export koleksi secara berkala untuk backup</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <div class="flow-step">
                 <div class="flow-step-icon"><i class="bi bi-check2-square"></i></div>
                 <div class="flow-step-content">
-                    <h5>Langkah 3: Validasi Soal</h5>
-                    <p class="text-muted">Masuk ke detail koleksi dan klik tombol "Validasi" pada setiap soal. Soal yang tidak divalidasi tidak akan muncul saat tes berlangsung.</p>
+                    <h5><i class="bi bi-shield-check text-primary me-2"></i>Langkah 3: Quality Control & Validasi Soal</h5>
+                    <p class="text-muted mb-3">Lakukan review komprehensif dan validasi pada setiap soal untuk memastikan kualitas dan kesesuaian dengan konteks pembelajaran.</p>
+                    
+                    <div class="warning-box">
+                        <h6><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Pentingnya Proses Validasi</h6>
+                        <p class="small mb-0"><strong>Soal yang tidak divalidasi tidak akan muncul dalam tes.</strong> Pastikan untuk memvalidasi setiap soal yang ingin digunakan dalam asesmen diagnostik.</p>
+                    </div>
+
+                    <div class="step-detail">
+                        <h6><i class="bi bi-clipboard-check text-primary me-2"></i>Checklist Validasi Komprehensif</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Aspek Konten:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>✓ Kesesuaian dengan materi pembelajaran</li>
+                                        <li>✓ Akurasi informasi dan data yang disajikan</li>
+                                        <li>✓ Relevansi dengan tujuan pembelajaran</li>
+                                        <li>✓ Tingkat kesulitan sesuai level yang ditetapkan</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Aspek Teknis:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>✓ Kejelasan bahasa dan instruksi</li>
+                                        <li>✓ Struktur kalimat yang mudah dipahami</li>
+                                        <li>✓ Tidak mengandung bias atau SARA</li>
+                                        <li>✓ Format dan tata letak yang konsisten</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Aspek Psikometrik:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>✓ Jawaban benar yang tepat dan dapat dipertanggungjawabkan</li>
+                                        <li>✓ Pengecoh (distractor) yang masuk akal dan menantang</li>
+                                        <li>✓ Tidak ada petunjuk yang mengarah ke jawaban benar</li>
+                                        <li>✓ Keseimbangan panjang antar pilihan jawaban</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sub-step">
+                                    <h6 class="small"><strong>Aspek Pedagogis:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>✓ Sesuai dengan tingkat perkembangan siswa</li>
+                                        <li>✓ Mendorong pemikiran kritis dan analitis</li>
+                                        <li>✓ Tidak mengandalkan hafalan semata</li>
+                                        <li>✓ Memberikan insight tentang pemahaman siswa</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <div class="flow-step">
                 <div class="flow-step-icon"><i class="bi bi-person-plus"></i></div>
                 <div class="flow-step-content">
-                    <h5>Langkah 4: Tugaskan ke Siswa</h5>
-                    <p class="text-muted">Di dalam detail koleksi, gunakan fitur "Kelola Siswa" untuk memberikan akses tes kepada siswa, baik secara individu maupun per kelas.</p>
+                    <h5><i class="bi bi-people-fill text-primary me-2"></i>Langkah 4: Assignment & Distribusi kepada Siswa</h5>
+                    <p class="text-muted mb-3">Tugaskan koleksi soal kepada siswa dengan pengaturan yang fleksibel dan sesuai kebutuhan pembelajaran di kelas.</p>
+                    
+                    <div class="step-detail">
+                        <h6><i class="bi bi-gear-fill text-primary me-2"></i>Opsi Assignment yang Tersedia</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="success-box text-center">
+                                    <i class="bi bi-person-fill text-success" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2"><strong>Individual Assignment</strong></h6>
+                                    <ul class="text-start small mb-0">
+                                        <li>Pilih siswa satu per satu</li>
+                                        <li>Cocok untuk remedial khusus</li>
+                                        <li>Personalisasi tinggi</li>
+                                        <li>Monitoring individual</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-box text-center">
+                                    <i class="bi bi-people-fill text-primary" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2"><strong>Class-wide Assignment</strong></h6>
+                                    <ul class="text-start small mb-0">
+                                        <li>Assign ke seluruh kelas</li>
+                                        <li>Efisien untuk diagnostic awal</li>
+                                        <li>Data komparatif antar siswa</li>
+                                        <li>Overview kemampuan kelas</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="warning-box text-center">
+                                    <i class="bi bi-diagram-3-fill text-warning" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2"><strong>Group Assignment</strong></h6>
+                                    <ul class="text-start small mb-0">
+                                        <li>Buat grup berdasar kemampuan</li>
+                                        <li>Remedial vs pengayaan</li>
+                                        <li>Learning circle</li>
+                                        <li>Peer collaboration</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-detail">
+                        <h6><i class="bi bi-clock-fill text-primary me-2"></i>Pengaturan Waktu & Jadwal</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-box">
+                                    <h6><strong>Rekomendasi Durasi:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li><strong>Total Waktu:</strong> 15-25 menit (optimal untuk MST)</li>
+                                        <li><strong>Per Soal:</strong> 2-3 menit (cukup untuk berpikir)</li>
+                                        <li><strong>Buffer Time:</strong> 5 menit (untuk teknis/loading)</li>
+                                        <li><strong>Fleksibilitas:</strong> Sesuaikan dengan karakteristik siswa</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="success-box">
+                                    <h6><strong>Tips Penjadwalan:</strong></h6>
+                                    <ul class="small mb-0">
+                                        <li>Pilih waktu saat siswa fresh (pagi hari)</li>
+                                        <li>Hindari jadwal sebelum/sesudah ujian besar</li>
+                                        <li>Berikan notifikasi H-1 kepada siswa</li>
+                                        <li>Siapkan alternatif untuk siswa yang berhalangan</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <div class="flow-step">
                 <div class="flow-step-icon"><i class="bi bi-graph-up-arrow"></i></div>
                 <div class="flow-step-content">
-                    <h5>Langkah 5: Analisis Hasil</h5>
-                    <p class="text-muted">Setelah siswa mengerjakan tes, buka menu "Analisis" pada koleksi untuk melihat laporan, memantau kemajuan, dan mengekspor data hasil tes.</p>
+                    <h5><i class="bi bi-clipboard-data-fill text-primary me-2"></i>Langkah 5: Analisis Mendalam & Tindak Lanjut</h5>
+                    <p class="text-muted mb-3">Manfaatkan data hasil asesmen untuk membuat keputusan pedagogis yang tepat dan merancang pembelajaran yang terdiferensiasi dan efektif.</p>
+                    
+                    <div class="step-detail">
+                        <h6><i class="bi bi-graph-up text-primary me-2"></i>Jenis Analisis yang Tersedia</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="info-box text-center">
+                                    <i class="bi bi-pie-chart-fill text-primary" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2"><strong>Analisis Distribusi Level</strong></h6>
+                                    <ul class="text-start small mb-0">
+                                        <li>Sebaran siswa per level kemampuan</li>
+                                        <li>Persentase setiap kategori</li>
+                                        <li>Identifikasi mayoritas kelas</li>
+                                        <li>Dasar grouping siswa</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="success-box text-center">
+                                    <i class="bi bi-person-lines-fill text-success" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2"><strong>Profil Individual Siswa</strong></h6>
+                                    <ul class="text-start small mb-0">
+                                        <li>Level kemampuan spesifik setiap siswa</li>
+                                        <li>Jalur pengerjaan MST yang ditempuh</li>
+                                        <li>Pola jawaban dan response time</li>
+                                        <li>Rekomendasi tindak lanjut personal</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="warning-box text-center">
+                                    <i class="bi bi-download text-warning" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2"><strong>Export & Dokumentasi</strong></h6>
+                                    <ul class="text-start small mb-0">
+                                        <li>Laporan PDF yang komprehensif</li>
+                                        <li>Data Excel untuk analisis lanjut</li>
+                                        <li>Charts dan visualisasi data</li>
+                                        <li>Template laporan untuk orang tua</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-detail">
+                        <h6><i class="bi bi-arrow-right-square-fill text-primary me-2"></i>Strategi Tindak Lanjut Berdasarkan Hasil</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="warning-box">
+                                    <h6><i class="bi bi-arrow-down text-warning me-1"></i><strong>Level Rendah (5 & bawah)</strong></h6>
+                                    <h6 class="small">Strategi Remedial Intensif:</h6>
+                                    <ul class="small mb-0">
+                                        <li><strong>Scaffolding:</strong> Dukungan bertahap dan terstruktur</li>
+                                        <li><strong>Konsep Fundamental:</strong> Fokus pada penguatan dasar</li>
+                                        <li><strong>Multimedia:</strong> Gunakan visual dan konkret</li>
+                                        <li><strong>Peer Tutoring:</strong> Bantuan dari siswa yang lebih mampu</li>
+                                        <li><strong>Extra Time:</strong> Berikan waktu tambahan</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-box">
+                                    <h6><i class="bi bi-dash text-primary me-1"></i><strong>Level Menengah (6)</strong></h6>
+                                    <h6 class="small">Strategi Penguatan & Pengembangan:</h6>
+                                    <ul class="small mb-0">
+                                        <li><strong>Guided Practice:</strong> Latihan terbimbing intensif</li>
+                                        <li><strong>Problem Solving:</strong> Tantangan yang sesuai level</li>
+                                        <li><strong>Collaborative Learning:</strong> Kerja kelompok yang efektif</li>
+                                        <li><strong>Progress Monitoring:</strong> Pantau perkembangan berkala</li>
+                                        <li><strong>Confidence Building:</strong> Bangun kepercayaan diri</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="success-box">
+                                    <h6><i class="bi bi-arrow-up text-success me-1"></i><strong>Level Tinggi (7)</strong></h6>
+                                    <h6 class="small">Strategi Pengayaan & Tantangan:</h6>
+                                    <ul class="small mb-0">
+                                        <li><strong>Advanced Projects:</strong> Proyek kompleks dan mandiri</li>
+                                        <li><strong>Critical Thinking:</strong> Soal analitis tingkat tinggi</li>
+                                        <li><strong>Leadership Role:</strong> Menjadi tutor sebaya</li>
+                                        <li><strong>Independent Learning:</strong> Eksplorasi mendalam</li>
+                                        <li><strong>Real-world Application:</strong> Penerapan nyata</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide-section">
+            <h2>Best Practices & Tips Implementasi</h2>
+            
+            <div class="success-box">
+                <h5><i class="bi bi-star-fill text-success me-2"></i>Prinsip Dasar Implementasi yang Sukses</h5>
+                <p class="mb-0">Keberhasilan asesmen diagnostik tidak hanya bergantung pada teknologi, tetapi juga pada pendekatan pedagogis yang tepat dan konsistensi implementasi di kelas.</p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="step-detail">
+                        <h5><i class="bi bi-check-circle-fill text-success me-2"></i>Do's (Yang Sebaiknya Dilakukan)</h5>
+                        
+                        <div class="sub-step">
+                            <h6><i class="bi bi-people text-primary me-1"></i> <strong>Persiapan Siswa</strong></h6>
+                            <ul class="small mb-2">
+                                <li>Jelaskan tujuan dan manfaat asesmen dengan bahasa yang mudah dipahami</li>
+                                <li>Tekankan bahwa ini bukan ujian untuk nilai, melainkan untuk membantu belajar</li>
+                                <li>Berikan contoh soal untuk familiarisasi dengan format</li>
+                                <li>Pastikan siswa memahami cara menggunakan sistem</li>
+                            </ul>
+                        </div>
+
+                        <div class="sub-step">
+                            <h6><i class="bi bi-heart text-primary me-1"></i> <strong>Menciptakan Suasana Positif</strong></h6>
+                            <ul class="small mb-2">
+                                <li>Hindari tekanan dan menciptakan anxiety berlebihan</li>
+                                <li>Gunakan kata-kata yang mendorong dan supportif</li>
+                                <li>Pastikan lingkungan belajar yang nyaman dan kondusif</li>
+                                <li>Berikan motivasi bahwa setiap jawaban membantu guru memahami mereka</li>
+                            </ul>
+                        </div>
+
+                        <div class="sub-step">
+                            <h6><i class="bi bi-graph-up text-primary me-1"></i> <strong>Pemanfaatan Data</strong></h6>
+                            <ul class="small mb-2">
+                                <li>Gunakan hasil untuk improvement, bukan untuk labeling siswa</li>
+                                <li>Fokus pada pertumbuhan dan perkembangan individual</li>
+                                <li>Integrasikan hasil dengan perencanaan pembelajaran harian</li>
+                                <li>Dokumentasikan progress dan perkembangan siswa dari waktu ke waktu</li>
+                            </ul>
+                        </div>
+
+                        <div class="sub-step">
+                            <h6><i class="bi bi-arrow-repeat text-primary me-1"></i> <strong>Monitoring & Follow-up</strong></h6>
+                            <ul class="small mb-0">
+                                <li>Lakukan asesmen berkala untuk melihat perkembangan</li>
+                                <li>Berikan feedback konstruktif kepada setiap siswa</li>
+                                <li>Evaluasi efektivitas strategi pembelajaran yang diterapkan</li>
+                                <li>Adjust pendekatan berdasarkan response dan hasil siswa</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="step-detail">
+                        <h5><i class="bi bi-x-circle-fill text-danger me-2"></i>Don'ts (Yang Sebaiknya Dihindari)</h5>
+                        
+                        <div class="warning-box">
+                            <h6><i class="bi bi-exclamation-triangle text-warning me-1"></i> <strong>Kesalahan dalam Penilaian</strong></h6>
+                            <ul class="small mb-2">
+                                <li><strong>Jangan jadikan nilai:</strong> Asesmen diagnostik bukan untuk memberikan skor atau grade</li>
+                                <li><strong>Jangan publikasikan ranking:</strong> Hindari membuat daftar peringkat berdasarkan hasil</li>
+                                <li><strong>Jangan bandingkan siswa:</strong> Setiap siswa memiliki keunikan dan latar belakang berbeda</li>
+                                <li><strong>Jangan buat kompetisi:</strong> Ini bukan tentang siapa yang terbaik</li>
+                            </ul>
+                        </div>
+
+                        <div class="warning-box">
+                            <h6><i class="bi bi-clock text-warning me-1"></i> <strong>Kesalahan dalam Implementasi</strong></h6>
+                            <ul class="small mb-2">
+                                <li><strong>Jangan terburu-buru:</strong> Berikan waktu yang cukup untuk setiap siswa memahami dan mengerjakan</li>
+                                <li><strong>Jangan abaikan hasil:</strong> Data yang tidak ditindaklanjuti menjadi tidak bermakna</li>
+                                <li><strong>Jangan one-time assessment:</strong> Asesmen tunggal tidak cukup untuk gambaran komprehensif</li>
+                                <li><strong>Jangan skip validasi:</strong> Selalu review dan validasi soal sebelum digunakan</li>
+                            </ul>
+                        </div>
+
+                        <div class="warning-box">
+                            <h6><i class="bi bi-person-x text-warning me-1"></i> <strong>Kesalahan dalam Komunikasi</strong></h6>
+                            <ul class="small mb-0">
+                                <li><strong>Jangan stigmatisasi:</strong> Hindari pelabelan negatif pada siswa dengan kemampuan rendah</li>
+                                <li><strong>Jangan generalisasi:</strong> Setiap siswa memiliki profil kemampuan yang unik</li>
+                                <li><strong>Jangan diskriminasi:</strong> Perlakukan semua siswa dengan adil dan setara</li>
+                                <li><strong>Jangan komunikasi negatif:</strong> Gunakan bahasa yang membangun dan mendukung</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <h5><i class="bi bi-lightbulb-fill text-primary me-2"></i>Tips Khusus untuk Maksimalkan Hasil</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><strong>Sebelum Asesmen:</strong></h6>
+                        <ul class="small">
+                            <li>Lakukan pilot test dengan sebagian kecil siswa</li>
+                            <li>Pastikan infrastruktur teknis berfungsi dengan baik</li>
+                            <li>Siapkan backup plan jika ada kendala teknis</li>
+                            <li>Koordinasikan dengan lab komputer/IT support</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><strong>Selama Asesmen:</strong></h6>
+                        <ul class="small">
+                            <li>Pantau secara aktif tanpa memberikan tekanan</li>
+                            <li>Berikan bantuan teknis jika diperlukan</li>
+                            <li>Catat observasi tentang behavior siswa</li>
+                            <li>Dokumentasikan kendala yang muncul untuk improvement</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><strong>Setelah Asesmen:</strong></h6>
+                        <ul class="small">
+                            <li>Analisis data secepat mungkin while still fresh</li>
+                            <li>Buat rencana tindak lanjut yang konkret dan actionable</li>
+                            <li>Komunikasikan hasil kepada siswa dengan cara yang positif</li>
+                            <li>Sharing insights dengan kolega untuk kolaborasi</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><strong>Untuk Keberlanjutan:</strong></h6>
+                        <ul class="small">
+                            <li>Integrasikan dengan sistem penilaian sekolah</li>
+                            <li>Buat jadwal asesmen berkala yang konsisten</li>
+                            <li>Evaluasi dan refine proses secara kontinu</li>
+                            <li>Bangun database kemampuan siswa dari waktu ke waktu</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </section>

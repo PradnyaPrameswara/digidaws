@@ -276,7 +276,7 @@
                 </ul>
                 <div class="d-flex align-items-center">
                     <span class="user-info">
-                        <i class="bi bi-person-circle"></i> Guru
+                        <i class="bi bi-person-circle"></i> {{ current_user.nama }} (Guru)
                     </span>
                     <a href="/logout" class="btn btn-outline-light">
                         <i class="bi bi-box-arrow-right"></i> Logout
@@ -324,7 +324,7 @@
                     <table class="table table-striped mt-3">
                         <thead class="table-dark">
                             <tr>
-                                <th>Stage/Bin <i class="bi bi-info-circle-fill ms-1" style="cursor: pointer;" id="levelInfoTableHead" title="Klik untuk melihat detail taksonomi"></i></th>
+                                <th>Stage/Kotak <i class="bi bi-info-circle-fill ms-1" style="cursor: pointer;" id="levelInfoTableHead" title="Klik untuk melihat detail taksonomi"></i></th>
                                 <th>Jumlah Soal</th>
                                 <th>Probabilitas (p) Rata-rata</th>
                             </tr>
@@ -421,7 +421,7 @@
         // Objek untuk menyimpan penjelasan setiap level - DIPERBARUI sesuai alur taksonomi teknologi terbaru
         const levelExplanations = {
             1: {
-                title: "Stage I (Bin 1): Kesadaran Teknologi",
+                title: "Stage I (Kotak 1): Kesadaran Teknologi",
                 competency: "Pemahaman definisi, istilah, dan identifikasi teknologi dasar",
                 bloom: "C1: Mengingat (Remembering)",
                 cognitive_process: "Mengingat dan mengenali terminologi teknologi",
@@ -433,7 +433,7 @@
                 color: "#198754"
             },
             2: {
-                title: "Stage II (Bin 2): Literasi Teknologi", 
+                title: "Stage II (Kotak 2): Literasi Teknologi", 
                 competency: "Klasifikasi, hubungan antar teknologi, dan penjelasan fungsi",
                 bloom: "C2: Memahami (Understanding)",
                 cognitive_process: "Memahami hubungan dan klasifikasi teknologi",
@@ -445,7 +445,7 @@
                 color: "#28a745"
             },
             3: {
-                title: "Stage III (Bin 3): Kemampuan Teknologi",
+                title: "Stage III (Kotak 3): Kemampuan Teknologi",
                 competency: "Aplikasi praktis, instruksi, dan puzzle urutan teknologi",
                 bloom: "C3: Menerapkan (Applying)", 
                 cognitive_process: "Menerapkan pengetahuan dalam situasi praktis",
@@ -457,7 +457,7 @@
                 color: "#ffc107"
             },
             4: {
-                title: "Stage III (Bin 4): Kreativitas Teknologi Dasar",
+                title: "Stage III (Kotak 4): Kreativitas Teknologi Dasar",
                 competency: "Modifikasi, debugging, dan analisis error sederhana",
                 bloom: "C4: Menganalisis (Analyzing)",
                 cognitive_process: "Menganalisis dan memecahkan masalah teknologi",
@@ -469,7 +469,7 @@
                 color: "#fd7e14"
             },
             5: {
-                title: "Stage IV (Bin 5): Kemampuan Teknologi Lanjutan",
+                title: "Stage IV (Kotak 5): Kemampuan Teknologi Lanjutan",
                 competency: "Aplikasi lanjutan dan puzzle assembly terbimbing",
                 bloom: "C3: Menerapkan (Applying) - Lanjut",
                 cognitive_process: "Menerapkan teknologi pada situasi kompleks",
@@ -481,7 +481,7 @@
                 color: "#c35144"
             },
             6: {
-                title: "Stage IV (Bin 6): Kritik Teknologi", 
+                title: "Stage IV (Kotak 6): Kritik Teknologi", 
                 competency: "Evaluasi trade-off, menilai solusi, dan kritik teknologi",
                 bloom: "C5: Mengevaluasi (Evaluating)",
                 cognitive_process: "Mengevaluasi dan mengkritik solusi teknologi",
@@ -493,7 +493,7 @@
                 color: "#e74c3c"
             },
             7: {
-                title: "Stage IV (Bin 7): Kreativitas + Kritik Teknologi",
+                title: "Stage IV (Kotak 7): Kreativitas + Kritik Teknologi",
                 competency: "Merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi",
                 bloom: "C6: Mencipta (Creating) + C5: Evaluating",
                 cognitive_process: "Menciptakan dan mengevaluasi solusi teknologi kompleks",
@@ -551,7 +551,7 @@
                         <div class="alert alert-info mb-4">
                             <i class="bi bi-info-circle me-2"></i>
                             <strong>Sistem Taksonomi Teknologi Adaptif DIGIDAWS</strong><br>
-                            Taksonomi berlapis dengan 4 Stage utama dan 7 Bin kemampuan, menggabungkan knowledge that, how, dan why untuk pembelajaran teknologi yang komprehensif.
+                            Taksonomi berlapis dengan 4 Stage utama dan 7 Kotak kemampuan, menggabungkan knowledge that, how, dan why untuk pembelajaran teknologi yang komprehensif.
                         </div>
                         <div class="row">
                 `;
