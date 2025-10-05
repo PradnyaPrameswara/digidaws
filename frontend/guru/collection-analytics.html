@@ -134,7 +134,7 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
           <li class="nav-item">
-            <a class="nav-link" href="/guru">Dashboard Guru</a>
+            <a class="nav-link" href="/guru">Dashboard</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="/guru/collections">Koleksi Soal</a>
@@ -1194,55 +1194,105 @@
     function initlevelDistributionChart() {
       const ctx = document.getElementById('levelDistributionChart').getContext('2d');
       
-      // Group students by current level
-      const levelDistribution = [0, 0, 0, 0, 0, 0, 0]; // For levels 1-7
+      // Group students by current level and completion status
+      const levelData = [];
       
-      studentsData.forEach(student => {
-        const level = parseInt(student.currentlevel || 1);
-        if (level >= 1 && level <= 7) {
-          levelDistribution[level - 1]++;
-        }
-      });
+      for (let level = 1; level <= 7; level++) {
+        const studentsAtLevel = studentsData.filter(student => 
+          parseInt(student.currentlevel || 1) === level
+        );
+        
+        const completed = studentsAtLevel.filter(s => s.isCompleted).length;
+        const inProgress = studentsAtLevel.filter(s => !s.isCompleted && (s.correct + s.incorrect > 0)).length;
+        const notStarted = studentsAtLevel.filter(s => (s.correct + s.incorrect === 0)).length;
+        
+        levelData.push({
+          total: studentsAtLevel.length,
+          completed,
+          inProgress,
+          notStarted
+        });
+      }
       
+      // Create stacked bar chart datasets
       chartInstances.levelDistribution = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: ['level 1', 'level 2', 'level 3', 'level 4', 'level 5', 'level 6', 'level 7'],
-          datasets: [{
-            label: 'Jumlah Siswa',
-            data: levelDistribution,
-            backgroundColor: [
-              '#0275d8', // Primary
-              '#5bc0de', // Info
-              '#5cb85c', // Success
-              '#f0ad4e', // Warning
-              '#d9534f', // Danger
-              '#292b2c', // Dark
-              '#f7f7f7'  // Light
-            ],
-            borderWidth: 1
-          }]
+          labels: ['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', 'Level 7'],
+          datasets: [
+            {
+              label: 'Selesai Mengerjakan',
+              data: levelData.map(d => d.completed),
+              backgroundColor: '#198754', // Green - consistent with status chart
+              borderWidth: 1
+            },
+            {
+              label: 'Sedang Mengerjakan',
+              data: levelData.map(d => d.inProgress),
+              backgroundColor: '#ffc107', // Yellow - consistent with status chart
+              borderWidth: 1
+            },
+            {
+              label: 'Belum Mengerjakan',
+              data: levelData.map(d => d.notStarted),
+              backgroundColor: '#6c757d', // Gray - consistent with status chart
+              borderWidth: 1
+            }
+          ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
+            x: {
+              stacked: true,
+              title: {
+                display: true,
+                text: 'Level'
+              }
+            },
             y: {
+              stacked: true,
               beginAtZero: true,
               title: {
                 display: true,
                 text: 'Jumlah Siswa'
               }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'bottom'
             },
-            x: {
-              title: {
-                display: true,
-                text: 'level'
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const datasetLabel = context.dataset.label || '';
+                  const value = context.raw || 0;
+                  const levelIndex = context.dataIndex;
+                  
+                  // Get levelData from chart instance or use the current levelData
+                  const chartLevelData = context.chart.levelData || levelData;
+                  const totalAtLevel = chartLevelData[levelIndex].total;
+                  const percentage = totalAtLevel > 0 ? ((value / totalAtLevel) * 100).toFixed(1) : 0;
+                  return `${datasetLabel}: ${value} siswa (${percentage}% dari level ini)`;
+                },
+                afterLabel: function(context) {
+                  const levelIndex = context.dataIndex;
+                  
+                  // Get levelData from chart instance or use the current levelData
+                  const chartLevelData = context.chart.levelData || levelData;
+                  const data = chartLevelData[levelIndex];
+                  return `Total di Level ${levelIndex + 1}: ${data.total} siswa`;
+                }
               }
             }
           }
         }
       });
+      
+      // Store levelData in chart instance for tooltip access
+      chartInstances.levelDistribution.levelData = levelData;
     }
 
     // Initialize level path chart
@@ -1937,6 +1987,41 @@
       // Update chart data
       chartInstances.answerDistribution.data.datasets[0].data = [completedStudents, inProgressStudents, notStartedStudents];
       chartInstances.answerDistribution.update();
+    }
+
+    // Update level distribution chart
+    function updatelevelDistributionChart(filteredStudents) {
+      if (!chartInstances.levelDistribution) return;
+      
+      // Group filtered students by current level and completion status
+      const levelData = [];
+      
+      for (let level = 1; level <= 7; level++) {
+        const studentsAtLevel = filteredStudents.filter(student => 
+          parseInt(student.currentlevel || 1) === level
+        );
+        
+        const completed = studentsAtLevel.filter(s => s.isCompleted).length;
+        const inProgress = studentsAtLevel.filter(s => !s.isCompleted && (s.correct + s.incorrect > 0)).length;
+        const notStarted = studentsAtLevel.filter(s => (s.correct + s.incorrect === 0)).length;
+        
+        levelData.push({
+          total: studentsAtLevel.length,
+          completed,
+          inProgress,
+          notStarted
+        });
+      }
+      
+      // Update chart datasets
+      chartInstances.levelDistribution.data.datasets[0].data = levelData.map(d => d.completed);
+      chartInstances.levelDistribution.data.datasets[1].data = levelData.map(d => d.inProgress);
+      chartInstances.levelDistribution.data.datasets[2].data = levelData.map(d => d.notStarted);
+      
+      // Store levelData for tooltip usage
+      chartInstances.levelDistribution.levelData = levelData;
+      
+      chartInstances.levelDistribution.update();
     }
 
     // Refresh data

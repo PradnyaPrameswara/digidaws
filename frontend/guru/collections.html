@@ -208,6 +208,420 @@
         .badge.level-7 {
             background-color: #dc3545 !important;
         }
+
+        /* Modern Page Header Styling */
+        .page-header {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 15px;
+            padding: 25px 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(13, 110, 253, 0.1);
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #0d6efd 0%, #20c997 50%, #fd7e14 100%);
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .page-title i {
+            font-size: 1.8rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .page-subtitle {
+            font-size: 1rem;
+            font-weight: 400;
+            opacity: 0.8;
+        }
+
+        /* Modern Button Styling */
+        .btn-modern {
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            border: none;
+            box-shadow: 0 4px 15px rgba(13, 110, 253, 0.2);
+        }
+
+        .btn-modern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .btn-modern:hover::before {
+            left: 100%;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(13, 110, 253, 0.3);
+        }
+
+        .btn-modern:active {
+            transform: translateY(0);
+        }
+
+        /* Collection Card Enhancements */
+        .collection-card {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        }
+
+        .collection-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .collection-card .card-body {
+            padding: 20px;
+        }
+
+        .collection-card .card-footer {
+            background: rgba(13, 110, 253, 0.05);
+            border-top: 1px solid rgba(13, 110, 253, 0.1);
+            padding: 15px 20px;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+        }
+
+        /* Card Title Enhancement */
+        .collection-card .card-title {
+            font-size: 1.1rem;
+            line-height: 1.4;
+            margin-bottom: 0;
+        }
+
+        .collection-card .card-text {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            height: 2.7em; /* Fixed height for 3 lines */
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        /* Action Button Groups */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-group-modern {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm-modern {
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-outline-primary-modern {
+            border: 2px solid #0d6efd;
+            color: #0d6efd;
+            background: transparent;
+        }
+
+        .btn-outline-primary-modern:hover {
+            background: #0d6efd;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+        }
+
+        .btn-outline-success-modern {
+            border: 2px solid #198754;
+            color: #198754;
+            background: transparent;
+        }
+
+        .btn-outline-success-modern:hover {
+            background: #198754;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-outline-info-modern {
+            border: 2px solid #0dcaf0;
+            color: #0dcaf0;
+            background: transparent;
+        }
+
+        .btn-outline-info-modern:hover {
+            background: #0dcaf0;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
+        }
+
+        .btn-outline-danger-modern {
+            border: 2px solid #dc3545;
+            color: #dc3545;
+            background: transparent;
+        }
+
+        .btn-outline-danger-modern:hover {
+            background: #dc3545;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .page-header {
+                padding: 20px;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .page-title i {
+                font-size: 1.3rem;
+            }
+
+            .action-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .btn-group-modern {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Collection Statistics Styling */
+        .collection-stats .stat-item {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .collection-stats .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .collection-stats .stat-item i {
+            transition: transform 0.3s ease;
+        }
+
+        .collection-stats .stat-item:hover i {
+            transform: scale(1.1);
+        }
+
+        /* Loading Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .collection-card {
+            animation: fadeIn 0.5s ease-out;
+            animation-fill-mode: both;
+        }
+
+        .collection-card:nth-child(1) { animation-delay: 0.1s; }
+        .collection-card:nth-child(2) { animation-delay: 0.2s; }
+        .collection-card:nth-child(3) { animation-delay: 0.3s; }
+        .collection-card:nth-child(4) { animation-delay: 0.4s; }
+
+        /* Button Group Spacing */
+        .btn-group-modern .btn {
+            margin: 2px;
+        }
+
+        /* Enhanced Loading Animation */
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        .slide-up {
+            animation: slideUp 0.5s ease-out forwards;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Button Loading State */
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            margin: auto;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Pulse Animation for Important Elements */
+        .pulse-animation {
+            animation: pulse-modern 2s infinite;
+        }
+
+        @keyframes pulse-modern {
+            0% {
+                box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(25, 135, 84, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+            }
+        }
+
+        /* Hover Effects Enhancement */
+        .collection-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-sm:hover {
+            transform: translateY(-2px);
+            transition: all 0.2s ease;
+        }
+
+        .btn-sm:active {
+            transform: translateY(0);
+        }
+
+        /* Loading State for Collection Cards */
+        .collection-card.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .collection-card.loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            z-index: 10;
+        }
+
+        /* Tooltip Enhancement */
+        .tooltip {
+            font-size: 0.875rem;
+        }
+
+        .tooltip-inner {
+            background: linear-gradient(135deg, #343a40 0%, #495057 100%);
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        @media (max-width: 576px) {
+            .page-header {
+                padding: 15px;
+            }
+
+            .btn-modern {
+                width: 100%;
+                text-align: center;
+            }
+
+            .collection-stats {
+                margin-bottom: 1rem !important;
+            }
+
+            .btn-group-modern {
+                justify-content: center;
+            }
+
+            .btn-group-modern .btn {
+                flex: 1;
+                min-width: 0;
+            }
+        }
     </style>
 </head>
 
@@ -222,7 +636,7 @@
             <div class="collapse navbar-collapse" id="mainNavbar">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/guru" id="nav-dashboard">Dashboard Guru</a>
+                        <a class="nav-link" href="/guru" id="nav-dashboard">Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/guru/collections" id="nav-collections">Koleksi Soal</a>
@@ -246,20 +660,108 @@
     </nav>
 
     <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-journal-bookmark"></i> Koleksi Soal</h2>
-            <button id="createCollectionBtn" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Buat Baru
-            </button>
+        <!-- Modern Header Section -->
+        <div class="page-header mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="page-title-section">
+                    <h2 class="page-title mb-1">
+                        <i class="bi bi-journal-bookmark text-primary me-2"></i>
+                        Koleksi Soal
+                    </h2>
+                    <p class="page-subtitle text-muted mb-0">Kelola dan analisis koleksi soal diagnostik</p>
+                </div>
+                <div class="action-buttons">
+                    <button id="createCollectionBtn" class="btn btn-primary btn-modern">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        <span>Buat Baru</span>
+                    </button>
+                </div>
+            </div>
         </div>
         
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="collectionsContainer">
+            <!-- Loading Skeleton Cards -->
             <div class="col">
-                <div class="card h-100 placeholder-glow">
+                <div class="card h-100 collection-card placeholder-glow">
                     <div class="card-body">
-                        <span class="placeholder col-6"></span>
-                        <span class="placeholder w-75"></span>
-                        <span class="placeholder" style="width: 25%;"></span>
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="card-title placeholder col-6"></h5>
+                            <span class="placeholder col-3"></span>
+                        </div>
+                        <p class="card-text placeholder col-8"></p>
+                        <p class="card-text placeholder col-6"></p>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="placeholder col-12" style="height: 60px; border-radius: 12px;"></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="placeholder col-12" style="height: 60px; border-radius: 12px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex gap-2">
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100 collection-card placeholder-glow">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="card-title placeholder col-7"></h5>
+                            <span class="placeholder col-3"></span>
+                        </div>
+                        <p class="card-text placeholder col-9"></p>
+                        <p class="card-text placeholder col-5"></p>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="placeholder col-12" style="height: 60px; border-radius: 12px;"></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="placeholder col-12" style="height: 60px; border-radius: 12px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex gap-2">
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100 collection-card placeholder-glow">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="card-title placeholder col-5"></h5>
+                            <span class="placeholder col-3"></span>
+                        </div>
+                        <p class="card-text placeholder col-7"></p>
+                        <p class="card-text placeholder col-8"></p>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="placeholder col-12" style="height: 60px; border-radius: 12px;"></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="placeholder col-12" style="height: 60px; border-radius: 12px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex gap-2">
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                            <span class="placeholder col-2" style="height: 32px; border-radius: 8px;"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -273,6 +775,9 @@
                         <div class="d-flex flex-wrap gap-2">
                             <button id="manageStudentsBtn" class="btn btn-sm btn-success">
                                 <i class="bi bi-people-fill"></i> <span class="d-none d-md-inline">Kelola</span> Siswa
+                            </button>
+                            <button id="analysisCollectionBtn" class="btn btn-sm btn-info" onclick="openCollectionAnalysis()">
+                                <i class="bi bi-graph-up"></i> <span class="d-none d-md-inline">Analisis</span> Soal
                             </button>
                             <button id="closeCollectionBtn" class="btn btn-sm btn-outline-light">
                                 <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline">Kembali</span>
@@ -562,6 +1067,79 @@
             populateClassSelect();
         });
 
+        // Loading Animation Helpers
+        function showButtonLoading(button, originalText = '') {
+            if (!originalText) {
+                originalText = button.textContent.trim();
+            }
+            button.dataset.originalText = originalText;
+            button.classList.add('btn-loading');
+            button.innerHTML = `<span class="loading-spinner"></span> Loading...`;
+            button.disabled = true;
+        }
+
+        function hideButtonLoading(button) {
+            const originalText = button.dataset.originalText || 'Action';
+            button.classList.remove('btn-loading');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
+
+        function showCardLoading(card) {
+            card.classList.add('placeholder-glow');
+            const content = card.querySelector('.card-body');
+            if (content) {
+                content.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="card-title placeholder col-6"></h5>
+                        <span class="placeholder col-3"></span>
+                    </div>
+                    <p class="card-text placeholder col-8"></p>
+                    <p class="card-text placeholder col-6"></p>
+                `;
+            }
+        }
+
+        function fadeInElement(element, delay = 0) {
+            setTimeout(() => {
+                element.classList.add('fade-in');
+            }, delay);
+        }
+
+        function showSuccessToast(message) {
+            // Create toast element
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-success border-0 position-fixed" 
+                     style="top: 20px; right: 20px; z-index: 9999;" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="bi bi-check-circle me-2"></i>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', toastHtml);
+            const toastElement = document.body.lastElementChild;
+            const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+            toast.show();
+            
+            // Remove element after hiding
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
+        }
+
+        function smoothScrollTo(element, offset = 100) {
+            const elementPosition = element.offsetTop - offset;
+            window.scrollTo({
+                top: elementPosition,
+                behavior: 'smooth'
+            });
+        }
+
         function populateClassSelect() {
             const select = document.getElementById('classToAddSelect');
             select.innerHTML = '<option value="">-- Pilih Kelas --</option>';
@@ -781,9 +1359,32 @@
             });
 
             // Inisialisasi tooltip
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
+            initializeTooltips();
+            
+            // Add hover effects to buttons
+            document.addEventListener('mouseenter', (e) => {
+                if (e.target.matches('.btn')) {
+                    e.target.style.transition = 'all 0.2s ease';
+                }
+            }, true);
+
+            // Add keyboard navigation support
+            document.addEventListener('keydown', (e) => {
+                // Escape key to close modals or details
+                if (e.key === 'Escape') {
+                    const detailView = document.getElementById('collectionDetail');
+                    if (detailView.style.display !== 'none') {
+                        document.getElementById('closeCollectionBtn').click();
+                    }
+                }
+            });
+
+            // Add loading state to form submissions
+            document.addEventListener('submit', (e) => {
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    showButtonLoading(submitBtn);
+                }
             });
             
             // We'll set up the description and validation event listeners when the detail view is loaded
@@ -1037,6 +1638,8 @@ async function loadCollections() {
                 
                 if (result.success && collectionsWithCount) {
                     renderCollections(collectionsWithCount);
+                    // Re-initialize tooltips after rendering
+                    setTimeout(() => initializeTooltips(), 100);
                 } else {
                     throw new Error(result.message || 'Gagal memuat koleksi');
                 }
@@ -1089,31 +1692,56 @@ function renderCollections(collections) {
                 return;
             }
             
-            container.innerHTML = collections.map(col => `
+            container.innerHTML = collections.map((col, index) => `
                 <div class="col">
-                    <div class="card h-100 shadow-sm" data-id="${col.id}">
+                    <div class="card h-100 collection-card fade-in" data-id="${col.id}" style="animation-delay: ${index * 0.1}s">
                         <div class="card-body">
-                            <h5 class="card-title">${escapeHtml(col.name)}</h5>
-                            <p class="card-text text-muted small">${escapeHtml(col.description) || 'Tidak ada deskripsi'}</p>
-                            <div class="d-flex justify-content-between align-items-center mt-3">
-                                <div>
-                                    <span class="badge bg-primary">${col.question_count} Soal</span>
-                                    <span class="badge bg-success">${col.student_count || 0} Siswa</span>
-                                </div>
-                                <div class="collection-options">
-                                    <button class="btn btn-sm btn-outline-danger btn-delete-collection" data-id="${col.id}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="card-title mb-0 text-primary fw-bold">${escapeHtml(col.name)}</h5>
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-calendar-event me-1"></i>
+                                    ${col.created_at ? new Date(col.created_at).toLocaleDateString('id-ID') : 'N/A'}
+                                </span>
+                            </div>
+                            <p class="card-text text-muted mb-3 small">${escapeHtml(col.description) || 'Tidak ada deskripsi'}</p>
+                            <div class="collection-stats mb-3">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <div class="stat-item text-center p-2 bg-primary bg-opacity-10 rounded-3">
+                                            <i class="bi bi-question-circle text-primary fs-5"></i>
+                                            <div class="fw-bold text-primary">${col.question_count || 0}</div>
+                                            <small class="text-muted">Soal</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-item text-center p-2 bg-success bg-opacity-10 rounded-3">
+                                            <i class="bi bi-people text-success fs-5"></i>
+                                            <div class="fw-bold text-success">${col.student_count || 0}</div>
+                                            <small class="text-muted">Siswa</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="card-footer bg-transparent border-top d-flex justify-content-between">
-                            <button class="btn btn-link text-decoration-none view-collection-btn" data-id="${col.id}">
-                                Lihat Detail <i class="bi bi-arrow-right"></i>
-                            </button>
-                            <a href="/collection-analytics/${col.id}" class="btn btn-sm btn-outline-info" data-id="${col.id}">
-                                <i class="bi bi-graph-up"></i> Analisis
-                            </a>
+                        <div class="card-footer">
+                            <div class="btn-group-modern">
+                                <button class="btn btn-sm btn-outline-primary-modern view-collection-btn" data-id="${col.id}" title="Lihat Detail Koleksi">
+                                    <i class="bi bi-eye"></i>
+                                    <span class="d-none d-md-inline ms-1">Detail</span>
+                                </button>
+                                <a href="/collection-analytics/${col.id}" class="btn btn-sm btn-outline-info-modern" data-id="${col.id}" title="Analisis Koleksi">
+                                    <i class="bi bi-graph-up"></i>
+                                    <span class="d-none d-md-inline ms-1">Analisis</span>
+                                </a>
+                                <button class="btn btn-sm btn-outline-success-modern btn-validate-collection" data-id="${col.id}" title="Validasi Semua Soal">
+                                    <i class="bi bi-check-circle"></i>
+                                    <span class="d-none d-lg-inline ms-1">Validasi</span>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger-modern btn-delete-collection" data-id="${col.id}" title="Hapus Koleksi">
+                                    <i class="bi bi-trash"></i>
+                                    <span class="d-none d-lg-inline ms-1">Hapus</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1125,7 +1753,14 @@ function renderCollections(collections) {
                 e.preventDefault();
                 const link = e.target.closest('a[href^="/collection-analytics/"]');
                 const collectionId = link.getAttribute('data-id');
-                window.location.href = `/collection-analytics/${collectionId}`;
+                
+                // Show loading animation on button
+                showButtonLoading(link, link.innerHTML);
+                
+                // Add slight delay for better UX
+                setTimeout(() => {
+                    window.location.href = `/collection-analytics/${collectionId}`;
+                }, 300);
             }
         });
 
@@ -1395,17 +2030,62 @@ function renderCollections(collections) {
                 html: `
                     <input type="text" id="name" class="swal2-input" placeholder="Nama Koleksi" required>
                     <textarea id="description" class="swal2-textarea" placeholder="Deskripsi (opsional)"></textarea>
+                    <div id="nameValidationMessage" style="color: #d32f2f; font-size: 0.8em; margin-top: 5px; display: none;"></div>
                 `,
                 focusConfirm: false,
                 showCancelButton: true,
                 confirmButtonText: 'Simpan',
                 cancelButtonText: 'Batal',
+                didOpen: () => {
+                    // Add real-time validation for collection name
+                    const nameInput = document.getElementById('name');
+                    const validationMessage = document.getElementById('nameValidationMessage');
+                    let validationTimeout;
+                    
+                    nameInput.addEventListener('input', () => {
+                        clearTimeout(validationTimeout);
+                        validationMessage.style.display = 'none';
+                        
+                        const name = nameInput.value.trim();
+                        if (name.length > 2) {
+                            validationTimeout = setTimeout(async () => {
+                                try {
+                                    // Check if name exists using API endpoint
+                                    const response = await fetch('/api/collections/check-name', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ name: name })
+                                    });
+                                    
+                                    if (response.ok) {
+                                        const result = await response.json();
+                                        if (result.success && result.exists) {
+                                            validationMessage.textContent = `Koleksi dengan nama "${name}" sudah ada. Gunakan nama yang berbeda.`;
+                                            validationMessage.style.display = 'block';
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Error validating name:', error);
+                                }
+                            }, 500);
+                        }
+                    });
+                },
                 preConfirm: () => {
                     const name = document.getElementById('name').value;
+                    const validationMessage = document.getElementById('nameValidationMessage');
+                    
                     if (!name.trim()) {
                         Swal.showValidationMessage('Nama koleksi harus diisi');
                         return false;
                     }
+                    
+                    // Check if validation message is shown
+                    if (validationMessage.style.display !== 'none' && validationMessage.textContent) {
+                        Swal.showValidationMessage(validationMessage.textContent);
+                        return false;
+                    }
+                    
                     return {
                         name: name.trim(),
                         description: document.getElementById('description').value.trim()
@@ -1421,17 +2101,13 @@ function renderCollections(collections) {
                         body: JSON.stringify(formData)
                     });
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Error ${response.status}: ${errorText}`);
-                    }
-
                     const result = await response.json();
                     
                     if (result.success) {
                         showSuccess('Koleksi berhasil dibuat');
                         await loadCollections();
                     } else {
+                        // Handle validation error (like duplicate name)
                         throw new Error(result.message || 'Gagal membuat koleksi');
                     }
                 }
@@ -2052,6 +2728,37 @@ function renderCollections(collections) {
             }
         }
         
+        // Function to initialize tooltips
+        function initializeTooltips() {
+            // Dispose existing tooltips first
+            const existingTooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+            existingTooltips.forEach(element => {
+                const tooltip = bootstrap.Tooltip.getInstance(element);
+                if (tooltip) {
+                    tooltip.dispose();
+                }
+            });
+
+            // Initialize new tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title], [data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl, {
+                    placement: 'top',
+                    trigger: 'hover',
+                    delay: { show: 500, hide: 100 }
+                });
+            });
+        }
+
+        // Function to open collection analysis page
+        function openCollectionAnalysis() {
+            if (currentCollection && currentCollection.id) {
+                window.location.href = `/collection-analytics/${currentCollection.id}`;
+            } else {
+                showError('Data koleksi tidak tersedia untuk analisis');
+            }
+        }
+
         // Function to validate all questions in a collection
         async function validateAllQuestions(collectionId) {
             // Ask for confirmation first

@@ -960,13 +960,13 @@ def load_user(user_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
 
-        user = Guru.query.filter_by(username=username).first()
+        user = Guru.query.filter_by(email=email).first()
         
         if not user:
-            user = Siswa.query.filter_by(username=username).first()
+            user = Siswa.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
             login_user(user)
@@ -987,7 +987,7 @@ def login():
                 flash("Login berhasil, tetapi peran tidak dikenal.", "info")
                 return redirect(url_for('index'))
         else:
-            flash("Username atau password salah", "error")
+            flash("Email atau password salah", "error")
             return redirect(url_for('login'))
 
     return render_template('login.html')
@@ -1003,7 +1003,6 @@ def logout():
 def register():
     if request.method == 'POST':
         nama = request.form.get('nama')
-        username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
@@ -1013,24 +1012,23 @@ def register():
         kelas = request.form.get('kelas') 
 
         # Log untuk debugging
-        print(f"Register attempt: Nama={nama}, Username={username}, Email={email}, Role={role}, Kelas={kelas}")
+        print(f"Register attempt: Nama={nama}, Email={email}, Role={role}, Kelas={kelas}")
 
         if password != confirm_password:
             flash("Password dan konfirmasi password tidak sama!", "error")
             return render_template('register.html', 
-                                   nama=nama, username=username, email=email, role=role, kelas=kelas)
+                                   nama=nama, email=email, role=role, kelas=kelas)
         
         # Cek duplikasi berdasarkan peran
         if role == 'guru':
-            existing_user = Guru.query.filter_by(username=username).first() or \
-                            Guru.query.filter_by(email=email).first()
+            existing_user = Guru.query.filter_by(email=email).first()
             if existing_user:
-                flash("Username atau email sudah terdaftar sebagai Guru.", "error")
+                flash("Email sudah terdaftar sebagai Guru.", "error")
                 return render_template('register.html', 
-                                       nama=nama, username=username, email=email, role=role, kelas=kelas)
+                                       nama=nama, email=email, role=role, kelas=kelas)
             
             new_user = Guru(
-                username=username,
+                username=email,  # Gunakan email sebagai username untuk kompatibilitas
                 email=email,
                 nama=nama
             )
@@ -1041,21 +1039,20 @@ def register():
             return redirect(url_for('login'))
         
         elif role == 'siswa': # role == 'siswa'
-            existing_user = Siswa.query.filter_by(username=username).first() or \
-                            Siswa.query.filter_by(email=email).first()
+            existing_user = Siswa.query.filter_by(email=email).first()
             if existing_user:
-                flash("Username atau email sudah terdaftar sebagai Siswa.", "error")
+                flash("Email sudah terdaftar sebagai Siswa.", "error")
                 return render_template('register.html', 
-                                       nama=nama, username=username, email=email, role=role, kelas=kelas)
+                                       nama=nama, email=email, role=role, kelas=kelas)
             
             # Pastikan kelas dipilih untuk siswa
             if not kelas:
                 flash("Kelas harus dipilih untuk siswa!", "error")
                 return render_template('register.html', 
-                                       nama=nama, username=username, email=email, role=role, kelas=kelas)
+                                       nama=nama, email=email, role=role, kelas=kelas)
 
             new_user = Siswa(
-                username=username,
+                username=email,  # Gunakan email sebagai username untuk kompatibilitas
                 email=email,
                 nama=nama,
                 kelas=kelas # Simpan kelas siswa
@@ -1068,7 +1065,7 @@ def register():
         else: # Handle case where role is not 'guru' or 'siswa' (shouldn't happen with proper frontend)
             flash("Peran registrasi tidak valid.", "error")
             return render_template('register.html', 
-                                   nama=nama, username=username, email=email, role=role, kelas=kelas)
+                                   nama=nama, email=email, role=role, kelas=kelas)
             
     # Untuk permintaan GET, render template register
     # Peran default di sini bisa 'siswa' agar form siswa langsung muncul
@@ -1127,43 +1124,52 @@ def get_level_description(level):
     return descriptions.get(level, "Level Tidak Dikenal")
 
 def get_level_description_short(level):
-    """Mengembalikan deskripsi singkat untuk level numerik."""
+    """Mengembalikan deskripsi singkat untuk level numerik berdasarkan taksonomi teknologi."""
     descriptions = {
-        1: "Kesadaran Teknologi",
-        2: "Literasi Teknologi",
-        3: "Aplikasi Dasar",
-        4: "Aplikasi Lanjut",
-        5: "Kemampuan Rendah",
-        6: "Kemampuan Menengah",
-        7: "Kemampuan Tinggi",
+        1: "Stage I (Bin 1) - Kesadaran Teknologi",
+        2: "Stage II (Bin 2) - Literasi Teknologi",
+        3: "Stage III (Bin 3) - Kemampuan Teknologi",
+        4: "Stage III (Bin 4) - Kreativitas Teknologi (Dasar)",
+        5: "Stage IV (Bin 5) - Kemampuan Teknologi (Penguatan)",
+        6: "Stage IV (Bin 6) - Kritik Teknologi",
+        7: "Stage IV (Bin 7) - Kreativitas + Kritik Teknologi (Final Tinggi)",
     }
     return descriptions.get(level, "Level Tidak Dikenal")
 
-def get_bloom_taxonomy(level):
-    """Mengembalikan taksonomi Bloom untuk level numerik (format lengkap)."""
-    bloom_mapping = {
-        1: "C1: Mengingat (Remembering)",
-        2: "C2: Memahami (Understanding)", 
-        3: "C3: Menerapkan (Applying)",
-        4: "C4: Menganalisis (Analyzing)",
-        5: "C6: Mencipta (Creating) - Tingkat Dasar",
-        6: "C6: Mencipta (Creating) - Tingkat Menengah",
-        7: "C5: Mengevaluasi (Evaluating)"
+def get_technology_taxonomy(level):
+    """Mengembalikan taksonomi teknologi untuk level numerik (format lengkap)."""
+    technology_mapping = {
+        1: "Knowledge That - Definisi, istilah, identifikasi teknologi dasar",
+        2: "Knowledge That - Klasifikasi, hubungan antar teknologi, penjelasan fungsi", 
+        3: "Knowledge That + How - Aplikasi praktis, instruksi, puzzle urutan",
+        4: "Knowledge That + How - Modifikasi, debugging, analisis error sederhana",
+        5: "Knowledge That + How - Aplikasi lanjutan, puzzle assembly terbimbing",
+        6: "Knowledge That + How + Why - Evaluasi trade-off, menilai solusi, kritik teknologi",
+        7: "Knowledge That + How + Why - Merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi"
     }
-    return bloom_mapping.get(level, "Tidak Dikenal")
+    return technology_mapping.get(level, "Tidak Dikenal")
+
+def get_technology_taxonomy_short(level):
+    """Mengembalikan taksonomi teknologi untuk level numerik (format singkat)."""
+    technology_mapping = {
+        1: "Know That",
+        2: "Know That", 
+        3: "Know That + How",
+        4: "Know That + How",
+        5: "Know That + How",
+        6: "Know That + How + Why",
+        7: "Know That + How + Why"
+    }
+    return technology_mapping.get(level, "Tidak Dikenal")
+
+# Legacy functions for backward compatibility (deprecated)
+def get_bloom_taxonomy(level):
+    """DEPRECATED: Gunakan get_technology_taxonomy() sebagai gantinya."""
+    return get_technology_taxonomy(level)
 
 def get_bloom_taxonomy_short(level):
-    """Mengembalikan taksonomi Bloom untuk level numerik (format singkat - hanya C)."""
-    bloom_mapping = {
-        1: "C1",
-        2: "C2", 
-        3: "C3",
-        4: "C4",
-        5: "C6",
-        6: "C6",
-        7: "C5"
-    }
-    return bloom_mapping.get(level, "Tidak Dikenal")
+    """DEPRECATED: Gunakan get_technology_taxonomy_short() sebagai gantinya.""" 
+    return get_technology_taxonomy_short(level)
 
 # =========================================
 # FUNGSI EVALUASI JAWABAN
@@ -4196,6 +4202,19 @@ def create_collection():
     if not data.get('name'):
         return jsonify({'success': False, 'message': 'Nama koleksi harus diisi'}), 400
     
+    # Cek apakah nama koleksi sudah ada untuk guru ini
+    existing_collection = QuestionCollection.query.filter_by(
+        guru_id=current_user.id,
+        name=data.get('name')
+    ).first()
+    
+    if existing_collection:
+        app.logger.warning(f"Attempt to create duplicate collection '{data.get('name')}' for guru {current_user.id}")
+        return jsonify({
+            'success': False, 
+            'message': f'Koleksi dengan nama "{data.get("name")}" sudah ada. Silakan gunakan nama yang berbeda.'
+        }), 400
+    
     # Buat koleksi baru
     collection = QuestionCollection(
         guru_id=current_user.id,
@@ -4224,6 +4243,30 @@ def create_collection():
         'success': True, 
         'message': 'Koleksi berhasil dibuat', 
         'collection_id': collection.id
+    })
+
+@app.route('/api/collections/check-name', methods=['POST'])
+@login_required
+def check_collection_name():
+    """Endpoint untuk memeriksa apakah nama koleksi sudah ada"""
+    data = request.json
+    
+    if not data.get('name'):
+        return jsonify({'success': False, 'message': 'Nama koleksi harus diisi'}), 400
+    
+    # Cek apakah nama koleksi sudah ada untuk guru ini
+    existing_collection = QuestionCollection.query.filter_by(
+        guru_id=current_user.id,
+        name=data.get('name')
+    ).first()
+    
+    # Log untuk debugging
+    app.logger.info(f"Checking collection name '{data.get('name')}' for guru {current_user.id}: {'exists' if existing_collection else 'available'}")
+    
+    return jsonify({
+        'success': True,
+        'exists': existing_collection is not None,
+        'message': 'Nama sudah digunakan' if existing_collection else 'Nama tersedia'
     })
 
 @app.route('/api/collections/<int:collection_id>/details', methods=['GET'])
@@ -5654,8 +5697,8 @@ def export_result_excel_teacher():
                 # Add title - disesuaikan untuk kolom baru
                 worksheet.merge_range('A1:K1', f"RINGKASAN HASIL TES KELAS {class_id} - {collection.name}", title_format)
                 
-                # Set up headers for class summary - tambah Taksonomi Bloom
-                headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Bloom', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+                # Set up headers for class summary - tambah Taksonomi Teknologi
+                headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Teknologi', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
                 for col, header in enumerate(headers):
                     worksheet.write(2, col, header, header_format)
                 
@@ -5722,9 +5765,9 @@ def export_result_excel_teacher():
                         worksheet.write(row, 1, student.nama, data_format_teacher)
                         worksheet.write(row, 2, student.kelas, data_format_teacher)
                         worksheet.write(row, 3, current_level, num_format_teacher)
-                        # --- PERUBAHAN: Tambah kolom keterangan level dan Taksonomi Bloom ---
+                        # --- PERUBAHAN: Tambah kolom keterangan level dan Taksonomi Teknologi ---
                         worksheet.write(row, 4, level_desc, description_format_teacher)
-                        worksheet.write(row, 5, get_bloom_taxonomy_short(current_level), data_format_teacher)
+                        worksheet.write(row, 5, get_technology_taxonomy_short(current_level), data_format_teacher)
                         worksheet.write(row, 6, correct, num_format_teacher)
                         worksheet.write(row, 7, incorrect, num_format_teacher)
                         worksheet.write(row, 8, total, num_format_teacher)
@@ -5762,7 +5805,7 @@ def export_result_excel_teacher():
                 # Skip a row
                 row += 1
                 
-                # Summary row - sesuaikan posisi kolom untuk Taksonomi Bloom
+                # Summary row - sesuaikan posisi kolom untuk Taksonomi Teknologi
                 bold_format = workbook.add_format({'bold': True})
                 worksheet.write(row, 0, "SUMMARY", bold_format)
                 worksheet.write(row, 1, f"Total Siswa: {total_students}")
@@ -5772,13 +5815,13 @@ def export_result_excel_teacher():
                 worksheet.write(row, 9, f"Akurasi Rata-rata: {avg_accuracy}%")
                 worksheet.write(row, 10, f"Penyelesaian: {completion_rate}%")
                 
-                # Format columns dengan spacing yang lebih baik - tambah Taksonomi Bloom
+                # Format columns dengan spacing yang lebih baik - tambah Taksonomi Teknologi
                 worksheet.set_column('A:A', 5)   # No
                 worksheet.set_column('B:B', 25)  # Nama
                 worksheet.set_column('C:C', 12)  # Kelas
                 worksheet.set_column('D:D', 8)   # Level
                 worksheet.set_column('E:E', 20)  # Keterangan Level (singkat)
-                worksheet.set_column('F:F', 15)  # Taksonomi Bloom (format singkat)
+                worksheet.set_column('F:F', 18)  # Taksonomi Teknologi (format singkat)
                 worksheet.set_column('G:G', 15)  # Jawaban Benar
                 worksheet.set_column('H:H', 15)  # Jawaban Salah
                 worksheet.set_column('I:I', 10)  # Total
@@ -5800,12 +5843,12 @@ def export_result_excel_teacher():
                         'Jumlah Siswa': count,
                         'Persentase': round((count / total_students * 100), 2) if total_students > 0 else 0,
                         'Keterangan': get_level_description_short(level),
-                        'Taksonomi Bloom': get_bloom_taxonomy(level)
+                        'Taksonomi Teknologi': get_technology_taxonomy(level)
                     })
                 
                 # Write level distribution data
                 level_sheet.merge_range('A1:E1', f"DISTRIBUSI LEVEL - {collection.name}", title_format)
-                level_headers = ['Level', 'Jumlah Siswa', 'Persentase (%)', 'Keterangan', 'Taksonomi Bloom']
+                level_headers = ['Level', 'Jumlah Siswa', 'Persentase (%)', 'Keterangan', 'Taksonomi Teknologi']
                 for col, header in enumerate(level_headers):
                     level_sheet.write(2, col, header, header_format)
                 
@@ -5822,7 +5865,7 @@ def export_result_excel_teacher():
                     level_sheet.write(i + 3, 1, data['Jumlah Siswa'], num_format_teacher)
                     level_sheet.write(i + 3, 2, data['Persentase'], num_format_teacher)
                     level_sheet.write(i + 3, 3, data['Keterangan'], desc_format)
-                    level_sheet.write(i + 3, 4, data['Taksonomi Bloom'], data_format_teacher)
+                    level_sheet.write(i + 3, 4, data['Taksonomi Teknologi'], data_format_teacher)
                     level_sheet.set_row(i + 3, 25)  # Set row height
                 
                 # Format columns dengan spacing yang lebih baik
@@ -5830,7 +5873,7 @@ def export_result_excel_teacher():
                 level_sheet.set_column('B:B', 15)  # Jumlah Siswa
                 level_sheet.set_column('C:C', 15)  # Persentase (%)
                 level_sheet.set_column('D:D', 45)  # Keterangan
-                level_sheet.set_column('E:E', 18)  # Taksonomi Bloom
+                level_sheet.set_column('E:E', 25)  # Taksonomi Teknologi
                 
                 # Create a chart for level distribution
                 chart = workbook.add_chart({'type': 'column'})
@@ -6058,23 +6101,23 @@ def export_all_collection_data():
                 row += 1
             
             # ===== KETERANGAN LEVEL SECTION =====
-            summary_sheet.write('A19', 'Keterangan Level Soal dan Taksonomi Bloom:', heading_format)
+            summary_sheet.write('A19', 'Keterangan Level Soal dan Taksonomi Teknologi:', heading_format)
             
-            # Level descriptions with Bloom taxonomy
+            # Level descriptions with Technology taxonomy
             level_descriptions = [
-                ('Level 1', 'Kesadaran Teknologi: Pemahaman dasar tentang konsep dan istilah', 'C1: Mengingat (Remembering)'),
-                ('Level 2', 'Literasi Teknologi: Mampu menjelaskan konsep dan cara kerjanya', 'C2: Memahami (Understanding)'),
-                ('Level 3', 'Aplikasi Dasar: Mampu menerapkan konsep pada masalah sederhana', 'C3: Menerapkan (Applying)'),
-                ('Level 4', 'Aplikasi Lanjut: Mampu menganalisis dan memecahkan masalah kompleks', 'C4: Menganalisis (Analyzing)'),
-                ('Level 5', 'Kemampuan Rendah: Telah menyelesaikan tes dengan penguasaan pada tingkat dasar', 'C6: Mencipta (Creating) - Tingkat Dasar'),
-                ('Level 6', 'Kemampuan Menengah: Telah menyelesaikan tes dengan penguasaan pada tingkat menengah', 'C6: Mencipta (Creating) - Tingkat Menengah'),
-                ('Level 7', 'Kemampuan Tinggi: Telah menyelesaikan tes dengan penguasaan pada tingkat mahir', 'C5: Mengevaluasi (Evaluating)')
+                ('Level 1', 'Stage I (Bin 1) - Kesadaran Teknologi: Definisi, istilah, identifikasi teknologi dasar', 'Knowledge That'),
+                ('Level 2', 'Stage II (Bin 2) - Literasi Teknologi: Klasifikasi, hubungan antar teknologi, penjelasan fungsi', 'Knowledge That'),
+                ('Level 3', 'Stage III (Bin 3) - Kemampuan Teknologi: Aplikasi praktis, instruksi, puzzle urutan', 'Knowledge That + How'),
+                ('Level 4', 'Stage III (Bin 4) - Kreativitas Teknologi (Dasar): Modifikasi, debugging, analisis error sederhana', 'Knowledge That + How'),
+                ('Level 5', 'Stage IV (Bin 5) - Kemampuan Teknologi (Penguatan): Aplikasi lanjutan, puzzle assembly terbimbing', 'Knowledge That + How'),
+                ('Level 6', 'Stage IV (Bin 6) - Kritik Teknologi: Evaluasi trade-off, menilai solusi, kritik teknologi', 'Knowledge That + How + Why'),
+                ('Level 7', 'Stage IV (Bin 7) - Kreativitas + Kritik Teknologi (Final Tinggi): Merancang solusi baru, integrasi multi-konsep', 'Knowledge That + How + Why')
             ]
             
             # Headers for level descriptions
             summary_sheet.write('A20', 'Level', header_format)
             summary_sheet.write('B20', 'Keterangan', header_format)
-            summary_sheet.write('C20', 'Taksonomi Bloom', header_format)
+            summary_sheet.write('C20', 'Taksonomi Teknologi', header_format)
             
             # Create format for level descriptions with text wrapping
             description_format = workbook.add_format({
@@ -6085,17 +6128,17 @@ def export_all_collection_data():
             })
             
             row = 21
-            for level_name, description, bloom in level_descriptions:
+            for level_name, description, technology_taxonomy in level_descriptions:
                 summary_sheet.write(f'A{row}', level_name, data_format)
                 summary_sheet.write(f'B{row}', description, description_format)
-                summary_sheet.write(f'C{row}', bloom, description_format)
+                summary_sheet.write(f'C{row}', technology_taxonomy, description_format)
                 summary_sheet.set_row(row-1, 25)  # Set row height for better readability
                 row += 1
             
             # Format column widths with better spacing
             summary_sheet.set_column('A:A', 15)  # Level
             summary_sheet.set_column('B:B', 50)  # Keterangan
-            summary_sheet.set_column('C:C', 35)  # Taksonomi Bloom
+            summary_sheet.set_column('C:C', 30)  # Taksonomi Teknologi
             summary_sheet.set_column('D:D', 20)
             summary_sheet.set_column('E:E', 15)
             summary_sheet.set_column('F:F', 3)
@@ -6108,8 +6151,8 @@ def export_all_collection_data():
             # Title - disesuaikan dengan jumlah kolom baru
             students_sheet.merge_range('A1:K1', f"DATA SISWA - {collection.name}", title_format)
             
-            # Headers - tambah kolom Taksonomi Bloom
-            headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Bloom', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+            # Headers - tambah kolom Taksonomi Teknologi
+            headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Teknologi', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
             for col, header in enumerate(headers):
                 students_sheet.write(2, col, header, header_format)
             
@@ -6137,13 +6180,13 @@ def export_all_collection_data():
                     is_completed = False
                     status = "Belum Mulai"
                 
-                # Write to Excel - tambah kolom Taksonomi Bloom
+                # Write to Excel - tambah kolom Taksonomi Teknologi
                 students_sheet.write(row, 0, i, num_format)
                 students_sheet.write(row, 1, student.nama, data_format)
                 students_sheet.write(row, 2, student.kelas or "-", data_format)
                 students_sheet.write(row, 3, current_level, num_format)
                 students_sheet.write(row, 4, get_level_description_short(current_level), data_format)
-                students_sheet.write(row, 5, get_bloom_taxonomy_short(current_level), data_format)
+                students_sheet.write(row, 5, get_technology_taxonomy_short(current_level), data_format)
                 students_sheet.write(row, 6, correct, num_format)
                 students_sheet.write(row, 7, incorrect, num_format)
                 students_sheet.write(row, 8, total, num_format)
@@ -6264,8 +6307,8 @@ def export_all_collection_data():
                 # Title - disesuaikan dengan kolom baru
                 question_sheet.merge_range('A1:G1', f"ANALISIS SOAL - {collection.name}", title_format)
                 
-                # Headers - tambah Taksonomi Bloom
-                question_headers = ['Level', 'Taksonomi Bloom', 'Soal', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)']
+                # Headers - tambah Taksonomi Teknologi
+                question_headers = ['Level', 'Taksonomi Teknologi', 'Soal', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)']
                 for col, header in enumerate(question_headers):
                     question_sheet.write(2, col, header, header_format)
                 
@@ -6290,9 +6333,9 @@ def export_all_collection_data():
                         'valign': 'top'
                     })
                     
-                    # Write to Excel - tambah kolom Taksonomi Bloom
+                    # Write to Excel - tambah kolom Taksonomi Teknologi
                     question_sheet.write(row, 0, question.level, num_format)
-                    question_sheet.write(row, 1, get_bloom_taxonomy_short(question.level), data_format)
+                    question_sheet.write(row, 1, get_technology_taxonomy_short(question.level), data_format)
                     question_sheet.write(row, 2, question.soal, question_format)
                     question_sheet.write(row, 3, correct_count, num_format)
                     question_sheet.write(row, 4, incorrect_count, num_format)
@@ -6304,9 +6347,9 @@ def export_all_collection_data():
                     
                     row += 1
                 
-                # Format columns dengan spacing yang lebih baik - tambah kolom Taksonomi Bloom
+                # Format columns dengan spacing yang lebih baik - tambah kolom Taksonomi Teknologi
                 question_sheet.set_column('A:A', 8)   # Level
-                question_sheet.set_column('B:B', 15)  # Taksonomi Bloom (format singkat)
+                question_sheet.set_column('B:B', 20)  # Taksonomi Teknologi (format singkat)
                 question_sheet.set_column('C:C', 45)  # Soal
                 question_sheet.set_column('D:D', 15)  # Jawaban Benar
                 question_sheet.set_column('E:E', 15)  # Jawaban Salah

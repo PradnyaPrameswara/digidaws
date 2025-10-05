@@ -43,6 +43,26 @@
             align-items: flex-start;
             min-height: 100vh;
             padding: 2rem 1rem;
+            padding-top: 5rem; /* Add padding for fixed navbar */
+        }
+
+        /* Navbar Styles */
+        .navbar {
+            background-color: #0d6efd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .navbar-brand-disabled {
+            color: white !important;
+            text-decoration: none;
+            cursor: default;
+            pointer-events: none;
+            font-weight: bold;
+        }
+        
+        .user-info {
+            color: white;
+            margin-right: 15px;
         }
 
         .quiz-container {
@@ -219,6 +239,21 @@
     </style>
 </head>
 <body>
+    <!-- Fixed Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <span class="navbar-brand navbar-brand-disabled" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIGIDAWS</span>
+            <div class="d-flex align-items-center">
+                <span class="user-info">
+                    <i class="bi bi-person-circle"></i> {{ current_user.nama }} ({{ current_user.kelas }})
+                </span>
+                <span class="badge bg-warning text-dark">
+                    <i class="bi bi-clock-fill"></i> Tes Sedang Berlangsung
+                </span>
+            </div>
+        </div>
+    </nav>
+
     <div class="quiz-container">
         <!-- Header Kuis -->
         <div class="quiz-header">

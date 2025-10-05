@@ -105,13 +105,8 @@
         <form id="registerForm" action="/register" method="POST">
             <input type="hidden" name="role" id="roleInput" value="{{ role if role else 'siswa' }}"> 
             
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <input type="text" class="form-control" name="nama" placeholder="Nama Lengkap" value="{{ nama if nama else '' }}" required>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <input type="text" class="form-control" name="username" placeholder="Username" value="{{ username if username else '' }}" required>
-                </div>
+            <div class="mb-3">
+                <input type="text" class="form-control" name="nama" placeholder="Nama Lengkap" value="{{ nama if nama else '' }}" required>
             </div>
             
             <div class="mb-3">

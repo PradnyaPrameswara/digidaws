@@ -119,6 +119,137 @@
         .modal-body .guide-step { display: none; }
         .modal-body .guide-step.active { display: block; }
         .progress-bar { transition: width 0.4s ease; }
+
+        /* Custom styling for taxonomy modal */
+        .custom-taxonomy-popup {
+            border-radius: 15px !important;
+            overflow: hidden;
+        }
+        
+        .custom-taxonomy-title {
+            background: linear-gradient(135deg, #0d6efd, #6610f2) !important;
+            color: white !important;
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+        }
+        
+        .custom-taxonomy-content {
+            padding: 20px !important;
+        }
+        
+        .level-card {
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+        }
+        
+        .level-card:hover {
+            transform: translateY(-3px) !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
+        }
+        
+        .level-taxonomy-icon {
+            transition: all 0.3s ease;
+        }
+        
+        .level-card:hover .level-taxonomy-icon {
+            transform: scale(1.1);
+        }
+        
+        /* Enhanced progress bars */
+        .taxonomy-progress {
+            background-color: rgba(0,0,0,0.1) !important;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .taxonomy-progress .progress-bar {
+            transition: width 0.8s ease-in-out !important;
+            border-radius: 10px;
+        }
+        
+        /* Level badge styling */
+        .level-badge-interactive {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .level-badge-interactive:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        /* Enhanced chart card styling */
+        .level-chart-card .card-body h5 {
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+        }
+        
+        .level-chart-card .card-body p {
+            font-size: 0.95rem !important;
+            font-weight: bold !important;
+        }
+        
+        .level-chart-card .card-body i {
+            transition: transform 0.3s ease;
+        }
+        
+        .level-chart-card:hover .card-body i {
+            transform: scale(1.1);
+        }
+        
+        .level-badge-interactive::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            border-radius: inherit;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .level-badge-interactive:hover::before {
+            opacity: 1;
+        }
+
+        /* Animate.css fallback if not loaded */
+        .animate__animated {
+            animation-duration: 0.5s;
+            animation-fill-mode: both;
+        }
+        
+        .animate__fadeInUp {
+            animation-name: fadeInUp;
+        }
+        
+        .animate__fadeOutDown {
+            animation-name: fadeOutDown;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translate3d(0, 40px, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+        
+        @keyframes fadeOutDown {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+                transform: translate3d(0, 40px, 0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -132,7 +263,7 @@
             <div class="collapse navbar-collapse" id="mainNavbar">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/guru" id="nav-dashboard">Dashboard Guru</a>
+                        <a class="nav-link" href="/guru" id="nav-dashboard">Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/guru/collections" id="nav-collections">Koleksi Soal</a>
@@ -178,7 +309,7 @@
 
         <div class="card mt-4">
             <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">Statistik Soal per Level</h4>
+                <h4 class="mb-0">Statistik Soal Taksonomi Teknologi</h4>
             </div>
             <div class="card-body">
                 <div id="levelStatistics" class="mt-3">
@@ -193,9 +324,9 @@
                     <table class="table table-striped mt-3">
                         <thead class="table-dark">
                             <tr>
-                                <th>Level <i class="bi bi-info-circle-fill ms-1" style="cursor: pointer;" id="levelInfoTableHead"></i></th>
+                                <th>Stage/Bin <i class="bi bi-info-circle-fill ms-1" style="cursor: pointer;" id="levelInfoTableHead" title="Klik untuk melihat detail taksonomi"></i></th>
                                 <th>Jumlah Soal</th>
-                                <th>Tingkat Kesulitan Rata-rata</th>
+                                <th>Probabilitas (p) Rata-rata</th>
                             </tr>
                         </thead>
                         <tbody id="levelSummaryBody">
@@ -287,49 +418,91 @@
         let selectionCounterElement = null;
         let questionsInCollection = []; // Move this declaration to the top with other variables
 
-        // Objek untuk menyimpan penjelasan setiap level
+        // Objek untuk menyimpan penjelasan setiap level - DIPERBARUI sesuai alur taksonomi teknologi terbaru
         const levelExplanations = {
             1: {
-                title: "Level 1: Kesadaran Teknologi",
-                competency: "Pemahaman dasar tentang konsep dan istilah teknologi (knowledge that)",
-                example: "Mengenali, mengidentifikasi, menyebutkan.",
-                difficulty: "Sangat mudah (p = 0.95)"
+                title: "Stage I (Bin 1): Kesadaran Teknologi",
+                competency: "Pemahaman definisi, istilah, dan identifikasi teknologi dasar",
+                bloom: "C1: Mengingat (Remembering)",
+                cognitive_process: "Mengingat dan mengenali terminologi teknologi",
+                example: "Definisi, istilah, identifikasi teknologi dasar",
+                sample_question: "Alat yang digunakan untuk menyimpan data berbasis internet adalah...",
+                knowledge_type: "Knowledge That",
+                difficulty: "Sangat Mudah (p = 0.95)",
+                icon: "bi-lightbulb",
+                color: "#198754"
             },
             2: {
-                title: "Level 2: Literasi Teknologi",
-                competency: "Komprehensi dan kemampuan menjelaskan konsep teknologi (knowledge that) yang lebih mendalam.",
-                example: "Menjelaskan, membandingkan, mengklasifikasi.",
-                difficulty: "Mudah (p = 0.90)"
+                title: "Stage II (Bin 2): Literasi Teknologi", 
+                competency: "Klasifikasi, hubungan antar teknologi, dan penjelasan fungsi",
+                bloom: "C2: Memahami (Understanding)",
+                cognitive_process: "Memahami hubungan dan klasifikasi teknologi",
+                example: "Klasifikasi, hubungan antar teknologi, penjelasan fungsi",
+                sample_question: "Manakah teknologi yang termasuk komunikasi sinkron?",
+                knowledge_type: "Knowledge That",
+                difficulty: "Mudah (p = 0.90)",
+                icon: "bi-book",
+                color: "#28a745"
             },
             3: {
-                title: "Level 3: Kemampuan Teknologi Dasar",
-                competency: "Aplikasi pengetahuan dalam konteks praktis untuk peserta kemampuan rendah-menengah (knowledge that dan how).",
-                example: "Menerapkan, menggunakan, mendemonstrasikan (tingkat dasar).",
-                difficulty: "Sedang (p = 0.75)"
+                title: "Stage III (Bin 3): Kemampuan Teknologi",
+                competency: "Aplikasi praktis, instruksi, dan puzzle urutan teknologi",
+                bloom: "C3: Menerapkan (Applying)", 
+                cognitive_process: "Menerapkan pengetahuan dalam situasi praktis",
+                example: "Aplikasi praktis, instruksi, puzzle urutan",
+                sample_question: "Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim",
+                knowledge_type: "Knowledge That + How",
+                difficulty: "Sedang (p = 0.75)",
+                icon: "bi-gear",
+                color: "#ffc107"
             },
             4: {
-                title: "Level 4: Kemampuan Teknologi Lanjut",
-                competency: "Aplikasi pengetahuan dalam konteks praktis untuk peserta kemampuan menengah-tinggi (knowledge that dan how).",
-                example: "Menerapkan, menggunakan, mendemonstrasikan (tingkat lanjut).",
-                difficulty: "Sedang-Sulit (p = 0.67)"
+                title: "Stage III (Bin 4): Kreativitas Teknologi Dasar",
+                competency: "Modifikasi, debugging, dan analisis error sederhana",
+                bloom: "C4: Menganalisis (Analyzing)",
+                cognitive_process: "Menganalisis dan memecahkan masalah teknologi",
+                example: "Modifikasi, debugging, analisis error sederhana",
+                sample_question: "Program gagal menyimpan skor. Apa perbaikan yang tepat?",
+                knowledge_type: "Knowledge That + How",
+                difficulty: "Sedang-Sulit (p = 0.67)",
+                icon: "bi-tools",
+                color: "#fd7e14"
             },
             5: {
-                title: "Level 5: Kreativitas Teknologi Dasar",
-                competency: "Invensi dan pengembangan solusi teknologi tingkat dasar, untuk peserta kemampuan rendah dari level 3.",
-                example: "Membuat solusi sederhana, merancang dasar.",
-                difficulty: "Sulit (p = 0.20)"
+                title: "Stage IV (Bin 5): Kemampuan Teknologi Lanjutan",
+                competency: "Aplikasi lanjutan dan puzzle assembly terbimbing",
+                bloom: "C3: Menerapkan (Applying) - Lanjut",
+                cognitive_process: "Menerapkan teknologi pada situasi kompleks",
+                example: "Aplikasi lanjutan, puzzle assembly terbimbing",
+                sample_question: "Integrasikan database dengan antarmuka untuk sistem inventori",
+                knowledge_type: "Knowledge That + How",
+                difficulty: "Sedang (p = 0.75)",
+                icon: "bi-cpu-fill",
+                color: "#c35144"
             },
             6: {
-                title: "Level 6: Kreativitas Teknologi Menengah",
-                competency: "Invensi dan pengembangan solusi teknologi tingkat menengah, untuk peserta kemampuan menengah dari level 3 atau 4.",
-                example: "Mengembangkan, memodifikasi, mengadaptasi solusi.",
-                difficulty: "Sangat Sulit (p = 0.17)"
+                title: "Stage IV (Bin 6): Kritik Teknologi", 
+                competency: "Evaluasi trade-off, menilai solusi, dan kritik teknologi",
+                bloom: "C5: Mengevaluasi (Evaluating)",
+                cognitive_process: "Mengevaluasi dan mengkritik solusi teknologi",
+                example: "Evaluasi trade-off, menilai solusi, kritik teknologi",
+                sample_question: "Bandingkan cloud storage vs local storage. Faktor utama yang dipertimbangkan adalah...",
+                knowledge_type: "Knowledge That + How + Why",
+                difficulty: "Sulit (p = 0.20)",
+                icon: "bi-clipboard-check",
+                color: "#e74c3c"
             },
             7: {
-                title: "Level 7: Kritik Teknologi",
-                competency: "Penilaian kritis dan evaluasi mendalam, untuk peserta kemampuan tinggi dari level 4 (knowledge that, how, dan why).",
-                example: "Mengevaluasi, menganalisis, membandingkan secara kritis, menciptakan solusi kompleks.",
-                difficulty: "Sangat Sulit (p = 0.15)"
+                title: "Stage IV (Bin 7): Kreativitas + Kritik Teknologi",
+                competency: "Merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi",
+                bloom: "C6: Mencipta (Creating) + C5: Evaluating",
+                cognitive_process: "Menciptakan dan mengevaluasi solusi teknologi kompleks",
+                example: "Merancang solusi baru, integrasi multi-konsep, optimalisasi",
+                sample_question: "Rancang sistem absen otomatis dengan sensor & database. Komponen wajib yang digunakan adalah...",
+                knowledge_type: "Knowledge That + How + Why",
+                difficulty: "Sangat Sulit (p = 0.17)",
+                icon: "bi-award",
+                color: "#dc3545"
             }
         };
 
@@ -367,47 +540,184 @@
             }
         });
 
-        // Fungsi untuk menampilkan pop-up penjelasan level
+        // Fungsi untuk menampilkan pop-up penjelasan level - DIPERBARUI dengan tampilan interaktif
         function showLevelExplanationPopup(level = null) {
-            let title = "Taksonomi Kompetensi Teknologi (Level Soal)";
+            let title = "Taksonomi Kompetensi Teknologi Adaptif";
             let htmlContent = '';
 
             if (level === 'all') {
-                htmlContent += `<p class="fw-bold">Berikut adalah panduan level soal berdasarkan Taksonomi Kompetensi Teknologi:</p>`;
+                htmlContent = `
+                    <div style="text-align: left;">
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Sistem Taksonomi Teknologi Adaptif DIGIDAWS</strong><br>
+                            Taksonomi berlapis dengan 4 Stage utama dan 7 Bin kemampuan, menggabungkan knowledge that, how, dan why untuk pembelajaran teknologi yang komprehensif.
+                        </div>
+                        <div class="row">
+                `;
+                
                 for (let i = 1; i <= 7; i++) {
                     const info = levelExplanations[i];
-                    if (info) {
-                        htmlContent += `
-                            <div class="mb-3 border-bottom pb-2">
-                                <h6>${info.title}</h6>
-                                <p class="mb-1"><strong>Kompetensi:</strong> ${info.competency}</p>
-                                <p class="mb-1"><strong>Contoh Kata Kerja:</strong> ${info.example}</p>
-                                <p class="mb-0"><strong>Tingkat Kesulitan:</strong> ${info.difficulty}</p>
+                    const progressPercent = ((i-1) / 6) * 100;
+                    
+                    htmlContent += `
+                        <div class="col-12 mb-3">
+                            <div class="card border-0 shadow-sm level-card" style="border-left: 5px solid ${info.color} !important; cursor: pointer;">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="me-3">
+                                            <i class="${info.icon}" style="font-size: 1.5rem; color: ${info.color};"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1" style="color: ${info.color};">${info.title}</h6>
+                                            <small class="text-muted">${info.bloom} | ${info.knowledge_type}</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge" style="background-color: ${info.color};">L${i}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="progress mb-2" style="height: 4px;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: ${progressPercent}%; background-color: ${info.color};" 
+                                             aria-valuenow="${progressPercent}" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    
+                                    <p class="mb-1 small"><strong>Fokus Soal:</strong> ${info.example}</p>
+                                    <p class="mb-1 small"><strong>Contoh Soal:</strong> "${info.sample_question}"</p>
+                                    <p class="mb-0 small text-muted"><strong>Tingkat Kesulitan:</strong> ${info.difficulty}</p>
+                                </div>
                             </div>
-                        `;
-                    }
+                        </div>
+                    `;
                 }
+                
+                htmlContent += `
+                        </div>
+                        <div class="alert alert-warning mt-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <small><strong>Catatan Penting:</strong><br>
+                            • Stage I-II: Pemahaman dasar teknologi (Knowledge That)<br>
+                            • Stage III: Aplikasi praktis (Knowledge That + How)<br>
+                            • Stage IV: Evaluasi & kreativitas tinggi (Knowledge That + How + Why)<br>
+                            • Probabilitas (p) menunjukkan tingkat kesulitan soal (0.95 = sangat mudah, 0.17 = sangat sulit)</small>
+                        </div>
+                    </div>
+                `;
             } else if (levelExplanations[level]) {
                 const info = levelExplanations[level];
                 title = info.title;
+                const progressPercent = ((level-1) / 6) * 100;
+                
                 htmlContent = `
-                    <p><strong>Kompetensi:</strong> ${info.competency}</p>
-                    <p><strong>Contoh Kata Kerja:</strong> ${info.example}</p>
-                    <p><strong>Tingkat Kesulitan:</strong> ${info.difficulty}</p>
+                    <div style="text-align: left;">
+                        <div class="text-center mb-4">
+                            <div class="d-inline-flex align-items-center justify-content-center rounded-circle" 
+                                 style="width: 80px; height: 80px; background-color: ${info.color}15; border: 3px solid ${info.color};">
+                                <i class="${info.icon}" style="font-size: 2rem; color: ${info.color};"></i>
+                            </div>
+                            <h5 class="mt-3 mb-1" style="color: ${info.color};">${info.title}</h5>
+                            <p class="text-muted mb-0">${info.bloom}</p>
+                        </div>
+                        
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: ${progressPercent}%; background-color: ${info.color};" 
+                                 aria-valuenow="${progressPercent}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card bg-light border-0 mb-3">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title">
+                                            <i class="bi bi-brain me-2" style="color: ${info.color};"></i>
+                                            Proses Kognitif
+                                        </h6>
+                                        <p class="card-text small">${info.cognitive_process}</p>
+                                        <p class="card-text small text-muted"><strong>Jenis Pengetahuan:</strong> ${info.knowledge_type}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-light border-0 mb-3">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title">
+                                            <i class="bi bi-lightbulb me-2" style="color: ${info.color};"></i>
+                                            Contoh Soal
+                                        </h6>
+                                        <p class="card-text small font-italic">"${info.sample_question}"</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card bg-light border-0 mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="card-title">
+                                    <i class="bi bi-target me-2" style="color: ${info.color};"></i>
+                                    Fokus Soal
+                                </h6>
+                                <p class="card-text small">${info.example}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="alert" style="border-color: ${info.color}; background-color: ${info.color}10;">
+                            <h6 style="color: ${info.color};">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Tingkat Kesulitan
+                            </h6>
+                            <p class="mb-1">${info.difficulty}</p>
+                            <p class="mb-0 small text-muted"><strong>Kompetensi:</strong> ${info.competency}</p>
+                        </div>
+                    </div>
                 `;
             } else {
                 title = "Informasi Level Tidak Tersedia";
-                htmlContent = "<p>Penjelasan untuk level ini tidak ditemukan.</p>";
+                htmlContent = `
+                    <div class="text-center py-4">
+                        <i class="bi bi-question-circle" style="font-size: 3rem; color: #dc3545;"></i>
+                        <h5 class="mt-3 text-muted">Penjelasan untuk level ini tidak ditemukan</h5>
+                        <p class="text-muted">Silakan hubungi administrator sistem.</p>
+                    </div>
+                `;
             }
 
             Swal.fire({
                 title: title,
                 html: htmlContent,
-                icon: 'info',
+                icon: null,
                 confirmButtonText: 'Tutup',
-                width: 'auto', // Lebar otomatis agar responsif
+                width: level === 'all' ? '90%' : '70%',
+                showClass: {
+                    popup: 'animate__animated animate__fadeInUp'
+                },
+                hideClass: {
+                    popup: 'animate__animated animate__fadeOutDown'
+                },
                 customClass: {
-                    container: 'level-info-swal' // Class kustom jika perlu styling tambahan
+                    popup: 'custom-taxonomy-popup',
+                    title: 'custom-taxonomy-title',
+                    content: 'custom-taxonomy-content'
+                },
+                didOpen: () => {
+                    // Add some interactivity to the opened modal
+                    const popup = Swal.getPopup();
+                    if (popup) {
+                        // Add hover effects to cards
+                        const cards = popup.querySelectorAll('.level-card, .card');
+                        cards.forEach(card => {
+                            card.addEventListener('mouseenter', function() {
+                                this.style.transform = 'translateY(-2px)';
+                                this.style.transition = 'all 0.2s ease';
+                                this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                            });
+                            card.addEventListener('mouseleave', function() {
+                                this.style.transform = 'translateY(0)';
+                                this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                            });
+                        });
+                    }
                 }
             });
         }
@@ -675,16 +985,11 @@
                     optionsHtml = '<div class="alert alert-warning">Error menampilkan opsi jawaban</div>';
                 }
 
-                let levelText = `Level ${q.level}`;
-                switch(parseInt(q.level)) {
-                    case 1: levelText += " - Kesadaran Teknologi"; break;
-                    case 2: levelText += " - Literasi Teknologi"; break;
-                    case 3: levelText += " - Kemampuan Teknologi Dasar"; break;
-                    case 4: levelText += " - Kemampuan Teknologi Lanjut"; break;
-                    case 5: levelText += " - Kreativitas Teknologi Dasar"; break;
-                    case 6: levelText += " - Kreativitas Teknologi Menengah"; break;
-                    case 7: levelText += " - Kritik Teknologi"; break;
-                }
+                // Gunakan definisi level yang sudah diperbarui dari levelExplanations
+                const levelInfo = levelExplanations[q.level];
+                let levelText = levelInfo ? levelInfo.title : `Level ${q.level} - Tidak Dikenal`;
+                let levelIcon = levelInfo ? levelInfo.icon : 'bi-question-circle';
+                let levelColor = levelInfo ? levelInfo.color : '#6c757d';
 
                 const levelClass = `level-${q.level}`;
                 console.log("Menerapkan kelas:", levelClass, "untuk level:", q.level);
@@ -733,8 +1038,32 @@
                 questionInfo.className = "question-info position-relative";
                 
                 const levelBadge = document.createElement("span");
-                levelBadge.className = `badge ${levelClass}`;
-                levelBadge.textContent = levelText;
+                levelBadge.className = `badge level-badge-interactive ${levelClass}`;
+                levelBadge.style.backgroundColor = levelColor;
+                levelBadge.style.cursor = 'pointer';
+                levelBadge.title = `Klik untuk melihat detail ${levelText}`;
+                
+                // Create badge content with icon and text
+                const badgeContent = document.createElement("div");
+                badgeContent.className = "d-flex align-items-center gap-1";
+                
+                const iconElement = document.createElement("i");
+                iconElement.className = `${levelIcon} level-taxonomy-icon`;
+                iconElement.style.fontSize = "0.9rem";
+                
+                const textElement = document.createElement("span");
+                textElement.textContent = `L${q.level}`;
+                
+                badgeContent.appendChild(iconElement);
+                badgeContent.appendChild(textElement);
+                levelBadge.appendChild(badgeContent);
+                
+                // Add click handler to show level details
+                levelBadge.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showLevelExplanationPopup(q.level);
+                });
                 
                 const pBadge = document.createElement("span");
                 pBadge.className = "badge bg-secondary";
@@ -905,7 +1234,29 @@
 
             Object.keys(levelCounts).forEach(level => {
                 const tr = document.createElement("tr");
-                const levelDisplay = level !== 'Total' ? `Level ${level} <i class="bi bi-info-circle-fill ms-1 level-info-icon" data-level="${level}" style="cursor: pointer;"></i>` : `<strong>Total</strong>`;
+                // Gunakan levelExplanations untuk display yang konsisten
+                let levelDisplay;
+                if (level !== 'Total') {
+                    const levelInfo = levelExplanations[level];
+                    const levelIcon = levelInfo ? levelInfo.icon : 'bi-question-circle';
+                    const levelColor = levelInfo ? levelInfo.color : '#6c757d';
+                    const levelTitle = levelInfo ? levelInfo.title : `Level ${level}`;
+                    
+                    levelDisplay = `
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <i class="${levelIcon} me-2" style="color: ${levelColor};"></i>
+                                <span class="level-table-text">L${level}</span>
+                            </div>
+                            <i class="bi bi-info-circle-fill level-info-icon" 
+                               data-level="${level}" 
+                               style="cursor: pointer; color: ${levelColor}; opacity: 0.7;" 
+                               title="Klik untuk detail ${levelTitle}"></i>
+                        </div>
+                    `;
+                } else {
+                    levelDisplay = `<strong><i class="bi bi-bar-chart me-2"></i>Total</strong>`;
+                }
 
                 tr.innerHTML = `
                     <td>${levelDisplay}</td>
@@ -917,34 +1268,54 @@
                 const chartCol = document.createElement("div");
                 chartCol.className = "col-md-3 mb-3";
 
-                let barColor = "";
-                let levelName = "";
-
-                switch(parseInt(level)) {
-                    case 1: barColor = "#198754"; levelName = "Kesadaran Teknologi"; break;
-                    case 2: barColor = "#28a745"; levelName = "Literasi Teknologi"; break;
-                    case 3: barColor = "#ffc107"; levelName = "Kemampuan Teknologi Dasar"; break;
-                    case 4: barColor = "#fd7e14"; levelName = "Kemampuan Teknologi Lanjut"; break;
-                    case 5: barColor = "#c35144"; levelName = "Kreativitas Teknologi Dasar"; break;
-                    case 6: barColor = "#e74c3c"; levelName = "Kreativitas Teknologi Menengah"; break;
-                    case 7: barColor = "#dc3545"; levelName = "Kritik Teknologi"; break;
-                    default: barColor = "#6c757d"; levelName = "Tidak Diketahui";
-                }
+                // Gunakan levelExplanations untuk chart yang konsisten
+                const levelInfo = levelExplanations[level];
+                const barColor = levelInfo ? levelInfo.color : "#6c757d";
+                const levelName = levelInfo ? levelInfo.title.replace(`Level ${level}: `, "") : "Tidak Diketahui";
+                const levelIcon = levelInfo ? levelInfo.icon : "bi-question-circle";
+                
+                // Calculate percentage relative to max count for better visualization
+                const maxCount = Math.max(...Object.values(levelCounts));
+                const percentage = maxCount > 0 ? (levelCounts[level] / maxCount) * 100 : 0;
 
                 chartCol.innerHTML = `
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h5>Level ${level}</h5>
-                            <div class="progress mb-2" style="height: 25px;">
-                                <div class="progress-bar" role="progressbar" style="width: 100%; background-color: ${barColor};"
-                                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
-                                    <!-- Removed count text from here -->
+                    <div class="card level-chart-card h-100" style="cursor: pointer; transition: all 0.3s ease;">
+                        <div class="card-body text-center d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="mb-3">
+                                    <i class="${levelIcon}" style="font-size: 2.5rem; color: ${barColor};"></i>
+                                </div>
+                                <h5 style="color: ${barColor}; font-weight: 600;">Level ${level}</h5>
+                                <p class="text-muted mb-3" style="font-size: 0.95rem; font-weight: bold;">${levelName}</p>
+                            </div>
+                            
+                            <div>
+                                <div class="progress taxonomy-progress" style="height: 12px; background-color: rgba(0,0,0,0.1);">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: ${percentage}%; background-color: ${barColor}; transition: width 0.8s ease;"
+                                         aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">
+                                    </div>
                                 </div>
                             </div>
-                            <p class="mb-0">${levelName}</p>
                         </div>
                     </div>
                 `;
+                
+                // Add click event to chart card
+                chartCol.addEventListener('click', function() {
+                    showLevelExplanationPopup(parseInt(level));
+                });
+                
+                // Add hover effect
+                const cardElement = chartCol.querySelector('.level-chart-card');
+                cardElement.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px)';
+                    this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                });
+                cardElement.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+                });
 
                 levelStatCharts.appendChild(chartCol);
             });

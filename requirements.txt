@@ -13,3 +13,5 @@ xhtml2pdf
 python-dotenv
 gunicorn
 pymysql
+xlwt
+XlsxWriter

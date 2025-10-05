@@ -78,7 +78,7 @@
 
         <form id="loginForm" action="/login" method="POST">
             <div class="mb-3">
-                <input type="text" class="form-control" name="username" placeholder="Username" required>
+                <input type="email" class="form-control" name="email" placeholder="Email" required>
             </div>
             
             <div class="mb-3">
@@ -103,12 +103,20 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('loginForm').addEventListener('submit', function(e) {
-                const username = document.getElementsByName('username')[0].value.trim();
+                const email = document.getElementsByName('email')[0].value.trim();
                 const password = document.getElementsByName('password')[0].value.trim();
                 
-                if (!username || !password) {
+                if (!email || !password) {
                     e.preventDefault();
-                    alert('Username dan password harus diisi!');
+                    alert('Email dan password harus diisi!');
+                    return false;
+                }
+                
+                // Validasi format email
+                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailPattern.test(email)) {
+                    e.preventDefault();
+                    alert('Format email tidak valid!');
                     return false;
                 }
                 

@@ -99,45 +99,7 @@
             margin-top: 5px;
         }
         
-        .recommendation-intro, .recommendation-outro {
-            margin-bottom: 15px;
-            font-style: italic;
-            color: #555;
-            text-align: justify;
-        }
-        .recommendation-outro {
-            margin-top: 15px;
-        }
-        
-        .recommendation-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11pt;
-            page-break-inside: auto;
-        }
-        .recommendation-table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-            padding: 10px;
-            border: 1px solid #dee2e6;
-            text-align: left;
-            color: #333;
-            vertical-align: middle;
-        }
-        .recommendation-table td {
-            padding: 10px;
-            border: 1px solid #dee2e6;
-            vertical-align: top;
-            word-wrap: break-word;
-        }
-        .recommendation-table tr {
-            page-break-inside: avoid;
-        }
-        .recommendation-table .rec-number {
-            width: 5%;
-            text-align: center;
-            vertical-align: middle;
-        }
+
 
         .history-table {
             width: 100%;
@@ -163,6 +125,15 @@
             border: 1px solid #cccccc;
             text-align: left;
             vertical-align: middle;
+            font-size: 9pt;
+        }
+        .history-table .number-cell {
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        .history-table th.number-header {
+            text-align: center;
         }
         
         .status-correct, .text-correct {
@@ -189,6 +160,92 @@
         
         .page-break {
             page-break-before: always;
+        }
+        
+        .recommendation-intro {
+            background-color: #f8f9fa;
+            border-left: 4px solid #003366;
+            padding: 15px;
+            margin: 15px 0;
+            font-style: italic;
+            line-height: 1.6;
+            border-radius: 5px;
+        }
+        
+        .recommendation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 9pt;
+            page-break-inside: auto;
+            table-layout: auto;
+        }
+        
+        .recommendation-table th {
+            background-color: #ecf0f1;
+            color: #34495e;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #cccccc;
+            vertical-align: middle;
+            font-size: 10pt;
+        }
+        
+        .recommendation-table td {
+            padding: 8px;
+            border: 1px solid #cccccc;
+            vertical-align: top;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        
+        .recommendation-table tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+        
+        .recommendation-table tbody {
+            page-break-inside: auto;
+        }
+        
+        .recommendation-table .rec-number {
+            width: 5%;
+            text-align: center;
+            font-weight: bold;
+            background-color: #f8f9fa;
+            vertical-align: middle;
+            font-size: 9pt;
+        }
+        
+        .recommendation-table td strong {
+            color: #003366;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 5px;
+            font-size: 9.5pt;
+        }
+        
+        .recommendation-table td {
+            text-align: justify;
+        }
+        
+        .recommendation-table td .activity-description {
+            color: #444;
+            line-height: 1.6;
+            text-align: justify;
+        }
+        
+
+        
+        .recommendation-outro {
+            background-color: #eef7ff;
+            border: 1px solid #d1e9ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            line-height: 1.6;
+            font-style: italic;
         }
     </style>
 </head>
@@ -251,48 +308,178 @@
             <strong>Deskripsi Tingkat Kemampuan:</strong><br>
             {{ level_descriptions.get(result.current_level, 'Level tidak terdefinisi.') }}
         </div>
-
-        <div class="section-title">B. Rekomendasi Pembelajaran</div>
+        
+        <div class="page-break"></div>
+        <div class="page-container">
+            <div class="section-title">B. Rekomendasi Pembelajaran</div>
+        {% set performance_analysis = {
+            'total_questions': result.correct + result.incorrect,
+            'accuracy_percentage': (result.correct / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0,
+            'is_high_performer': ((result.correct / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0) >= 80,
+            'is_struggling': ((result.correct / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0) < 50,
+            'current_stage': 'Stage I' if result.current_level <= 2 else ('Stage II' if result.current_level <= 3 else ('Stage III' if result.current_level <= 4 else 'Stage IV')),
+            'next_focus': {
+                1: 'memahami konsep dasar dan terminologi teknologi',
+                2: 'menguasai literasi teknologi dan hubungan antar konsep',
+                3: 'mengembangkan kemampuan aplikasi praktis teknologi',
+                4: 'meningkatkan kreativitas dalam pemecahan masalah teknologi',
+                5: 'memperkuat kemampuan teknologi dan aplikasi lanjutan',
+                6: 'mengembangkan kemampuan berpikir kritis terhadap teknologi',
+                7: 'mengintegrasikan kreativitas dan kritik teknologi secara mendalam'
+            }
+        } %}
+        
         <p class="recommendation-intro">
-            Halo {{ student.nama.split()[0] }}, gimana kabarnya hari ini? Dari hasil tes kemarin, saya lihat ada beberapa area yang perlu kita tingkatkan lagi biar kamu makin jago di materi "{{ collection.name }}" ini ya. Tenang aja, ini bukan berarti kamu nggak bisa, justru ini kesempatan buat kita belajar bareng dan bikin kamu makin pede.
+            Halo {{ student.nama.split()[0] }}, dari hasil tes "{{ collection.name }}", saya punya beberapa saran belajar khusus yang bisa kamu praktikkan di rumah. 
+            {% if performance_analysis.accuracy_percentage >= 80 %}
+            Wah, kamu sudah bagus banget nih! Tapi masih ada yang bisa ditingkatkan lagi.
+            {% elif performance_analysis.accuracy_percentage >= 60 %}
+            Kamu sudah di jalur yang benar, tinggal asah lagi beberapa bagian.
+            {% else %}
+            Jangan khawatir, mari kita perkuat pondasinya dulu step by step.
+            {% endif %}
         </p>
+        
         <table class="recommendation-table">
             <thead>
                 <tr>
-                    <th class="rec-number">No.</th>
-                    <th>Rekomendasi Tindak Lanjut</th>
+                    <th class="rec-number" style="width: 5%;">No.</th>
+                    <th style="width: 95%;">Rekomendasi Belajar di Rumah</th>
                 </tr>
             </thead>
             <tbody>
+                {% if result.current_level == 1 %}
                 <tr>
                     <td class="rec-number">1</td>
-                    <td>Coba kamu balik lagi ke materi dasar tentang apa itu "{{ collection.name }}". Cari penjelasan yang paling sederhana untuk memahami konsep dasarnya.</td>
+                    <td><strong>Pelajari Istilah Dasar:</strong> Luangkan 15 menit setiap hari untuk baca dan hafalkan istilah-istilah teknologi dasar. Buat kartu kecil berisi istilah di satu sisi dan artinya di sisi lain.</td>
                 </tr>
                 <tr>
                     <td class="rec-number">2</td>
-                    <td>Fokus pada latihan-latihan dasar, terutama yang berkaitan dengan poin-poin yang kemarin kamu jawab kurang tepat.</td>
+                    <td><strong>Tonton Video Edukatif:</strong> Cari video YouTube tentang "{{ collection.name }}" yang dijelaskan dengan bahasa sederhana. Tonton 1-2 video pendek (5-10 menit) setiap hari.</td>
                 </tr>
                 <tr>
                     <td class="rec-number">3</td>
-                    <td>Jangan ragu untuk bertanya kepada saya atau berdiskusi dengan teman jika ada bagian yang masih membingungkan.</td>
+                    <td><strong>Praktik Identifikasi:</strong> Keliling rumah dan coba identifikasi teknologi apa saja yang ada (handphone, TV, WiFi, dll). Tulis di buku dan cari tahu fungsi dasarnya.</td>
                 </tr>
                 <tr>
                     <td class="rec-number">4</td>
-                    <td>Cari contoh-contoh nyata atau situasi sehari-hari yang berkaitan dengan materi ini untuk memperkuat pemahaman.</td>
+                    <td><strong>Buat Kamus Mini:</strong> Bikin kamus pribadi berisi 5 kata teknologi baru setiap minggu lengkap dengan contoh penggunaannya.</td>
                 </tr>
-                 <tr>
-                    <td class="rec-number">5</td>
-                    <td>Luangkan waktu khusus setiap hari (15-20 menit) untuk me-review materi agar lebih meresap.</td>
+                {% elif result.current_level == 2 %}
+                <tr>
+                    <td class="rec-number">1</td>
+                    <td><strong>Kelompokkan Teknologi:</strong> Buat mind map atau diagram yang mengelompokkan teknologi berdasarkan fungsinya (komunikasi, hiburan, produktivitas, dll).</td>
                 </tr>
                 <tr>
-                    <td class="rec-number">6</td>
-                    <td>Terakhir, coba ceritakan ulang materi dengan kata-katamu sendiri untuk mengukur seberapa dalam pemahamanmu.</td>
+                    <td class="rec-number">2</td>
+                    <td><strong>Pelajari Hubungan Antar Teknologi:</strong> Pilih 2-3 teknologi yang kamu pakai setiap hari, lalu cari tahu bagaimana mereka saling berhubungan (contoh: handphone + internet + aplikasi).</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">3</td>
+                    <td><strong>Baca Artikel Teknologi:</strong> Baca 1 artikel ringan tentang teknologi setiap hari dari website atau blog teknologi. Catat poin penting yang kamu dapat.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">4</td>
+                    <td><strong>Diskusi dengan Keluarga:</strong> Ajak orang tua atau saudara diskusi tentang teknologi yang mereka gunakan dan bagaimana cara kerjanya.</td>
+                </tr>
+                {% elif result.current_level == 3 %}
+                <tr>
+                    <td class="rec-number">1</td>
+                    <td><strong>Praktik Langsung:</strong> Setiap hari coba gunakan 1 aplikasi atau fitur teknologi yang belum pernah kamu coba. Catat langkah-langkahnya di notes.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">2</td>
+                    <td><strong>Ikuti Tutorial Online:</strong> Cari tutorial step-by-step di YouTube tentang cara menggunakan tools atau aplikasi yang berkaitan dengan "{{ collection.name }}".</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">3</td>
+                    <td><strong>Buat Jadwal Digital:</strong> Gunakan aplikasi kalendar atau reminder untuk mengatur jadwal belajar dan aktivitas harianmu. Rasakan sendiri manfaat teknologi untuk produktivitas.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">4</td>
+                    <td><strong>Simulasi Masalah:</strong> Buat skenario "bagaimana jika" dan coba pecahkan dengan teknologi. Contoh: "Bagaimana jika harus presentasi tapi tidak bisa tatap muka?"</td>
+                </tr>
+                {% elif result.current_level == 4 %}
+                <tr>
+                    <td class="rec-number">1</td>
+                    <td><strong>Modifikasi dan Kustomisasi:</strong> Coba ubah pengaturan aplikasi atau perangkat yang kamu pakai sehari-hari. Eksplorasi fitur-fitur lanjutan yang tersembunyi.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">2</td>
+                    <td><strong>Debug Masalah Sederhana:</strong> Kalau ada masalah dengan teknologi di rumah (WiFi lemot, aplikasi error, dll), coba cari solusinya sendiri dulu sebelum minta tolong.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">3</td>
+                    <td><strong>Belajar Troubleshooting:</strong> Pelajari cara mengatasi masalah umum teknologi melalui forum online seperti Kaskus atau Reddit. Praktikkan di perangkatmu sendiri.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">4</td>
+                    <td><strong>Cari Solusi Alternatif:</strong> Kalau ada masalah, jangan cuma pakai satu cara aja. Coba pikirkan cara lain yang bisa jadi solusi.</td>
+                </tr>
+                {% elif result.current_level == 5 %}
+                <tr>
+                    <td class="rec-number">1</td>
+                    <td><strong>Tantangan yang Lebih Sulit:</strong> Sekarang coba selesaikan masalah yang lebih rumit pakai teknologi ini. Gabungkan beberapa teknologi sekaligus kalau perlu.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">2</td>
+                    <td><strong>Rakit dan Atur:</strong> Belajar cara menggabungkan beberapa bagian teknologi jadi satu sistem yang bisa jalan dengan baik.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">3</td>
+                    <td><strong>Mulai Belajar Menilai:</strong> Coba lihat mana teknologi atau cara yang paling efektif dan efisien untuk masalah tertentu.</td>
+                </tr>
+                {% elif result.current_level == 6 %}
+                <tr>
+                    <td class="rec-number">1</td>
+                    <td><strong>Belajar Menilai dengan Objektif:</strong> Sekarang saatnya belajar membandingkan dan menilai teknologi secara adil. Mana yang lebih baik dan kenapa?</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">2</td>
+                    <td><strong>Lihat Dampak Positif dan Negatif:</strong> Coba pikir dampak baik dan buruk dari teknologi ini buat masyarakat, lingkungan, dan ekonomi.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">3</td>
+                    <td><strong>Gabungkan Semua yang Udah Dipelajari:</strong> Pakai semua pengetahuan dan skill yang udah kamu punya buat bikin keputusan teknologi yang tepat.</td>
+                </tr>
+                {% elif result.current_level == 7 %}
+                <tr>
+                    <td class="rec-number">1</td>
+                    <td><strong>Rancang Solusi Inovatif:</strong> Coba bikin ide solusi teknologi baru untuk masalah yang kamu lihat di sekitar. Gambar atau tulis idenya secara detail.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">2</td>
+                    <td><strong>Integrasikan Multi-Konsep:</strong> Gabungkan berbagai konsep teknologi yang udah kamu pelajari untuk menciptakan sesuatu yang lebih canggih dan berguna.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">3</td>
+                    <td><strong>Optimalisasi dan Inovasi:</strong> Cari cara untuk membuat teknologi yang ada jadi lebih efisien, lebih mudah dipakai, atau lebih ramah lingkungan.</td>
+                </tr>
+                {% endif %}
+                
+                <!-- Rekomendasi umum untuk semua level -->
+                <tr>
+                    <td class="rec-number">{{ 5 if result.current_level <= 4 else 4 }}</td>
+                    <td><strong>Waktu Belajar Konsisten:</strong> Luangkan 20-30 menit setiap hari di waktu yang sama untuk fokus mempelajari {{ performance_analysis.next_focus.get(result.current_level, 'materi teknologi') }}. Konsistensi lebih penting dari durasi yang lama.</td>
+                </tr>
+                <tr>
+                    <td class="rec-number">{{ 6 if result.current_level <= 4 else 5 }}</td>
+                    <td><strong>Refleksi dan Evaluasi:</strong> Setiap minggu, tulis di jurnal tentang apa yang sudah kamu pelajari, apa yang masih sulit, dan apa yang ingin kamu pelajari selanjutnya tentang "{{ collection.name }}".</td>
                 </tr>
             </tbody>
         </table>
-        <p class="recommendation-outro">
-            Semangat terus ya, {{ student.nama.split()[0] }}! Saya yakin kamu bisa melewati ini dan jadi lebih baik lagi. Saya ada di sini buat bantu kamu.
-        </p>
+            <p class="recommendation-outro">
+                {% if performance_analysis.accuracy_percentage >= 80 %}
+                Kerja bagus, {{ student.nama.split()[0] }}! Kamu sudah menguasai {{ performance_analysis.accuracy_percentage|round|int }}% materi ini. Lanjutkan dengan rekomendasi di atas untuk naik ke level yang lebih tinggi. Saya yakin kamu bisa jadi yang terdepan!
+                {% elif performance_analysis.accuracy_percentage >= 60 %}
+                Bagus sekali, {{ student.nama.split()[0] }}! Dengan penguasaan {{ performance_analysis.accuracy_percentage|round|int }}%, kamu tinggal sedikit lagi untuk mahir. Ikuti rekomendasi di atas secara konsisten, pasti kamu bisa naik level!
+                {% else %}
+                Jangan khawatir, {{ student.nama.split()[0] }}. Setiap ahli teknologi juga pernah mulai dari nol. Yang penting sekarang adalah konsisten mengikuti langkah-langkah di atas. Ingat, kemajuan kecil setiap hari akan jadi pencapaian besar!
+                {% endif %}
+                <br><br>
+                <strong>Tip Bonus:</strong> Ajak teman atau keluarga untuk belajar bareng tentang "{{ collection.name }}" - belajar jadi lebih seru dan kamu jadi lebih paham ketika menjelaskan ke orang lain!
+            </p>
+        </div>
         
         {% if answers and answers|length > 0 %}
         <div class="page-break"></div>
@@ -301,7 +488,7 @@
             <table class="history-table">
                 <thead>
                     <tr>
-                        <th style="width: 5%;">No</th>
+                        <th class="number-header" style="width: 5%;">No</th>
                         <th style="width: 45%;">Pertanyaan</th>
                         <th style="width: 20%;">Jawaban Siswa</th>
                         <th style="width: 20%;">Jawaban Benar</th>
@@ -311,7 +498,7 @@
                 <tbody>
                     {% for answer in answers %}
                     <tr>
-                        <td style="text-align: center;">{{ loop.index }}</td>
+                        <td class="number-cell">{{ loop.index }}</td>
                         <td>{{ answer.question }}</td>
                         <td>{{ answer.user_answer }}</td>
                         <td>{{ answer.correct_answer }}</td>
@@ -322,12 +509,17 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="footer">
+                <p>Laporan ini dibuat secara otomatis pada {{ now().strftime('%d %B %Y, %H:%M:%S') }}</p>
+            </div>
         </div>
         {% endif %}
         
+        {% if not answers or answers|length == 0 %}
         <div class="footer">
             <p>Laporan ini dibuat secara otomatis pada {{ now().strftime('%d %B %Y, %H:%M:%S') }}</p>
         </div>
+        {% endif %}
     </div>
 </body>
 </html>
