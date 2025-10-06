@@ -69,8 +69,226 @@ genai.configure(api_key=my_api_key_gemini)
 model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
 # =========================================
+# PROGRESS TRACKING SYSTEM
+# =========================================
+# Global dictionary untuk tracking progress setiap user
+progress_tracker = {}
+
+def update_progress(user_id, step, status="active", message=""):
+    """Update progress untuk user tertentu"""
+    if user_id not in progress_tracker:
+        progress_tracker[user_id] = {
+            "current_step": 1,
+            "steps": {
+                1: {"status": "pending", "message": "Mengunggah file modul ajar"},
+                2: {"status": "pending", "message": "Menganalisis struktur dokumen"},
+                3: {"status": "pending", "message": "Mengekstrak tujuan pembelajaran"},
+                4: {"status": "pending", "message": "Memproses dengan AI Gemini"},
+                5: {"status": "pending", "message": "Menyimpan soal ke database"}
+            },
+            "timestamp": datetime.datetime.now()
+        }
+    
+    # Update status step yang spesifik
+    if step in progress_tracker[user_id]["steps"]:
+        progress_tracker[user_id]["steps"][step]["status"] = status
+        if message:
+            progress_tracker[user_id]["steps"][step]["message"] = message
+        progress_tracker[user_id]["current_step"] = step
+        progress_tracker[user_id]["timestamp"] = datetime.datetime.now()
+        print(f"Progress updated for user {user_id}: Step {step} - {status}")
+
+def get_progress(user_id):
+    """Ambil progress untuk user tertentu"""
+    return progress_tracker.get(user_id, None)
+
+def clear_progress(user_id):
+    """Bersihkan progress setelah selesai"""
+    if user_id in progress_tracker:
+        del progress_tracker[user_id]
+
+# =========================================
 # OPTIMIZED MODULE EXTRACTION FUNCTIONS
 # =========================================
+
+def validate_educational_content_flexible(content_text):
+    """
+    Validasi fleksibel untuk dokumen pembelajaran - lebih toleran tapi tetap filter yang relevan
+    """
+    if not content_text or len(content_text.strip()) < 300:  # Dikurangi dari 500 ke 300
+        return False, "Dokumen terlalu pendek untuk modul pembelajaran (minimal 300 karakter)"
+    
+    content_lower = content_text.lower()
+    
+    # 1. Cek kata kunci pembelajaran (lebih fleksibel)
+    modul_keywords = [
+        'modul ajar', 'modul pembelajaran', 'rencana pembelajaran', 'rpp',
+        'lesson plan', 'learning module', 'teaching module', 'silabus',
+        'bahan ajar', 'materi pembelajaran', 'panduan pembelajaran'
+    ]
+    
+    has_modul = any(keyword in content_lower for keyword in modul_keywords)
+    
+    # 2. Cek tujuan pembelajaran (lebih fleksibel)
+    tujuan_keywords = [
+        'tujuan pembelajaran', 'learning objective', 'capaian pembelajaran',
+        'kompetensi dasar', 'learning outcome', 'objektif pembelajaran',
+        'tujuan', 'capaian', 'kompetensi', 'indikator', 'cp'
+    ]
+    
+    has_tujuan = any(keyword in content_lower for keyword in tujuan_keywords)
+    
+    # 3. Cek indikator pendidikan
+    educational_indicators = [
+        'siswa', 'peserta didik', 'mahasiswa', 'pelajar', 'murid',
+        'guru', 'pengajar', 'dosen', 'instruktur', 'fasilitator',
+        'pembelajaran', 'belajar', 'mengajar', 'pendidikan'
+    ]
+    
+    edu_count = sum(1 for indicator in educational_indicators if indicator in content_lower)
+    
+    # 4. Cek struktur pembelajaran (opsional)
+    struktur_keywords = [
+        'kegiatan pembelajaran', 'langkah pembelajaran', 'aktivitas belajar',
+        'metode pembelajaran', 'strategi pembelajaran', 'pendekatan pembelajaran',
+        'asesmen', 'penilaian', 'evaluasi pembelajaran', 'kegiatan', 'metode', 'strategi'
+    ]
+    
+    struktur_count = sum(1 for keyword in struktur_keywords if keyword in content_lower)
+    
+    # LOGIKA FLEKSIBEL: Minimal 2 dari 4 kriteria terpenuhi
+    score = 0
+    missing_criteria = []
+    
+    if has_modul:
+        score += 1
+    else:
+        missing_criteria.append("kata kunci modul/pembelajaran")
+    
+    if has_tujuan:
+        score += 1  
+    else:
+        missing_criteria.append("tujuan pembelajaran")
+    
+    if edu_count >= 2:
+        score += 1
+    else:
+        missing_criteria.append("konteks pendidikan")
+        
+    if struktur_count >= 1:
+        score += 1
+    else:
+        missing_criteria.append("struktur pembelajaran")
+    
+    # Minimal 2 dari 4 kriteria harus terpenuhi
+    if score >= 2:
+        return True, "Dokumen diterima sebagai materi pembelajaran"
+    else:
+        return False, f"Dokumen tidak memenuhi cukup kriteria pembelajaran. Kurang: {', '.join(missing_criteria)}"
+
+def validate_file_format_and_content(file_stream, file_ext, filename):
+    """
+    Validasi format file dan konten secara fleksibel
+    """
+    try:
+        # 1. Validasi ukuran file (lebih toleran)
+        file_size = len(file_stream)
+        if file_size < 512:  # Dikurangi dari 1KB ke 512 bytes
+            return False, "File terlalu kecil. File pembelajaran minimal berukuran 512 bytes"
+        
+        if file_size > 15 * 1024 * 1024:  # Dinaikkan dari 10MB ke 15MB
+            return False, "File terlalu besar. Maksimal ukuran file adalah 15MB"
+        
+        # 2. Validasi nama file (lebih fleksibel) - OPSIONAL
+        filename_keywords = ['modul', 'pembelajaran', 'ajar', 'lesson', 'rpp', 'materi', 'bahan', 'silabus']
+        has_relevant_filename = any(keyword in filename.lower() for keyword in filename_keywords)
+        # Tidak reject jika nama file tidak sesuai, hanya beri peringatan
+        
+        # 3. Ekstrak dan validasi konten
+        content_text = ""
+        if file_ext == 'pdf':
+            content_text = extract_text_from_pdf_bytes(file_stream)
+        elif file_ext in ['doc', 'docx']:
+            content_text = extract_text_from_docx_bytes(file_stream, file_ext)
+        
+        if not content_text:
+            return False, "Tidak dapat mengekstrak teks dari file. Pastikan file tidak rusak atau terproteksi"
+        
+        # 4. Validasi konten pendidikan secara fleksibel
+        is_valid, message = validate_educational_content_flexible(content_text)
+        if not is_valid:
+            return False, message
+        
+        # Tambahkan warning jika nama file tidak sesuai tapi tetap lanjutkan
+        if not has_relevant_filename:
+            print(f"WARNING: Nama file '{filename}' tidak mengindikasikan materi pembelajaran, tapi konten valid")
+            
+        return True, content_text
+        
+    except Exception as e:
+        return False, f"Error validasi file: {str(e)}"
+
+def check_content_quality_score(module_components):
+    """
+    Periksa kualitas ekstraksi untuk memastikan layak diproses (versi lebih toleran)
+    """
+    quality_score = 0
+    issues = []
+    
+    # 1. Mata Pelajaran (20 poin) - lebih toleran
+    mata_pelajaran = module_components.get("mata_pelajaran", "")
+    if mata_pelajaran and len(mata_pelajaran.strip()) > 2:  # Dikurangi dari 5 ke 2
+        quality_score += 20
+    elif mata_pelajaran:  # Ada tapi pendek, beri setengah poin
+        quality_score += 10
+        issues.append("Mata pelajaran terdeteksi tapi kurang jelas")
+    else:
+        issues.append("Mata pelajaran tidak teridentifikasi")
+    
+    # 2. Tujuan Pembelajaran (40 poin - paling penting tapi lebih fleksibel)
+    tujuan_list = module_components.get("tujuan_pembelajaran", [])
+    if tujuan_list and len(tujuan_list) >= 1:  # Dikurangi dari 2 ke 1
+        # Periksa kualitas setiap tujuan
+        valid_tujuan = [t for t in tujuan_list if len(t.strip()) > 10]  # Dikurangi dari 15 ke 10
+        if len(valid_tujuan) >= 2:
+            quality_score += 40
+        elif len(valid_tujuan) >= 1:
+            quality_score += 30  # Dinaikkan dari 25 ke 30
+            issues.append("Tujuan pembelajaran ditemukan tapi bisa lebih detail")
+        else:
+            quality_score += 15
+            issues.append("Tujuan pembelajaran ditemukan tapi sangat singkat")
+    else:
+        issues.append("Tujuan pembelajaran tidak ditemukan")
+    
+    # 3. Kompetensi Awal (15 poin) - lebih toleran
+    kompetensi_awal = module_components.get("kompetensi_awal", "")
+    if kompetensi_awal and len(kompetensi_awal.strip()) > 20:  # Dikurangi dari 30 ke 20
+        quality_score += 15
+    elif kompetensi_awal and len(kompetensi_awal.strip()) > 5:
+        quality_score += 8  # Beri poin parsial
+        issues.append("Kompetensi awal terdeteksi tapi kurang detail")
+    else:
+        quality_score += 5  # Beri poin minimal bahkan jika tidak ada
+        issues.append("Kompetensi awal tidak teridentifikasi")
+    
+    # 4. Pemahaman Bermakna (15 poin) - lebih toleran
+    pemahaman_list = module_components.get("pemahaman_bermakna", [])
+    if pemahaman_list and len(pemahaman_list) >= 1:
+        quality_score += 15
+    else:
+        quality_score += 8  # Beri poin parsial meski tidak ada
+        issues.append("Pemahaman bermakna tidak ditemukan")
+    
+    # 5. Target Peserta Didik (10 poin) - lebih toleran
+    target_peserta = module_components.get("target_peserta_didik", "")
+    if target_peserta and len(target_peserta.strip()) > 10:  # Dikurangi dari 20 ke 10
+        quality_score += 10
+    else:
+        quality_score += 5  # Beri poin parsial
+        issues.append("Target peserta didik tidak teridentifikasi")
+    
+    return quality_score, issues
 
 def extract_specific_module_components(content_text):
     """
@@ -447,32 +665,32 @@ Contoh soal: "Manakah teknologi yang termasuk komunikasi sinkron?"
 Stage III
 Kotak 3 → Kemampuan Teknologi
 p: 0.75
-Fokus soal: aplikasi praktis, instruksi, puzzle urutan
-Jenis pengetahuan: knowledge that + how
+Fokus soal: aplikasi praktis sederhana, langkah-langkah dasar teknologi
+Jenis pengetahuan: knowledge that + how (level SMA)
 Contoh soal: "Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim"
 
 Kotak 4 → Kreativitas Teknologi (Dasar)
 p: 0.67
-Fokus soal: modifikasi, debugging, analisis error sederhana
-Jenis pengetahuan: knowledge that + how
-Contoh soal: "Program gagal menyimpan skor. Apa perbaikan yang tepat?"
+Fokus soal: identifikasi masalah sederhana, pemecahan masalah dasar
+Jenis pengetahuan: knowledge that + how (level SMA)
+Contoh soal: "Jika komputer tidak bisa terhubung internet, langkah pertama yang dilakukan adalah..."
 
 Stage IV (Final)
 Kotak 5 → Kemampuan Teknologi (penguatan)
 p: 0.75
-Soal aplikasi lanjutan, puzzle assembly terbimbing
+Soal aplikasi lanjutan yang sesuai SMA, tidak melibatkan coding kompleks
 
 Kotak 6 → Kritik Teknologi
 p: 0.20
-Fokus soal: evaluasi trade-off, menilai solusi, kritik teknologi
-Jenis pengetahuan: knowledge that + how + why
-Contoh soal: "Bandingkan cloud storage vs local storage. Faktor utama yang dipertimbangkan adalah..."
+Fokus soal: membandingkan teknologi sederhana, memilih solusi yang tepat
+Jenis pengetahuan: knowledge that + how + why (level SMA)
+Contoh soal: "Untuk menyimpan foto keluarga, mana yang lebih aman: flash disk atau cloud storage?"
 
 Kotak 7 → Kreativitas + Kritik Teknologi (Final Tinggi)
 p: 0.17
-Fokus soal: merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi
-Jenis pengetahuan: knowledge that + how + why
-Contoh soal: "Rancang sistem absen otomatis dengan sensor & database. Komponen wajib yang digunakan adalah..."
+Fokus soal: merancang solusi sederhana menggunakan teknologi yang familiar
+Jenis pengetahuan: knowledge that + how + why (level SMA)  
+Contoh soal: "Untuk membuat presentasi sekolah yang menarik, kombinasi aplikasi terbaik adalah..."
 
 ATURAN PENTING:
 ========================================
@@ -481,17 +699,38 @@ ATURAN PENTING:
 ✓ 4 pilihan (A, B, C, D), maksimal 15 kata per opsi
 ✓ Posisi jawaban benar ACAK dan bervariasi
 ✓ Pengecoh masuk akal, cerminkan miskonsepsi umum
-✓ Bahasa lugas, sesuai jenjang siswa
+✓ Bahasa lugas, sesuai jenjang siswa SMA kelas X
 ✓ Kalimat soal maksimal 3 baris
+✓ Fokus pada konsep dan aplikasi, bukan coding kompleks
+✓ Gunakan contoh teknologi yang familiar untuk siswa SMA
 
 ✗ JANGAN gunakan: "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Siswa", "Peserta didik" dalam teks soal
 ✗ JANGAN buat soal generik yang lepas dari modul
 ✗ JANGAN buat jawaban benar selalu yang terpanjang
+✗ JANGAN buat soal coding/programming yang terlalu teknis
+✗ JANGAN gunakan istilah teknis tingkat universitas
+✗ JANGAN buat soal yang memerlukan pengetahuan di luar kurikulum SMA
 
-ADAPTASI KONTEKS:
-- Kelas X: contoh sederhana, kehidupan sehari-hari
-- Kelas XI: aplikasi spesifik, studi kasus
-- Kelas XII: proyek nyata, analisis mendalam
+ADAPTASI KONTEKS KHUSUS SMA KELAS X:
+========================================
+GAYA BAHASA & KOMPLEKSITAS:
+- Gunakan bahasa yang mudah dipahami siswa usia 15-16 tahun
+- Contoh teknologi: smartphone, laptop, WiFi, aplikasi populer (WhatsApp, Instagram, YouTube)
+- Hindari jargon teknis tingkat lanjut atau bahasa pemrograman kompleks
+- Fokus pada konsep dasar teknologi informasi dan komunikasi
+- Gunakan konteks sekolah dan kehidupan remaja
+
+CONTOH SOAL YANG SESUAI:
+- "Aplikasi yang paling tepat untuk mengedit video sederhana adalah..."
+- "Untuk mengamankan akun media sosial, sebaiknya kita..."  
+- "Perbedaan utama antara RAM dan storage adalah..."
+- "Langkah pertama mengatasi komputer yang lemot adalah..."
+
+CONTOH SOAL YANG DIHINDARI:
+- Coding dengan sintaks pemrograman
+- Konfigurasi server atau database kompleks  
+- Analisis algoritma tingkat lanjut
+- Konsep networking di level enterprise
 
 FORMAT OUTPUT - JSON ARRAY:
 PENTING: Berikan response dalam format JSON array yang valid. Jangan tambahkan teks apapun sebelum atau sesudah JSON.
@@ -515,9 +754,28 @@ PASTIKAN:
 - Tidak ada trailing comma setelah elemen terakhir
 - Jawaban benar harus tepat salah satu dari opsi A/B/C/D
 
+PANDUAN KHUSUS UNTUK KURIKULUM SMA KELAS X:
+========================================
+TOPIK YANG SESUAI:
+- Pengenalan komputer dan perangkat digital
+- Sistem operasi dasar (Windows, Android, iOS)
+- Aplikasi perkantoran (Word, Excel, PowerPoint)
+- Internet dan browsing aman
+- Media sosial dan etika digital
+- Keamanan digital dasar
+- Multimedia sederhana (foto, video, audio)
+
+HINDARI TOPIK KOMPLEKS:
+- Pemrograman dengan sintaks spesifik
+- Database management tingkat lanjut  
+- Network administration
+- Server configuration
+- Advanced cybersecurity
+- Machine learning atau AI development
+
 TARGET: 35 soal total (5 soal per level) dalam format JSON array yang valid.
 
-PRINSIP KUNCI: Soal berkualitas = relevan dengan modul + tingkat kesulitan tepat + membedakan kemampuan siswa dengan efektif.
+PRINSIP KUNCI: Soal berkualitas = relevan dengan modul + sesuai usia SMA + mudah dipahami + membedakan kemampuan siswa secara efektif.
 """
     
     return prompt
@@ -2421,67 +2679,132 @@ def emergency_json_parser(raw_text):
         return None
 
 # =========================================
+# PROGRESS TRACKING ENDPOINTS
+# =========================================
+@app.route('/api/progress/<int:user_id>', methods=['GET'])
+@login_required
+def get_upload_progress(user_id):
+    """Endpoint untuk mengecek progress upload"""
+    # Pastikan user hanya bisa akses progress sendiri atau guru bisa akses semua
+    if not (current_user.id == user_id or (hasattr(current_user, 'user_type') and current_user.user_type == 'guru')):
+        return jsonify({"message": "Akses ditolak"}), 403
+    
+    progress_data = get_progress(user_id)
+    if not progress_data:
+        return jsonify({"message": "Progress tidak ditemukan"}), 404
+    
+    return jsonify({
+        "success": True,
+        "progress": progress_data
+    })
+
+# =========================================
 # ENDPOINT UPLOAD & GENERATE 5 SOAL PER level (35 TOTAL)
 # =========================================
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload_file():
     if not current_user.is_authenticated or not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
-        print(f"User {current_user.username} is not a teacher or not authenticated.")
         return jsonify({"message": "Hanya guru yang dapat menggenerate soal"}), 403
 
+    user_id = current_user.id
     print(f"[{datetime.datetime.now()}] Upload file endpoint called by teacher: {current_user.username}")
     
+    # Initialize progress tracking
+    update_progress(user_id, 1, "active", "Memulai proses upload...")
+    
     if 'file' not in request.files:
+        clear_progress(user_id)
         return jsonify({"message": "Tidak ada file yang diunggah"}), 400
 
     file = request.files['file']
     if file.filename == '':
+        clear_progress(user_id)
         return jsonify({"message": "Tidak ada file yang dipilih"}), 400
 
     file_ext = file.filename.rsplit('.', 1)[-1].lower()
     if file_ext not in ['doc', 'docx', 'pdf']:
+        clear_progress(user_id)
         return jsonify({"message": "Format file tidak didukung. Hanya file .doc, .docx, dan .pdf yang diizinkan"}), 400
 
     try:
-        # Read file as bytes
+        # STEP 1: Upload dan validasi file
+        update_progress(user_id, 1, "completed", "File berhasil diunggah")
         file_stream = file.read()
         
-        print(f"[{datetime.datetime.now()}] Memulai ekstraksi teks...")
-        content_text = ""
-        if file_ext == 'pdf':
-            content_text = extract_text_from_pdf_bytes(file_stream)
-        elif file_ext in ['doc', 'docx']:
-            content_text = extract_text_from_docx_bytes(file_stream, file_ext)
+        # STEP 2: Analisis struktur dokumen
+        update_progress(user_id, 2, "active", "Menganalisis struktur dan format dokumen...")
+        print(f"[{datetime.datetime.now()}] Memulai validasi file...")
         
-        # Check if file has content
-        if not content_text or len(content_text.strip()) < 200:
-            print("Validasi gagal: File kosong atau terlalu pendek.")
+        # Validasi format dan konten
+        is_valid_file, validation_result = validate_file_format_and_content(file_stream, file_ext, file.filename)
+        
+        if not is_valid_file:
+            clear_progress(user_id)
+            print(f"Validasi gagal: {validation_result}")
             return jsonify({
-                "message": "File gagal diproses. Konten terlalu sedikit atau tidak dapat dibaca."
+                "success": False,
+                "message": f"File tidak memenuhi kriteria modul ajar: {validation_result}"
             }), 400
-            
-        print(f"[{datetime.datetime.now()}] Ekstraksi teks selesai. Panjang asli: {len(content_text)} karakter.")
         
-        # PERUBAHAN: Gunakan ekstraksi hybrid dengan fallback
+        content_text = validation_result
+        print(f"[{datetime.datetime.now()}] File berhasil divalidasi. Panjang konten: {len(content_text)} karakter.")
+        update_progress(user_id, 2, "completed", "Struktur dokumen berhasil dianalisis")
+        
+        # STEP 3: Ekstraksi tujuan pembelajaran
+        update_progress(user_id, 3, "active", "Mengekstrak tujuan pembelajaran dan komponen modul...")
+        
+        # VALIDASI PENDIDIKAN: Sudah dilakukan dalam validate_file_format_and_content
+        # Tidak perlu validasi ganda lagi, langsung lanjut ke ekstraksi
+        
+        # EKSTRAKSI KOMPONEN: Gunakan ekstraksi hybrid dengan fallback
         print("Mengekstrak komponen modul ajar...")
         module_components, validation_result = extract_hybrid_module_components(content_text)
 
-        # Tambahkan logging dan validasi
+        # VALIDASI KUALITAS: Periksa kualitas ekstraksi
+        quality_score, quality_issues = check_content_quality_score(module_components)
+        
+        print(f"Quality score: {quality_score}/100")
+        print(f"Issues: {quality_issues}")
+        
+        # THRESHOLD FLEKSIBEL: Minimal 40 poin untuk diproses (dikurangi dari 60)
+        if quality_score < 40:
+            clear_progress(user_id)
+            issues_text = "; ".join(quality_issues)
+            return jsonify({
+                "success": False,
+                "message": f"Dokumen pembelajaran tidak memenuhi standar minimum (skor: {quality_score}/100). Masalah: {issues_text}. Pastikan dokumen memiliki tujuan pembelajaran yang jelas."
+            }), 400
+
+        # Tambahkan logging dan validasi detail
         detailed_validation = log_extraction_results(module_components)
 
-        # Cek quality score 
-        if validation_result["quality_score"] < 30:
-            return jsonify({
-                "message": f"Kualitas ekstraksi rendah ({validation_result['quality_score']:.1f}%). Mohon periksa format dokumen modul ajar."
-            }), 400
+        # VALIDASI FINAL: Periksa komponen kunci (lebih fleksibel)
+        tujuan_list = module_components.get("tujuan_pembelajaran", [])
+        
+        # Jika tidak ada tujuan sama sekali, coba ekstrak ulang atau buat default
+        if not tujuan_list:
+            print("WARNING: Tujuan pembelajaran tidak ditemukan, membuat tujuan default...")
+            # Buat tujuan pembelajaran default berdasarkan mata pelajaran
+            mata_pelajaran = module_components.get("mata_pelajaran", "")
+            if mata_pelajaran:
+                default_tujuan = f"Memahami konsep dasar {mata_pelajaran}"
+                module_components["tujuan_pembelajaran"] = [default_tujuan]
+                print(f"Tujuan default dibuat: {default_tujuan}")
+            else:
+                module_components["tujuan_pembelajaran"] = ["Memahami materi pembelajaran yang diberikan"]
+                print("Tujuan sangat umum dibuat karena mata pelajaran tidak terdeteksi")
+        
+        # Set default mata pelajaran jika kosong
+        if not module_components.get("mata_pelajaran"):
+            module_components["mata_pelajaran"] = "Pembelajaran Umum"
+            print("WARNING: Mata pelajaran tidak terdeteksi, menggunakan default 'Pembelajaran Umum'")
 
-        # Validasi komponen kunci
-        if not module_components.get("mata_pelajaran") and not module_components.get("tujuan_pembelajaran"):
-            print("Validasi gagal: Komponen penting tidak ditemukan dalam dokumen.")
-            return jsonify({
-                "message": "File tidak dapat diproses. Pastikan file yang diunggah berisi modul ajar yang lengkap dengan Tujuan Pembelajaran."
-            }), 400
+        print(f"[{datetime.datetime.now()}] Validasi berhasil. Melanjutkan ke pemrosesan AI...")
+        update_progress(user_id, 3, "completed", "Tujuan pembelajaran berhasil diekstrak")
+        
+        # STEP 4: Proses dengan AI Gemini
+        update_progress(user_id, 4, "active", "Memproses dengan AI Gemini untuk membuat soal...")
 
         # Buat DataFrame ringkas (mengganti convert_text_to_dataframe_improved)
         df = pd.DataFrame({
@@ -2503,6 +2826,7 @@ def upload_file():
         response = model.generate_content(prompt)
         raw_text = response.text.strip()
         print(f"[{datetime.datetime.now()}] Respons dari Gemini AI diterima.")
+        update_progress(user_id, 4, "completed", "AI berhasil menghasilkan soal")
         
         print("Raw AI response:", raw_text[:500])
         
@@ -2650,6 +2974,9 @@ def upload_file():
             traceback.print_exc()
             return jsonify({"message": f"Error menghapus data lama: {str(e)}"}), 500
             
+        # STEP 5: Save to database
+        update_progress(user_id, 5, "active", "Menyimpan soal ke database...")
+        
         # Save new questions to database
         print("Menyimpan soal baru ke database untuk guru:", current_user.username)
         new_questions_from_db = [] 
@@ -2724,22 +3051,33 @@ def upload_file():
                 
         level_summary = ", ".join([f"level {level}: {count} soal" for level, count in sorted(level_counts.items())])
 
-        # Create success message
-        message = f"Total {len(questions_for_frontend)} soal pilihan ganda berhasil digenerate dan disimpan ({level_summary})"
-        if preserved_question_ids_in_collections:
-            message += f", dengan mempertahankan {len(preserved_question_ids_in_collections)} soal yang ada dalam koleksi."
+        # Complete step 5 and clear progress
+        update_progress(user_id, 5, "completed", "Semua soal berhasil disimpan!")
+        
+        # Create success message without quality score
+        message = f"✅ Modul ajar berhasil divalidasi dan diproses! Total {len(questions_for_frontend)} soal pilihan ganda berhasil digenerate ({level_summary})"
+
+        # Clear progress after successful completion
+        clear_progress(user_id)
 
         return jsonify({
+            "success": True,
             "message": message,  
-            "data": questions_for_frontend
+            "data": questions_for_frontend,
+            "validation_info": {
+                "quality_score": quality_score,
+                "components_found": len([k for k, v in module_components.items() if v]),
+                "total_objectives": len(module_components.get("tujuan_pembelajaran", []))
+            }
         }), 200
 
     except Exception as e:
+        clear_progress(user_id)
         print(f"Exception in upload_file: {str(e)}")
         db.session.rollback()
         import traceback
         traceback.print_exc()
-        return jsonify({"message": f"AI error: {str(e)}"}), 500
+        return jsonify({"success": False, "message": f"Error pemrosesan: {str(e)}"}), 500
 
 # Function to validate if a document contains educational content
 def check_educational_content(content_text):
