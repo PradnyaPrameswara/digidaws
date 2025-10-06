@@ -69,43 +69,131 @@ genai.configure(api_key=my_api_key_gemini)
 model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
 # =========================================
-# PROGRESS TRACKING SYSTEM
+# PROGRESS TRACKING SYSTEM (DATABASE-BASED untuk Production)
 # =========================================
-# Global dictionary untuk tracking progress setiap user
-progress_tracker = {}
+
+# Model untuk progress tracking yang compatible dengan multiple workers
+class ProgressTracker(db.Model):
+    __tablename__ = 'progress_tracker'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), nullable=False, index=True)
+    current_step = db.Column(db.Integer, default=1)
+    step_1_status = db.Column(db.String(20), default='pending')
+    step_1_message = db.Column(db.String(255), default='Mengunggah file modul ajar')
+    step_2_status = db.Column(db.String(20), default='pending')
+    step_2_message = db.Column(db.String(255), default='Menganalisis struktur dokumen')
+    step_3_status = db.Column(db.String(20), default='pending')
+    step_3_message = db.Column(db.String(255), default='Mengekstrak tujuan pembelajaran')
+    step_4_status = db.Column(db.String(20), default='pending')
+    step_4_message = db.Column(db.String(255), default='Memproses dengan AI Gemini')
+    step_5_status = db.Column(db.String(20), default='pending')
+    step_5_message = db.Column(db.String(255), default='Menyimpan soal ke database')
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
+    def __repr__(self):
+        return f'<ProgressTracker {self.user_id}: Step {self.current_step}>'
 
 def update_progress(user_id, step, status="active", message=""):
-    """Update progress untuk user tertentu"""
-    if user_id not in progress_tracker:
-        progress_tracker[user_id] = {
-            "current_step": 1,
-            "steps": {
-                1: {"status": "pending", "message": "Mengunggah file modul ajar"},
-                2: {"status": "pending", "message": "Menganalisis struktur dokumen"},
-                3: {"status": "pending", "message": "Mengekstrak tujuan pembelajaran"},
-                4: {"status": "pending", "message": "Memproses dengan AI Gemini"},
-                5: {"status": "pending", "message": "Menyimpan soal ke database"}
-            },
-            "timestamp": datetime.datetime.now()
-        }
-    
-    # Update status step yang spesifik
-    if step in progress_tracker[user_id]["steps"]:
-        progress_tracker[user_id]["steps"][step]["status"] = status
-        if message:
-            progress_tracker[user_id]["steps"][step]["message"] = message
-        progress_tracker[user_id]["current_step"] = step
-        progress_tracker[user_id]["timestamp"] = datetime.datetime.now()
-        print(f"Progress updated for user {user_id}: Step {step} - {status}")
+    """Update progress untuk user tertentu (Database-based untuk production)"""
+    try:
+        # Cari atau buat progress record untuk user
+        progress = ProgressTracker.query.filter_by(user_id=str(user_id)).first()
+        
+        if not progress:
+            # Buat progress record baru
+            progress = ProgressTracker(
+                user_id=str(user_id),
+                current_step=1
+            )
+            db.session.add(progress)
+            db.session.flush()  # Flush to get the ID
+        
+        # Update step spesifik
+        if step in [1, 2, 3, 4, 5]:
+            setattr(progress, f'step_{step}_status', status)
+            if message:
+                setattr(progress, f'step_{step}_message', message)
+            progress.current_step = step
+            progress.updated_at = datetime.datetime.now()
+        
+        db.session.commit()
+        print(f"Progress updated in DB for user {user_id}: Step {step} - {status}")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating progress for user {user_id}: {str(e)}")
+        # Fallback ke memory-based tracking jika DB error
+        global progress_tracker_fallback
+        if 'progress_tracker_fallback' not in globals():
+            progress_tracker_fallback = {}
+        
+        if user_id not in progress_tracker_fallback:
+            progress_tracker_fallback[user_id] = {
+                "current_step": 1,
+                "steps": {
+                    1: {"status": "pending", "message": "Mengunggah file modul ajar"},
+                    2: {"status": "pending", "message": "Menganalisis struktur dokumen"},
+                    3: {"status": "pending", "message": "Mengekstrak tujuan pembelajaran"},
+                    4: {"status": "pending", "message": "Memproses dengan AI Gemini"},
+                    5: {"status": "pending", "message": "Menyimpan soal ke database"}
+                },
+                "timestamp": datetime.datetime.now()
+            }
+        
+        if step in progress_tracker_fallback[user_id]["steps"]:
+            progress_tracker_fallback[user_id]["steps"][step]["status"] = status
+            if message:
+                progress_tracker_fallback[user_id]["steps"][step]["message"] = message
+            progress_tracker_fallback[user_id]["current_step"] = step
+            progress_tracker_fallback[user_id]["timestamp"] = datetime.datetime.now()
 
 def get_progress(user_id):
-    """Ambil progress untuk user tertentu"""
-    return progress_tracker.get(user_id, None)
+    """Ambil progress untuk user tertentu (Database-based untuk production)"""
+    try:
+        progress = ProgressTracker.query.filter_by(user_id=str(user_id)).first()
+        
+        if progress:
+            # Format data sesuai dengan format lama
+            steps_data = {}
+            for i in range(1, 6):
+                steps_data[i] = {
+                    "status": getattr(progress, f'step_{i}_status'),
+                    "message": getattr(progress, f'step_{i}_message')
+                }
+            
+            return {
+                "current_step": progress.current_step,
+                "steps": steps_data,
+                "timestamp": progress.updated_at
+            }
+        else:
+            return None
+            
+    except Exception as e:
+        print(f"Error getting progress for user {user_id}: {str(e)}")
+        # Fallback ke memory-based tracking jika DB error
+        global progress_tracker_fallback
+        if 'progress_tracker_fallback' in globals():
+            return progress_tracker_fallback.get(user_id, None)
+        return None
 
 def clear_progress(user_id):
-    """Bersihkan progress setelah selesai"""
-    if user_id in progress_tracker:
-        del progress_tracker[user_id]
+    """Bersihkan progress setelah selesai (Database-based untuk production)"""
+    try:
+        progress = ProgressTracker.query.filter_by(user_id=str(user_id)).first()
+        if progress:
+            db.session.delete(progress)
+            db.session.commit()
+            print(f"Progress cleared from DB for user {user_id}")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error clearing progress for user {user_id}: {str(e)}")
+        # Fallback ke memory-based tracking jika DB error
+        global progress_tracker_fallback
+        if 'progress_tracker_fallback' in globals() and user_id in progress_tracker_fallback:
+            del progress_tracker_fallback[user_id]
 
 # =========================================
 # OPTIMIZED MODULE EXTRACTION FUNCTIONS
