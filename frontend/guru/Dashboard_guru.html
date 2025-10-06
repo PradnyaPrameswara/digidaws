@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="user-id" content="{{ current_user.id if current_user.is_authenticated else '' }}">
     <title>Guru - Generate Soal Pilihan Ganda</title>
     
     <!-- Favicon -->
@@ -88,16 +89,84 @@
             margin-right: 15px;
         }
 
-        /* Loading spinner */
-        .spinner-container {
-            display: inline-block;
-            margin-right: 10px;
+        /* File transfer loading animation */
+        .file-transfer-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
         }
 
-        .spinner-border-sm {
-            width: 1rem;
-            height: 1rem;
-            border-width: 0.2em;
+        .transfer-icon {
+            font-size: 2rem;
+            color: #007bff;
+            margin-right: 15px;
+            animation: pulse 2s infinite;
+        }
+
+        .transfer-progress {
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .transfer-status {
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+
+        .progress {
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar-animated {
+            background: linear-gradient(45deg, 
+                rgba(0,123,255,0.6) 25%, 
+                rgba(0,123,255,1) 25%, 
+                rgba(0,123,255,1) 50%, 
+                rgba(0,123,255,0.6) 50%, 
+                rgba(0,123,255,0.6) 75%, 
+                rgba(0,123,255,1) 75%);
+            background-size: 30px 30px;
+            animation: progress-slide 1.5s linear infinite;
+        }
+
+        @keyframes progress-slide {
+            0% { background-position: 0 0; }
+            100% { background-position: 30px 0; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .transfer-steps {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .transfer-steps li {
+            padding: 5px 0;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+
+        .transfer-steps li.active {
+            color: #007bff;
+            font-weight: 500;
+        }
+
+        .transfer-steps li.completed {
+            color: #28a745;
+        }
+
+        .transfer-steps li i {
+            margin-right: 8px;
+            width: 16px;
         }
 
         /* Style untuk soal dalam collection */
@@ -1334,6 +1403,55 @@
             tbody.appendChild(totalRow);
         }
 
+        // Function to get current user ID (assuming it's available in the page context)
+        function getCurrentUserId() {
+            // Try to get user ID from meta tag, data attribute, or global variable
+            const userIdMeta = document.querySelector('meta[name="user-id"]');
+            if (userIdMeta) {
+                return userIdMeta.getAttribute('content');
+            }
+            
+            // Alternative: get from data attribute on body or main element
+            const bodyUserId = document.body.getAttribute('data-user-id');
+            if (bodyUserId) {
+                return bodyUserId;
+            }
+            
+            // Fallback: assume user ID 1 for demo purposes (should be replaced with actual implementation)
+            console.warn("User ID not found, using fallback. Please implement proper user ID detection.");
+            return '1';
+        }
+
+        // Function to update loading step animation
+        function updateStep(stepNumber) {
+            const steps = document.querySelectorAll('.transfer-step');
+            
+            // Update all steps up to current step
+            for (let i = 0; i < steps.length; i++) {
+                const step = steps[i];
+                const stepNum = i + 1;
+                
+                if (stepNum < stepNumber) {
+                    // Mark previous steps as completed
+                    step.classList.remove('active');
+                    step.classList.add('completed');
+                } else if (stepNum === stepNumber) {
+                    // Mark current step as active
+                    step.classList.remove('completed');
+                    step.classList.add('active');
+                } else {
+                    // Reset future steps
+                    step.classList.remove('active', 'completed');
+                }
+            }
+            
+            // Update progress bar
+            const progressBar = document.querySelector('.progress-bar');
+            const progressPercentage = Math.min(((stepNumber - 1) / (steps.length - 1)) * 100, 100);
+            progressBar.style.width = progressPercentage + '%';
+            progressBar.setAttribute('aria-valuenow', progressPercentage);
+        }
+
         document.getElementById("uploadForm").addEventListener("submit", async function (event) {
             event.preventDefault();
 
@@ -1348,24 +1466,77 @@
             let formData = new FormData();
             formData.append("file", fileInput.files[0]);
 
+            // Show file transfer loading animation
             statusMessage.innerHTML = `
                 <div class='alert alert-info'>
-                    <div class="spinner-container">
-                        <div class="spinner-border spinner-border-sm" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                    <div class="file-transfer-container">
+                        <div class="transfer-icon">
+                            <i class="bi bi-file-earmark-arrow-up"></i>
+                        </div>
+                        <div class="transfer-progress">
+                            <div class="transfer-status">Memproses modul ajar dan membuat soal...</div>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-animated" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
-                    Mengunggah file dan membuat soal pilihan ganda...
+                    <ul class="transfer-steps">
+                        <li id="step1" class="transfer-step active"><i class="bi bi-upload"></i>Mengunggah file modul ajar</li>
+                        <li id="step2" class="transfer-step"><i class="bi bi-file-text"></i>Menganalisis struktur dokumen</li>
+                        <li id="step3" class="transfer-step"><i class="bi bi-search"></i>Mengekstrak tujuan pembelajaran</li>
+                        <li id="step4" class="transfer-step"><i class="bi bi-robot"></i>Memproses dengan AI Gemini</li>
+                        <li id="step5" class="transfer-step"><i class="bi bi-check-circle"></i>Menyimpan soal ke database</li>
+                    </ul>
                 </div>
             `;
 
+            // Start with step 1 (upload initiated)
+            updateStep(1);
+
             try {
+                // Start progress polling
+                const userId = getCurrentUserId(); // We'll need to implement this
+                let progressInterval = null;
+                
+                // Function to poll progress from backend
+                async function pollProgress() {
+                    try {
+                        const progressResponse = await fetch(`/api/progress/${userId}`);
+                        if (progressResponse.ok) {
+                            const progressData = await progressResponse.json();
+                            if (progressData.success && progressData.progress) {
+                                const currentStep = progressData.progress.current_step;
+                                const stepStatus = progressData.progress.steps[currentStep];
+                                
+                                // Update UI based on backend progress
+                                updateStep(currentStep);
+                                
+                                // Update status message if provided
+                                if (stepStatus && stepStatus.message) {
+                                    document.querySelector('.transfer-status').textContent = stepStatus.message;
+                                }
+                                
+                                // Stop polling if all steps completed
+                                if (currentStep === 5 && stepStatus.status === 'completed') {
+                                    clearInterval(progressInterval);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.log("Progress polling error:", error);
+                    }
+                }
+                
+                // Start polling every 500ms
+                progressInterval = setInterval(pollProgress, 500);
+                
                 let response = await fetch("/upload", {
                     method: "POST",
                     body: formData
                 });
 
                 if (!response.ok) {
+                    clearInterval(progressInterval);
                     let errorText;
                     try {
                         const errorJson = await response.json();
@@ -1377,7 +1548,17 @@
                 }
 
                 let result = await response.json();
-                statusMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
+                
+                // Stop polling and show final result
+                clearInterval(progressInterval);
+                
+                // Final completion - ensure step 5 is completed
+                updateStep(5);
+                
+                // Show success message after short delay
+                setTimeout(() => {
+                    statusMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
+                }, 500);
 
                 if (result.data && Array.isArray(result.data)) {
                     allGeneratedQuestions = result.data;
