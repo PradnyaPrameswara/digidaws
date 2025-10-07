@@ -1467,6 +1467,92 @@
             progressBar.setAttribute('aria-valuenow', progressPercentage);
         }
 
+        // Function to show error with suggestion
+        function showErrorWithSuggestion(message, suggestion) {
+            const statusMessage = document.getElementById("statusMessage");
+            statusMessage.innerHTML = `
+                <div class='alert alert-danger'>
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-exclamation-triangle-fill me-3 mt-1" style="font-size: 1.5rem; color: #dc3545;"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-2">Modul Ajar Tidak Sesuai Format</h6>
+                            <div class="mb-3">${message}</div>
+                            <div class="bg-light p-3 rounded border-start border-primary border-3">
+                                <small class="text-muted d-block mb-1"><strong>💡 Saran:</strong></small>
+                                <small>${suggestion}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Function to show quality extraction error  
+        function showQualityError(message, qualityScore, suggestion) {
+            const statusMessage = document.getElementById("statusMessage");
+            statusMessage.innerHTML = `
+                <div class='alert alert-warning'>
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-clipboard-x-fill me-3 mt-1" style="font-size: 1.5rem; color: #856404;"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-2">Kualitas Ekstraksi Rendah</h6>
+                            <div class="mb-3">${message}</div>
+                            <div class="mb-3">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar ${qualityScore < 40 ? 'bg-danger' : qualityScore < 60 ? 'bg-warning' : 'bg-success'}" 
+                                         role="progressbar" 
+                                         style="width: ${qualityScore}%" 
+                                         aria-valuenow="${qualityScore}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        ${qualityScore}%
+                                    </div>
+                                </div>
+                                <small class="text-muted">Skor minimal yang dibutuhkan: 60%</small>
+                            </div>
+                            <div class="bg-light p-3 rounded border-start border-warning border-3">
+                                <small class="text-muted d-block mb-1"><strong>💡 Saran:</strong></small>
+                                <small>${suggestion}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Function to show system error with better formatting
+        function showSystemError(message, errorType, suggestion) {
+            const statusMessage = document.getElementById("statusMessage");
+            let iconClass = "bi bi-exclamation-triangle-fill";
+            let alertClass = "alert-danger";
+            
+            if (errorType === "network" || errorType === "timeout") {
+                iconClass = "bi bi-wifi-off";
+                alertClass = "alert-warning";
+            } else if (errorType === "progress") {
+                iconClass = "bi bi-arrow-clockwise";
+                alertClass = "alert-info";
+            }
+            
+            statusMessage.innerHTML = `
+                <div class='alert ${alertClass}'>
+                    <div class="d-flex align-items-start">
+                        <i class="${iconClass} me-3 mt-1" style="font-size: 1.5rem;"></i>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-2">Kesalahan Sistem</h6>
+                            <div class="mb-3">${message}</div>
+                            ${suggestion ? `
+                                <div class="bg-light p-3 rounded border-start border-info border-3">
+                                    <small class="text-muted d-block mb-1"><strong>💡 Saran:</strong></small>
+                                    <small>${suggestion}</small>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         document.getElementById("uploadForm").addEventListener("submit", async function (event) {
             event.preventDefault();
 
@@ -1563,11 +1649,24 @@
                 });
 
                 if (!response.ok) {
-                    clearInterval(progressInterval);
+                    // Stop progress tracking properly
+                    if (window.progressTracker) {
+                        window.progressTracker.stopPolling();
+                    }
+                    
                     let errorText;
                     try {
                         const errorJson = await response.json();
                         errorText = errorJson.message || "Unknown error";
+                        
+                        // Handle different error types with better user messages
+                        if (errorJson.error_type === "invalid_module_format") {
+                            showErrorWithSuggestion(errorJson.message, errorJson.suggestion);
+                            return;
+                        } else if (errorJson.error_type === "low_quality_extraction") {
+                            showQualityError(errorJson.message, errorJson.quality_score, errorJson.suggestion);
+                            return;
+                        }
                     } catch {
                         errorText = await response.text();
                     }
@@ -1611,8 +1710,28 @@
                     window.progressTracker.stopPolling();
                 }
                 
-                statusMessage.innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
                 console.error("Fetch error:", error);
+                
+                // Parse error message for better user experience
+                let errorMessage = error.message;
+                let errorType = "general";
+                let suggestion = "💡 Silakan refresh halaman dan coba lagi. Pastikan file adalah Modul Ajar Kurikulum Merdeka yang valid.";
+                
+                if (errorMessage.includes("progressInterval is not defined")) {
+                    errorType = "progress";
+                    errorMessage = "🔄 Terjadi kesalahan dalam sistem pelacakan progress. Silakan refresh halaman dan coba lagi.";
+                } else if (errorMessage.includes("timeout") || errorMessage.includes("fetch")) {
+                    errorType = "network";
+                    errorMessage = "🌐 Koneksi terputus atau server tidak merespons. Periksa koneksi internet Anda.";
+                    suggestion = "💡 Periksa koneksi internet dan coba lagi dalam beberapa menit.";
+                } else if (errorMessage.includes("Server error")) {
+                    errorType = "server";
+                    errorMessage = errorMessage.replace("Server error: ", "");
+                    suggestion = "💡 Jika masalah berlanjut, silakan hubungi administrator sistem.";
+                }
+                
+                // Use appropriate error display function
+                showSystemError(errorMessage, errorType, suggestion);
             }
         });
 

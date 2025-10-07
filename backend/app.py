@@ -199,80 +199,159 @@ def clear_progress(user_id):
 # OPTIMIZED MODULE EXTRACTION FUNCTIONS
 # =========================================
 
-def validate_educational_content_flexible(content_text):
+def validate_kurikulum_merdeka_modul_ajar(content_text):
     """
-    Validasi fleksibel untuk dokumen pembelajaran - lebih toleran tapi tetap filter yang relevan
+    Validasi KHUSUS untuk Modul Ajar Kurikulum Merdeka - Hanya menerima yang memiliki komponen wajib
     """
-    if not content_text or len(content_text.strip()) < 300:  # Dikurangi dari 500 ke 300
-        return False, "Dokumen terlalu pendek untuk modul pembelajaran (minimal 300 karakter)"
+    if not content_text or len(content_text.strip()) < 800:
+        return False, "Dokumen terlalu pendek untuk modul ajar Kurikulum Merdeka (minimal 800 karakter)"
     
     content_lower = content_text.lower()
+    missing_components = []
+    validation_score = 0
     
-    # 1. Cek kata kunci pembelajaran (lebih fleksibel)
-    modul_keywords = [
-        'modul ajar', 'modul pembelajaran', 'rencana pembelajaran', 'rpp',
-        'lesson plan', 'learning module', 'teaching module', 'silabus',
-        'bahan ajar', 'materi pembelajaran', 'panduan pembelajaran'
+    # 1. WAJIB: Header "MODUL AJAR" - Indikator utama Kurikulum Merdeka
+    modul_ajar_patterns = [
+        r'modul\s+ajar',
+        r'modul\s+pembelajaran',
+        r'teaching\s+module',
+        r'learning\s+module'
     ]
     
-    has_modul = any(keyword in content_lower for keyword in modul_keywords)
-    
-    # 2. Cek tujuan pembelajaran (lebih fleksibel)
-    tujuan_keywords = [
-        'tujuan pembelajaran', 'learning objective', 'capaian pembelajaran',
-        'kompetensi dasar', 'learning outcome', 'objektif pembelajaran',
-        'tujuan', 'capaian', 'kompetensi', 'indikator', 'cp'
-    ]
-    
-    has_tujuan = any(keyword in content_lower for keyword in tujuan_keywords)
-    
-    # 3. Cek indikator pendidikan
-    educational_indicators = [
-        'siswa', 'peserta didik', 'mahasiswa', 'pelajar', 'murid',
-        'guru', 'pengajar', 'dosen', 'instruktur', 'fasilitator',
-        'pembelajaran', 'belajar', 'mengajar', 'pendidikan'
-    ]
-    
-    edu_count = sum(1 for indicator in educational_indicators if indicator in content_lower)
-    
-    # 4. Cek struktur pembelajaran (opsional)
-    struktur_keywords = [
-        'kegiatan pembelajaran', 'langkah pembelajaran', 'aktivitas belajar',
-        'metode pembelajaran', 'strategi pembelajaran', 'pendekatan pembelajaran',
-        'asesmen', 'penilaian', 'evaluasi pembelajaran', 'kegiatan', 'metode', 'strategi'
-    ]
-    
-    struktur_count = sum(1 for keyword in struktur_keywords if keyword in content_lower)
-    
-    # LOGIKA FLEKSIBEL: Minimal 2 dari 4 kriteria terpenuhi
-    score = 0
-    missing_criteria = []
-    
-    if has_modul:
-        score += 1
+    has_modul_header = any(re.search(pattern, content_lower) for pattern in modul_ajar_patterns)
+    if has_modul_header:
+        validation_score += 25
+        print("✓ Header MODUL AJAR ditemukan")
     else:
-        missing_criteria.append("kata kunci modul/pembelajaran")
+        missing_components.append("Header 'MODUL AJAR'")
+        print("✗ Header MODUL AJAR tidak ditemukan")
     
+    # 2. WAJIB: Identitas Modul (Mata Pelajaran, Kelas, Fase)
+    identitas_patterns = [
+        r'mata\s+pelajaran\s*[:]\s*',
+        r'subject\s*[:]\s*',
+        r'fase\s*/?\s*kelas\s*[:]\s*',
+        r'phase\s*/?\s*class\s*[:]\s*',
+        r'fase\s*[:]\s*[a-g]',
+        r'kelas\s*[:]\s*[ivx]+',
+        r'grade\s*[:]\s*\d+'
+    ]
+    
+    has_identitas = any(re.search(pattern, content_lower) for pattern in identitas_patterns)
+    if has_identitas:
+        validation_score += 15
+        print("✓ Identitas Modul (Mata Pelajaran/Kelas/Fase) ditemukan")
+    else:
+        missing_components.append("Identitas Modul (Mata Pelajaran, Kelas, Fase)")
+        print("✗ Identitas Modul tidak lengkap")
+    
+    # 3. WAJIB: Komponen Inti - Tujuan Pembelajaran
+    tujuan_patterns = [
+        r'tujuan\s+pembelajaran',
+        r'learning\s+objectives?',
+        r'capaian\s+pembelajaran',
+        r'learning\s+outcomes?',
+        r'i\.\s*tujuan\s+pembelajaran',
+        r'1\.\s*tujuan\s+pembelajaran'
+    ]
+    
+    has_tujuan = any(re.search(pattern, content_lower) for pattern in tujuan_patterns)
     if has_tujuan:
-        score += 1  
+        validation_score += 20
+        print("✓ Tujuan Pembelajaran ditemukan")
     else:
-        missing_criteria.append("tujuan pembelajaran")
+        missing_components.append("Tujuan Pembelajaran")
+        print("✗ Tujuan Pembelajaran tidak ditemukan")
     
-    if edu_count >= 2:
-        score += 1
-    else:
-        missing_criteria.append("konteks pendidikan")
-        
-    if struktur_count >= 1:
-        score += 1
-    else:
-        missing_criteria.append("struktur pembelajaran")
+    # 4. WAJIB: Kompetensi Awal - Komponen khas Kurikulum Merdeka
+    kompetensi_patterns = [
+        r'kompetensi\s+awal',
+        r'prerequisite\s+competenc',
+        r'kemampuan\s+prasyarat',
+        r'ii\.\s*kompetensi\s+awal',
+        r'2\.\s*kompetensi\s+awal'
+    ]
     
-    # Minimal 2 dari 4 kriteria harus terpenuhi
-    if score >= 2:
-        return True, "Dokumen diterima sebagai materi pembelajaran"
+    has_kompetensi_awal = any(re.search(pattern, content_lower) for pattern in kompetensi_patterns)
+    if has_kompetensi_awal:
+        validation_score += 20
+        print("✓ Kompetensi Awal ditemukan")
     else:
-        return False, f"Dokumen tidak memenuhi cukup kriteria pembelajaran. Kurang: {', '.join(missing_criteria)}"
+        missing_components.append("Kompetensi Awal")
+        print("✗ Kompetensi Awal tidak ditemukan")
+    
+    # 5. WAJIB: Pemahaman Bermakna - Komponen khas Kurikulum Merdeka
+    bermakna_patterns = [
+        r'pemahaman\s+bermakna',
+        r'meaningful\s+understanding',
+        r'essential\s+understanding',
+        r'iii\.\s*pemahaman\s+bermakna',
+        r'3\.\s*pemahaman\s+bermakna'
+    ]
+    
+    has_pemahaman_bermakna = any(re.search(pattern, content_lower) for pattern in bermakna_patterns)
+    if has_pemahaman_bermakna:
+        validation_score += 15
+        print("✓ Pemahaman Bermakna ditemukan")
+    else:
+        missing_components.append("Pemahaman Bermakna")
+        print("✗ Pemahaman Bermakna tidak ditemukan")
+    
+    # 6. OPSIONAL BONUS: Profil Pelajar Pancasila (ciri khas Kurikulum Merdeka)
+    profil_patterns = [
+        r'profil\s+pelajar\s+pancasila',
+        r'pancasila\s+student\s+profile',
+        r'p5\s*[:]\s*',
+        r'dimensi\s+profil\s+pelajar',
+        r'karakter\s+pelajar\s+pancasila'
+    ]
+    
+    has_profil_pancasila = any(re.search(pattern, content_lower) for pattern in profil_patterns)
+    if has_profil_pancasila:
+        validation_score += 10
+        print("✓ BONUS: Profil Pelajar Pancasila ditemukan")
+    
+    # 7. OPSIONAL BONUS: Pertanyaan Pemantik
+    pemantik_patterns = [
+        r'pertanyaan\s+pemantik',
+        r'essential\s+questions?',
+        r'driving\s+questions?',
+        r'guiding\s+questions?',
+        r'iv\.\s*pertanyaan\s+pemantik'
+    ]
+    
+    has_pertanyaan_pemantik = any(re.search(pattern, content_lower) for pattern in pemantik_patterns)
+    if has_pertanyaan_pemantik:
+        validation_score += 5
+        print("✓ BONUS: Pertanyaan Pemantik ditemukan")
+    
+    # 8. VALIDASI KONTEN PENDIDIKAN
+    edu_indicators = [
+        'peserta didik', 'siswa', 'murid', 'pelajar',
+        'guru', 'pengajar', 'fasilitator', 'educator',
+        'pembelajaran', 'belajar', 'mengajar', 'learning', 'teaching'
+    ]
+    
+    edu_count = sum(1 for indicator in edu_indicators if indicator in content_lower)
+    if edu_count >= 5:
+        validation_score += 5
+        print(f"✓ Konteks pendidikan memadai ({edu_count} indikator ditemukan)")
+    else:
+        missing_components.append("Konteks pendidikan yang memadai")
+        print(f"✗ Konteks pendidikan kurang ({edu_count} indikator)")
+    
+    # VALIDASI AKHIR
+    print(f"\n=== HASIL VALIDASI MODUL AJAR KURIKULUM MERDEKA ===")
+    print(f"Skor Validasi: {validation_score}/100")
+    
+    # Threshold ketat: minimal 80 dari 100 untuk komponen wajib
+    if validation_score >= 80:
+        print("✅ DITERIMA: File memenuhi standar Modul Ajar Kurikulum Merdeka")
+        return True, f"Modul Ajar Kurikulum Merdeka valid (skor: {validation_score}/100)"
+    else:
+        print("❌ DITOLAK: File tidak memenuhi standar Modul Ajar Kurikulum Merdeka")
+        print(f"Komponen yang hilang atau kurang: {', '.join(missing_components)}")
+        return False, f"Bukan Modul Ajar Kurikulum Merdeka yang valid. Komponen hilang: {', '.join(missing_components[:3])}"
 
 def validate_file_format_and_content(file_stream, file_ext, filename):
     """
@@ -302,8 +381,8 @@ def validate_file_format_and_content(file_stream, file_ext, filename):
         if not content_text:
             return False, "Tidak dapat mengekstrak teks dari file. Pastikan file tidak rusak atau terproteksi"
         
-        # 4. Validasi konten pendidikan secara fleksibel
-        is_valid, message = validate_educational_content_flexible(content_text)
+        # 4. Validasi konten khusus Modul Ajar Kurikulum Merdeka
+        is_valid, message = validate_kurikulum_merdeka_modul_ajar(content_text)
         if not is_valid:
             return False, message
         
@@ -378,64 +457,105 @@ def check_content_quality_score(module_components):
     
     return quality_score, issues
 
-def extract_specific_module_components(content_text):
+def extract_kurikulum_merdeka_components(content_text):
     """
-    Ekstrak komponen spesifik dari modul ajar dengan format Roman numeral
-    ENHANCED: Pattern yang sangat fleksibel dengan fallback multiple untuk semua format dokumen
+    Ekstrak komponen khusus Modul Ajar Kurikulum Merdeka dengan pattern yang tepat
     """
     results = {
         "mata_pelajaran": "",
         "topik_utama": "",
         "kelas": "",
+        "fase": "",
         "kompetensi_awal": "",
         "tujuan_pembelajaran": [],
         "pemahaman_bermakna": [],
         "target_peserta_didik": "",
-        "model_pembelajaran": ""
+        "profil_pelajar_pancasila": [],
+        "pertanyaan_pemantik": []
     }
     
     content = content_text
     content_lower = content_text.lower()
     
-    # 1. Ekstrak Mata Pelajaran dan Topik dari header MODUL AJAR
-    modul_match = re.search(r'modul\s+ajar\s*\n([^\n]+)', content, re.IGNORECASE)
-    if modul_match:
-        results["mata_pelajaran"] = modul_match.group(1).strip()
-        results["topik_utama"] = modul_match.group(1).strip()
+    print("\n=== EKSTRAKSI KOMPONEN KURIKULUM MERDEKA ===")
     
-    # 2. Ekstrak Kelas dari Identitas Modul  
-    kelas_match = re.search(r'fase\s*/\s*kelas\s*:\s*([^\n]+)', content, re.IGNORECASE)
-    if kelas_match:
-        results["kelas"] = kelas_match.group(1).strip()
-    
-    # 3. PERBAIKAN: Ekstrak Kompetensi Awal dengan pattern yang lebih fleksibel
-    kompetensi_patterns = [
-        r'ii\.\s*kompetensi\s+awal\s*\n(.*?)(?=\niii\.|$)',
-        r'kompetensi\s+awal\s*[\:\n](.*?)(?=\n[IVX]+\.|$)',
-        r'ii[\.\s]*kompetensi\s+awal[^\n]*\n(.*?)(?=\n[IVX]+\.|$)'
+    # 1. EKSTRAK IDENTITAS MODUL - Pattern khusus Kurikulum Merdeka
+    # Mata Pelajaran
+    mata_pelajaran_patterns = [
+        r'mata\s+pelajaran\s*[:]\s*([^\n\r]+)',
+        r'subject\s*[:]\s*([^\n\r]+)',
+        r'modul\s+ajar\s*\n\s*([^\n\r]+)',
+        r'nama\s+modul\s*[:]\s*([^\n\r]+)'
     ]
     
-    for pattern in kompetensi_patterns:
+    for pattern in mata_pelajaran_patterns:
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            results["mata_pelajaran"] = match.group(1).strip()
+            results["topik_utama"] = match.group(1).strip()
+            print(f"✓ Mata Pelajaran: {results['mata_pelajaran']}")
+            break
+    
+    # Fase dan Kelas
+    fase_kelas_patterns = [
+        r'fase\s*/?\s*kelas\s*[:]\s*([^\n\r]+)',
+        r'fase\s*[:]\s*([a-g])\s*[\(/]*\s*kelas\s*([ivx\d\-]+)',
+        r'kelas\s*[:]\s*([ivx\d\-\s]+)',
+        r'grade\s*[:]\s*(\d+)',
+        r'phase\s*[:]\s*([a-g])'
+    ]
+    
+    for pattern in fase_kelas_patterns:
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            if len(match.groups()) > 1:
+                results["fase"] = match.group(1).strip()
+                results["kelas"] = match.group(2).strip()
+            else:
+                results["kelas"] = match.group(1).strip()
+            print(f"✓ Kelas/Fase: {results['kelas']} (Fase: {results.get('fase', 'N/A')})")
+            break
+    
+    # 2. EKSTRAK KOMPETENSI AWAL - Komponen khas Kurikulum Merdeka
+    kompetensi_patterns = [
+        r'ii\.\s*kompetensi\s+awal\s*[:\n](.*?)(?=\n\s*(?:iii\.|tujuan\s+pembelajaran|pemahaman\s+bermakna|$))',
+        r'kompetensi\s+awal\s*[:\n](.*?)(?=\n\s*(?:[ivx]+\.|tujuan\s+pembelajaran|pemahaman\s+bermakna|profil\s+pelajar|$))',
+        r'prerequisite\s+competenc[^\n]*[:\n](.*?)(?=\n\s*(?:learning\s+objective|meaningful\s+understanding|$))',
+        r'kemampuan\s+prasyarat\s*[:\n](.*?)(?=\n\s*(?:tujuan|pembelajaran|$))'
+    ]
+    
+    for i, pattern in enumerate(kompetensi_patterns, 1):
         kompetensi_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
         if kompetensi_match:
             kompetensi_text = kompetensi_match.group(1).strip()
-            sentences = re.split(r'[.!?]+', kompetensi_text)
-            key_sentences = [s.strip() for s in sentences[:2] if s.strip()]
-            results["kompetensi_awal"] = ". ".join(key_sentences) + "." if key_sentences else kompetensi_text[:400]
+            
+            # Clean dan format text
+            lines = [line.strip() for line in kompetensi_text.split('\n') if line.strip()]
+            clean_text = ' '.join(lines)
+            
+            # Batasi panjang
+            if len(clean_text) > 500:
+                sentences = re.split(r'[.!?]+', clean_text)
+                key_sentences = [s.strip() for s in sentences[:3] if len(s.strip()) > 10]
+                results["kompetensi_awal"] = '. '.join(key_sentences) + '.'
+            else:
+                results["kompetensi_awal"] = clean_text
+                
+            print(f"✓ Kompetensi Awal ditemukan (pattern {i}): {len(results['kompetensi_awal'])} karakter")
             break
     
-    # 4. ENHANCED: Ekstrak Tujuan Pembelajaran dengan strategi berlapis
+    # 3. EKSTRAK TUJUAN PEMBELAJARAN - Komponen utama Kurikulum Merdeka  
     tujuan_patterns = [
-        # Pattern 1: Dalam KOMPONEN INTI dengan berbagai format
-        r'komponen\s+inti.*?i\.\s*tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*ii\.|pemahaman\s+bermakna|pertanyaan\s+pemantik|$)',
-        # Pattern 2: Roman numeral langsung dengan flexible spacing
-        r'i\.\s*tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*ii\.|pemahaman\s+bermakna|pertanyaan\s+pemantik|$)',
-        # Pattern 3: Tanpa Roman numeral tapi dengan header
-        r'tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*(?:pemahaman\s+bermakna|pertanyaan\s+pemantik|kompetensi\s+awal|ii\.|2\.|$))',
-        # Pattern 4: Dengan bullets/numbering di line yang sama
-        r'tujuan\s+pembelajaran[^\n]*\n((?:[•\-\*\d\.]\s*[^\n]+\n?){2,})',
-        # Pattern 5: Mencari di sekitar kata "siswa dapat/mampu"
-        r'(?:setelah\s+pembelajaran|pada\s+akhir\s+pembelajaran|tujuan\s+pembelajaran)[^\n]*\n?(.*?(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu))[^\n]*(?:\n[^\n]*(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu)))*)',
+        # Pattern 1: Dalam struktur Komponen Inti
+        r'komponen\s+inti.*?i\.\s*tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*(?:ii\.|kompetensi\s+awal|pemahaman\s+bermakna|$))',
+        # Pattern 2: Roman numeral langsung
+        r'i\.\s*tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*(?:ii\.|kompetensi\s+awal|pemahaman\s+bermakna|$))',
+        # Pattern 3: Header tujuan pembelajaran langsung
+        r'tujuan\s+pembelajaran\s*[:\n](.*?)(?=\n\s*(?:kompetensi\s+awal|pemahaman\s+bermakna|pertanyaan\s+pemantik|profil\s+pelajar|ii\.|2\.|$))',
+        # Pattern 4: Dengan bullets/numbering
+        r'tujuan\s+pembelajaran[^\n]*\n((?:\s*[•\-\*\d\.]\s*[^\n]+\n?)+)',
+        # Pattern 5: Setelah pembelajaran siswa dapat
+        r'(?:setelah\s+pembelajaran.*?|tujuan\s+pembelajaran.*?)(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu))(.*?)(?=\n\s*(?:kompetensi\s+awal|pemahaman\s+bermakna|$))'
     ]
     
     tujuan_found = False
@@ -446,152 +566,192 @@ def extract_specific_module_components(content_text):
         tujuan_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
         if tujuan_match:
             tujuan_text = tujuan_match.group(1).strip()
-            print(f"DEBUG: Tujuan pembelajaran ditemukan dengan pattern {i}")
-            print(f"DEBUG: Raw text (300 chars): {tujuan_text[:300]}...")
+            print(f"✓ Tujuan pembelajaran ditemukan (pattern {i})")
             
-            # Strategy 1: Cari bullet points atau numbering
+            # Strategy 1: Ekstrak bullet points atau numbering
             bullets = re.findall(r'(?:^|\n)\s*[•\-\*\d\.]\s*([^\n•\-\*]+)', tujuan_text, re.MULTILINE)
-            bullets = [b.strip() for b in bullets if len(b.strip()) > 15]
+            bullets = [b.strip() for b in bullets if len(b.strip()) > 20]
             
             if len(bullets) >= 2:
                 results["tujuan_pembelajaran"] = bullets[:6]
-                print(f"DEBUG: Bullet points found: {len(bullets)} items")
+                print(f"  → {len(bullets)} tujuan dalam format bullets")
                 tujuan_found = True
                 break
             
-            # Strategy 2: Cari kalimat dengan "siswa dapat/mampu"
-            learning_sentences = re.findall(r'[^\n.!?]*(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu))[^\n.!?]*[.!?\n]', 
-                                          tujuan_text, re.IGNORECASE)
-            learning_sentences = [s.strip().rstrip('.!?\n') for s in learning_sentences if len(s.strip()) > 20]
+            # Strategy 2: Cari kalimat dengan action verbs pembelajaran
+            learning_verbs = ['dapat', 'mampu', 'menjelaskan', 'menganalisis', 'menerapkan', 
+                            'memahami', 'mengidentifikasi', 'mendemonstrasikan', 'membuat', 
+                            'merancang', 'mengevaluasi', 'menciptakan']
             
-            if len(learning_sentences) >= 2:
-                results["tujuan_pembelajaran"] = learning_sentences[:5]
-                print(f"DEBUG: Learning sentences found: {len(learning_sentences)} items")
+            learning_sentences = []
+            for verb in learning_verbs:
+                sentences = re.findall(rf'[^\n.!?]*(?:siswa\s+{verb}|peserta\s+didik\s+{verb})[^\n.!?]*[.!?\n]?', 
+                                     tujuan_text, re.IGNORECASE)
+                learning_sentences.extend([s.strip().rstrip('.!?\n') for s in sentences if len(s.strip()) > 25])
+            
+            # Remove duplicates and limit
+            unique_sentences = list(dict.fromkeys(learning_sentences))[:6]
+            
+            if len(unique_sentences) >= 2:
+                results["tujuan_pembelajaran"] = unique_sentences
+                print(f"  → {len(unique_sentences)} tujuan dengan action verbs")
                 tujuan_found = True
                 break
             
-            # Strategy 3: Split by line breaks, filter meaningful lines
+            # Strategy 3: Split by lines and find meaningful objectives
             lines = [line.strip() for line in tujuan_text.split('\n') if line.strip()]
             meaningful_lines = []
+            
             for line in lines:
-                # Filter lines that look like learning objectives
-                if (len(line) > 20 and 
-                    any(keyword in line.lower() for keyword in ['dapat', 'mampu', 'menjelaskan', 'menganalisis', 
-                                                               'menerapkan', 'memahami', 'mengidentifikasi', 
-                                                               'mendemonstrasikan', 'membuat', 'merancang'])):
+                if (len(line) > 25 and len(line) < 300 and
+                    any(verb in line.lower() for verb in learning_verbs[:8])):
                     meaningful_lines.append(line)
             
             if len(meaningful_lines) >= 2:
                 results["tujuan_pembelajaran"] = meaningful_lines[:5]
-                print(f"DEBUG: Meaningful lines found: {len(meaningful_lines)} items")
-                tujuan_found = True
-                break
-            
-            # Strategy 4: Split by punctuation, look for objective phrases
-            sentences = re.split(r'[.!?]+', tujuan_text)
-            valid_sentences = []
-            for sentence in sentences:
-                sentence = sentence.strip()
-                if (len(sentence) > 20 and 
-                    any(keyword in sentence.lower() for keyword in ['dapat', 'mampu', 'menjelaskan', 'menganalisis', 
-                                                                   'menerapkan', 'memahami', 'mengidentifikasi'])):
-                    valid_sentences.append(sentence)
-            
-            if len(valid_sentences) >= 2:
-                results["tujuan_pembelajaran"] = valid_sentences[:4]
-                print(f"DEBUG: Valid sentences found: {len(valid_sentences)} items")
+                print(f"  → {len(meaningful_lines)} tujuan dari lines")
                 tujuan_found = True
                 break
     
-    # ULTIMATE FALLBACK: Scan entire document for learning objectives
+    # Fallback untuk tujuan pembelajaran jika tidak ditemukan
     if not tujuan_found:
-        print("DEBUG: FALLBACK - Scanning entire document for learning objectives")
-        
-        # Look for any sentences with learning keywords
+        print("⚠ Mencari tujuan pembelajaran dengan fallback...")
         all_learning_sentences = re.findall(
-            r'[^\n.!?]*(?:siswa\s+(?:dapat|mampu|akan)|peserta\s+didik\s+(?:dapat|mampu|akan)|setelah\s+mempelajari)[^\n.!?]*[.!?\n]', 
+            r'[^\n.!?]*(?:siswa\s+(?:dapat|mampu)|peserta\s+didik\s+(?:dapat|mampu))[^\n.!?]*[.!?\n]?', 
             content, re.IGNORECASE)
         
-        # Clean and filter sentences
         filtered_sentences = []
         for sentence in all_learning_sentences:
-            sentence = sentence.strip().rstrip('.!?\n')
-            if len(sentence) > 25 and len(sentence) < 200:  # Reasonable length
-                filtered_sentences.append(sentence)
+            clean_sentence = sentence.strip().rstrip('.!?\n')
+            if 30 < len(clean_sentence) < 200:
+                filtered_sentences.append(clean_sentence)
         
         if len(filtered_sentences) >= 2:
             results["tujuan_pembelajaran"] = filtered_sentences[:4]
-            print(f"DEBUG: FALLBACK found {len(filtered_sentences)} learning objectives")
-            tujuan_found = True
-        
-        # Last resort: Look for any "dapat" or "mampu" sentences near learning-related words
-        if not tujuan_found:
-            broader_sentences = re.findall(
-                r'[^\n.!?]*(?:dapat|mampu)[^\n.!?]*(?:jaringan|komputer|internet|teknologi|informasi)[^\n.!?]*[.!?\n]', 
-                content, re.IGNORECASE)
-            
-            if broader_sentences:
-                results["tujuan_pembelajaran"] = [s.strip().rstrip('.!?\n') for s in broader_sentences[:3]]
-                print(f"DEBUG: LAST RESORT found {len(broader_sentences)} tech-related objectives")
+            print(f"  → FALLBACK: {len(filtered_sentences)} tujuan ditemukan")
     
-    # 5. ENHANCED: Ekstrak Pemahaman Bermakna dengan multiple strategies
+    # 4. EKSTRAK PEMAHAMAN BERMAKNA - Komponen khas Kurikulum Merdeka
     bermakna_patterns = [
-        r'komponen\s+inti.*?ii\.\s*pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*iii\.|pertanyaan\s+pemantik|profil\s+pelajar|$)',
-        r'ii\.\s*pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*iii\.|pertanyaan\s+pemantik|profil\s+pelajar|$)',
-        r'pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*(?:pertanyaan\s+pemantik|profil\s+pelajar|iii\.|3\.|$))',
-        r'pemahaman\s+bermakna[^\n]*\n((?:[•\-\*\d\.]\s*[^\n]+\n?){1,})'
+        r'(?:komponen\s+inti.*?)?(?:ii\.|2\.)\s*pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*(?:iii\.|3\.|pertanyaan\s+pemantik|profil\s+pelajar|target\s+peserta|$))',
+        r'pemahaman\s+bermakna\s*[:\n](.*?)(?=\n\s*(?:pertanyaan\s+pemantik|profil\s+pelajar|target\s+peserta|iii\.|3\.|kegiatan\s+pembelajaran|$))',
+        r'meaningful\s+understanding\s*[:\n](.*?)(?=\n\s*(?:essential\s+question|student\s+profile|$))',
+        r'essential\s+understanding\s*[:\n](.*?)(?=\n\s*(?:question|profile|$))'
     ]
     
     for i, pattern in enumerate(bermakna_patterns, 1):
         bermakna_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
         if bermakna_match:
             bermakna_text = bermakna_match.group(1).strip()
-            print(f"DEBUG: Pemahaman bermakna found with pattern {i}")
-            print(f"DEBUG: Bermakna text (200 chars): {bermakna_text[:200]}...")
+            print(f"✓ Pemahaman bermakna ditemukan (pattern {i})")
             
-            # Strategy 1: Extract bullets/numbers
+            # Strategy 1: Extract bullets/numbering
             bullets = re.findall(r'(?:^|\n)\s*[•\-\*\d\.]\s*([^\n•\-\*]+)', bermakna_text, re.MULTILINE)
-            bullets = [b.strip() for b in bullets if len(b.strip()) > 10]
+            bullets = [b.strip() for b in bullets if len(b.strip()) > 15]
             
-            if bullets:
+            if len(bullets) >= 2:
                 results["pemahaman_bermakna"] = bullets[:4]
-                print(f"DEBUG: Bermakna bullets found: {len(bullets)} items")
+                print(f"  → {len(bullets)} pemahaman bermakna dalam format bullets")
                 break
             
             # Strategy 2: Split by lines
-            lines = [line.strip() for line in bermakna_text.split('\n') if line.strip() and len(line.strip()) > 15]
-            if lines:
+            lines = [line.strip() for line in bermakna_text.split('\n') 
+                    if line.strip() and len(line.strip()) > 20]
+            
+            if len(lines) >= 2:
                 results["pemahaman_bermakna"] = lines[:3]
-                print(f"DEBUG: Bermakna lines found: {len(lines)} items")
+                print(f"  → {len(lines)} pemahaman bermakna dari lines")
                 break
             
-            # Strategy 3: Use entire text if short enough
-            if len(bermakna_text) < 300:
+            # Strategy 3: Use entire text if meaningful
+            if 50 < len(bermakna_text) < 400:
                 results["pemahaman_bermakna"] = [bermakna_text]
-                print("DEBUG: Using entire bermakna text")
+                print("  → 1 pemahaman bermakna (text utuh)")
                 break
     
-    # 6. Target Peserta Didik (tetap sama)
-    target_pattern = r'v\.\s*target\s+peserta\s+didik\s*\n(.*?)(?=\nvi\.|$)'
-    target_match = re.search(target_pattern, content, re.IGNORECASE | re.DOTALL)
-    if target_match:
-        results["target_peserta_didik"] = target_match.group(1).strip()[:300]
+    # 5. EKSTRAK PROFIL PELAJAR PANCASILA - Ciri khas Kurikulum Merdeka
+    profil_patterns = [
+        r'profil\s+pelajar\s+pancasila\s*[:\n](.*?)(?=\n\s*(?:pertanyaan\s+pemantik|kegiatan\s+pembelajaran|$))',
+        r'pancasila\s+student\s+profile\s*[:\n](.*?)(?=\n\s*(?:essential\s+question|learning\s+activities|$))',
+        r'dimensi\s+profil\s+pelajar\s*[:\n](.*?)(?=\n\s*(?:pemantik|kegiatan|$))',
+        r'p5\s*[:]\s*(.*?)(?=\n\s*(?:pemantik|kegiatan|$))'
+    ]
     
-    # DEBUG: Print hasil ekstraksi
-    print(f"DEBUG EKSTRAKSI FINAL:")
-    print(f"- Mata Pelajaran: {results['mata_pelajaran']}")
-    print(f"- Tujuan Pembelajaran: {len(results['tujuan_pembelajaran'])} items")
-    for i, tujuan in enumerate(results['tujuan_pembelajaran'][:3], 1):
-        print(f"  {i}. {tujuan[:120]}...")
-    print(f"- Pemahaman Bermakna: {len(results['pemahaman_bermakna'])} items")
-    for i, bermakna in enumerate(results['pemahaman_bermakna'][:3], 1):
-        print(f"  {i}. {bermakna[:120]}...")
+    for i, pattern in enumerate(profil_patterns, 1):
+        profil_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if profil_match:
+            profil_text = profil_match.group(1).strip()
+            
+            # Extract dimensi atau karakteristik
+            dimensi_list = re.findall(r'(?:[•\-\*\d\.]\s*)?([^•\-\*\n\d\.][^:\n]{15,})', profil_text)
+            if dimensi_list:
+                results["profil_pelajar_pancasila"] = [d.strip() for d in dimensi_list[:6]]
+                print(f"✓ Profil Pelajar Pancasila: {len(dimensi_list)} dimensi")
+            break
+    
+    # 6. EKSTRAK PERTANYAAN PEMANTIK
+    pemantik_patterns = [
+        r'pertanyaan\s+pemantik\s*[:\n](.*?)(?=\n\s*(?:kegiatan\s+pembelajaran|model\s+pembelajaran|$))',
+        r'essential\s+questions?\s*[:\n](.*?)(?=\n\s*(?:learning\s+activities|teaching\s+model|$))',
+        r'driving\s+questions?\s*[:\n](.*?)(?=\n\s*(?:activities|model|$))'
+    ]
+    
+    for pattern in pemantik_patterns:
+        pemantik_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if pemantik_match:
+            pemantik_text = pemantik_match.group(1).strip()
+            
+            # Extract questions
+            questions = re.findall(r'[•\-\*\d\.]*\s*([^•\-\*\n\d\.][^?\n]*\?)', pemantik_text)
+            if questions:
+                results["pertanyaan_pemantik"] = [q.strip() for q in questions[:5]]
+                print(f"✓ Pertanyaan Pemantik: {len(questions)} pertanyaan")
+            break
+    
+    # 7. TARGET PESERTA DIDIK
+    target_patterns = [
+        r'target\s+peserta\s+didik\s*[:\n](.*?)(?=\n\s*(?:model\s+pembelajaran|kegiatan\s+pembelajaran|$))',
+        r'sasaran\s+peserta\s+didik\s*[:\n](.*?)(?=\n\s*(?:model|kegiatan|$))',
+        r'v\.\s*target\s+peserta\s+didik\s*[:\n](.*?)(?=\n\s*(?:vi\.|6\.|$))'
+    ]
+    
+    for pattern in target_patterns:
+        target_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if target_match:
+            target_text = target_match.group(1).strip()
+            
+            # Clean dan format text
+            lines = [line.strip() for line in target_text.split('\n') if line.strip()]
+            clean_text = ' '.join(lines)[:400]  # Batasi 400 karakter
+            
+            if len(clean_text) > 20:
+                results["target_peserta_didik"] = clean_text
+                print(f"✓ Target Peserta Didik: {len(clean_text)} karakter")
+            break
+    
+    # SUMMARY HASIL EKSTRAKSI
+    print(f"\n=== RINGKASAN EKSTRAKSI KURIKULUM MERDEKA ===")
+    print(f"Mata Pelajaran: {results['mata_pelajaran'] or 'Tidak terdeteksi'}")
+    print(f"Kelas/Fase: {results['kelas'] or 'Tidak terdeteksi'}")
+    print(f"Tujuan Pembelajaran: {len(results['tujuan_pembelajaran'])} item")
+    print(f"Kompetensi Awal: {'✓' if results['kompetensi_awal'] else '✗'}")
+    print(f"Pemahaman Bermakna: {len(results['pemahaman_bermakna'])} item")
+    print(f"Profil Pelajar Pancasila: {len(results['profil_pelajar_pancasila'])} dimensi")
+    print(f"Pertanyaan Pemantik: {len(results['pertanyaan_pemantik'])} pertanyaan")
+    print(f"Target Peserta Didik: {'✓' if results['target_peserta_didik'] else '✗'}")
+    print("=" * 50)
     
     return results
 
-def validate_detected_keywords(module_components):
+# Fungsi backward compatibility  
+def extract_specific_module_components(content_text):
     """
-    Validasi apakah keyword penting sudah terdeteksi dengan benar
+    DEPRECATED: Gunakan extract_kurikulum_merdeka_components() untuk ekstraksi yang lebih akurat
+    """
+    return extract_kurikulum_merdeka_components(content_text)
+
+def validate_kurikulum_merdeka_components(module_components):
+    """
+    Validasi khusus komponen Modul Ajar Kurikulum Merdeka yang telah diekstraksi
     """
     validation_report = {
         "detected": [],
@@ -599,46 +759,103 @@ def validate_detected_keywords(module_components):
         "quality_score": 0
     }
     
-    # Cek komponen yang terdeteksi
-    if module_components.get("mata_pelajaran"):
+    print("\n=== VALIDASI KOMPONEN KURIKULUM MERDEKA ===")
+    
+    # 1. VALIDASI MATA PELAJARAN & IDENTITAS MODUL (20 poin)
+    mata_pelajaran = module_components.get("mata_pelajaran", "")
+    kelas = module_components.get("kelas", "")
+    
+    if mata_pelajaran and len(mata_pelajaran.strip()) > 3:
         validation_report["detected"].append("Mata Pelajaran")
+        validation_report["quality_score"] += 15
+        print(f"✓ Mata Pelajaran: {mata_pelajaran}")
+        
+        if kelas and len(kelas.strip()) > 1:
+            validation_report["quality_score"] += 5
+            print(f"✓ Kelas/Fase: {kelas}")
     else:
         validation_report["missing"].append("Mata Pelajaran")
+        print("✗ Mata Pelajaran tidak teridentifikasi")
     
-    # Enhanced validation for Tujuan Pembelajaran
+    # 2. VALIDASI TUJUAN PEMBELAJARAN (30 poin - paling penting)
     tujuan_list = module_components.get("tujuan_pembelajaran", [])
-    if tujuan_list and len(tujuan_list) >= 2:
-        # Periksa apakah item-item memiliki konten yang bermakna
-        meaningful_items = [item for item in tujuan_list if len(item.strip()) > 15]
-        if len(meaningful_items) >= 2:
+    if tujuan_list and len(tujuan_list) >= 1:
+        meaningful_tujuan = [t for t in tujuan_list if len(t.strip()) > 20]
+        
+        if len(meaningful_tujuan) >= 3:
             validation_report["detected"].append(f"Tujuan Pembelajaran ({len(tujuan_list)} item)")
+            validation_report["quality_score"] += 30
+            print(f"✓ Tujuan Pembelajaran: {len(tujuan_list)} item berkualitas")
+        elif len(meaningful_tujuan) >= 2:
+            validation_report["detected"].append(f"Tujuan Pembelajaran ({len(tujuan_list)} item)")
+            validation_report["quality_score"] += 25
+            print(f"✓ Tujuan Pembelajaran: {len(tujuan_list)} item (cukup)")
+        elif len(meaningful_tujuan) >= 1:
+            validation_report["detected"].append("Tujuan Pembelajaran (minimal)")
+            validation_report["quality_score"] += 15
+            print(f"⚠ Tujuan Pembelajaran: hanya {len(meaningful_tujuan)} item berkualitas")
         else:
             validation_report["missing"].append("Tujuan Pembelajaran")
+            print("✗ Tujuan Pembelajaran tidak memadai")
     else:
         validation_report["missing"].append("Tujuan Pembelajaran")
+        print("✗ Tujuan Pembelajaran tidak ditemukan")
     
-    # Enhanced validation for Kompetensi Awal
-    if module_components.get("kompetensi_awal") and len(module_components["kompetensi_awal"]) > 30:
+    # 3. VALIDASI KOMPETENSI AWAL (25 poin - khas Kurikulum Merdeka)
+    kompetensi_awal = module_components.get("kompetensi_awal", "")
+    if kompetensi_awal and len(kompetensi_awal.strip()) > 50:
         validation_report["detected"].append("Kompetensi Awal")
+        validation_report["quality_score"] += 25
+        print(f"✓ Kompetensi Awal: {len(kompetensi_awal)} karakter")
+    elif kompetensi_awal and len(kompetensi_awal.strip()) > 20:
+        validation_report["detected"].append("Kompetensi Awal (singkat)")
+        validation_report["quality_score"] += 15
+        print(f"⚠ Kompetensi Awal: terlalu singkat ({len(kompetensi_awal)} karakter)")
     else:
         validation_report["missing"].append("Kompetensi Awal")
+        print("✗ Kompetensi Awal tidak memadai")
     
-    # Enhanced validation for Pemahaman Bermakna
+    # 4. VALIDASI PEMAHAMAN BERMAKNA (20 poin - khas Kurikulum Merdeka)
     bermakna_list = module_components.get("pemahaman_bermakna", [])
     if bermakna_list and len(bermakna_list) > 0:
-        # Periksa apakah ada konten bermakna
-        meaningful_bermakna = [item for item in bermakna_list if len(item.strip()) > 10]
-        if meaningful_bermakna:
+        meaningful_bermakna = [item for item in bermakna_list if len(item.strip()) > 15]
+        
+        if len(meaningful_bermakna) >= 2:
             validation_report["detected"].append(f"Pemahaman Bermakna ({len(bermakna_list)} item)")
+            validation_report["quality_score"] += 20
+            print(f"✓ Pemahaman Bermakna: {len(bermakna_list)} item")
+        elif len(meaningful_bermakna) >= 1:
+            validation_report["detected"].append("Pemahaman Bermakna (minimal)")
+            validation_report["quality_score"] += 10
+            print(f"⚠ Pemahaman Bermakna: hanya {len(meaningful_bermakna)} item berkualitas")
         else:
             validation_report["missing"].append("Pemahaman Bermakna")
+            print("✗ Pemahaman Bermakna tidak berkualitas")
     else:
         validation_report["missing"].append("Pemahaman Bermakna")
+        print("✗ Pemahaman Bermakna tidak ditemukan")
     
-    # Enhanced quality score calculation with bonuses
-    total_components = 4
-    detected_components = len(validation_report["detected"])
-    base_score = (detected_components / total_components) * 100
+    # 5. BONUS: Target Peserta Didik (5 poin)
+    target_peserta = module_components.get("target_peserta_didik", "")
+    if target_peserta and len(target_peserta.strip()) > 30:
+        validation_report["quality_score"] += 5
+        print(f"✓ BONUS: Target Peserta Didik ditemukan")
+    
+    # Laporan akhir
+    print(f"\n--- HASIL VALIDASI KOMPONEN ---")
+    print(f"Terdeteksi: {', '.join(validation_report['detected'])}")
+    if validation_report["missing"]:
+        print(f"Hilang: {', '.join(validation_report['missing'])}")
+    print(f"Skor Kualitas: {validation_report['quality_score']}/100")
+    
+    return validation_report
+
+# Fungsi backward compatibility
+def validate_detected_keywords(module_components):
+    """
+    DEPRECATED: Gunakan validate_kurikulum_merdeka_components() untuk validasi yang lebih ketat
+    """
+    return validate_kurikulum_merdeka_components(module_components)
     
     # Bonus points for quality content
     bonus = 0
@@ -780,7 +997,7 @@ Fokus soal: merancang solusi sederhana menggunakan teknologi yang familiar
 Jenis pengetahuan: knowledge that + how + why (level SMA)  
 Contoh soal: "Untuk membuat presentasi sekolah yang menarik, kombinasi aplikasi terbaik adalah..."
 
-ATURAN PENTING:
+ATURAN PENTING - KEJELASAN DAN KETEPATAN:
 ========================================
 ✓ Setiap soal merujuk langsung pada konten modul yang dianalisis
 ✓ Gunakan terminologi spesifik dari modul
@@ -792,12 +1009,34 @@ ATURAN PENTING:
 ✓ Fokus pada konsep dan aplikasi, bukan coding kompleks
 ✓ Gunakan contoh teknologi yang familiar untuk siswa SMA
 
+ATURAN KHUSUS ANTI-AMBIGUITAS:
+========================================
+✓ WAJIB: Gunakan kata-kata PASTI dan DEFINITIF dalam soal
+✓ WAJIB: Jawaban benar harus 100% AKURAT tanpa keraguan
+✓ WAJIB: Setiap opsi harus JELAS BENAR atau JELAS SALAH
+✓ WAJIB: Hindari interpretasi ganda dalam pertanyaan
+✓ WAJIB: Gunakan istilah teknis yang PRESISI dan STANDAR
+✓ WAJIB: Jawaban harus dapat DIVERIFIKASI dari sumber terpercaya
+
+✗ LARANGAN KERAS - KATA & FRASA YANG DILARANG:
+========================================
+✗ JANGAN PERNAH gunakan kata: "mungkin", "kemungkinan", "biasanya", "umumnya", "sebaiknya"
+✗ JANGAN gunakan frasa: "dapat berupa", "salah satunya adalah", "antara lain", "misalnya"
+✗ JANGAN gunakan: "seharusnya", "lebih baik jika", "direkomendasikan", "disarankan"
+✗ JANGAN gunakan kata tanya ambigu: "manakah yang lebih baik", "yang paling cocok"
+✗ JANGAN gunakan perbandingan subjektif: "lebih mudah", "paling efektif", "terbaik"
+✗ JANGAN gunakan kuantifikasi tidak pasti: "beberapa", "banyak", "sedikit"
+
+✗ LARANGAN UMUM:
+========================================
 ✗ JANGAN gunakan: "Modul Ajar", "Kompetensi Awal", "Tujuan Pembelajaran", "Siswa", "Peserta didik" dalam teks soal
 ✗ JANGAN buat soal generik yang lepas dari modul
 ✗ JANGAN buat jawaban benar selalu yang terpanjang
 ✗ JANGAN buat soal coding/programming yang terlalu teknis
 ✗ JANGAN gunakan istilah teknis tingkat universitas
 ✗ JANGAN buat soal yang memerlukan pengetahuan di luar kurikulum SMA
+✗ JANGAN buat opsi jawaban yang memerlukan asumsi tambahan
+✗ JANGAN buat soal dengan jawaban benar lebih dari satu
 
 ADAPTASI KONTEKS KHUSUS SMA KELAS X:
 ========================================
@@ -808,39 +1047,105 @@ GAYA BAHASA & KOMPLEKSITAS:
 - Fokus pada konsep dasar teknologi informasi dan komunikasi
 - Gunakan konteks sekolah dan kehidupan remaja
 
-CONTOH SOAL YANG SESUAI:
-- "Aplikasi yang paling tepat untuk mengedit video sederhana adalah..."
-- "Untuk mengamankan akun media sosial, sebaiknya kita..."  
-- "Perbedaan utama antara RAM dan storage adalah..."
-- "Langkah pertama mengatasi komputer yang lemot adalah..."
+CONTOH SOAL YANG BENAR (DEFINITIF & JELAS):
+========================================
+✓ BENAR: "Fungsi utama RAM dalam komputer adalah..."
+  A. Menyimpan data secara permanen
+  B. Menyimpan data sementara saat program berjalan ✓
+  C. Mengatur suhu processor
+  D. Menampilkan gambar ke monitor
+
+✓ BENAR: "Protocol yang digunakan untuk mengirim email adalah..."
+  A. HTTP
+  B. FTP  
+  C. SMTP ✓
+  D. TCP
+
+✓ BENAR: "Ekstensi file dokumen Microsoft Word adalah..."
+  A. .txt
+  B. .pdf
+  C. .docx ✓
+  D. .xlsx
+
+CONTOH SOAL YANG SALAH (AMBIGU & TIDAK JELAS):
+========================================
+✗ SALAH: "Aplikasi yang mungkin cocok untuk editing video adalah..."
+  → MASALAH: Kata "mungkin" dan "cocok" terlalu subjektif
+
+✗ SALAH: "Manakah yang lebih baik untuk menyimpan data?"
+  → MASALAH: "Lebih baik" subjektif, tidak ada konteks spesifik
+
+✗ SALAH: "Umumnya, keamanan password yang baik sebaiknya..."
+  → MASALAH: "Umumnya" dan "sebaiknya" tidak definitif
+
+✗ SALAH: "Beberapa keuntungan cloud storage antara lain..."
+  → MASALAH: "Beberapa" dan "antara lain" tidak spesifik
+
+PEDOMAN PENULISAN SOAL DEFINITIF:
+========================================
+✓ Gunakan kata kerja pasti: "adalah", "berfungsi", "digunakan untuk"
+✓ Gunakan fakta teknis objektif yang dapat diverifikasi
+✓ Sebutkan spesifikasi atau karakteristik yang konkret  
+✓ Gunakan istilah standar industri/akademik yang baku
+✓ Pastikan hanya ada SATU jawaban yang benar-benar tepat
+✓ Buat pengecoh yang jelas salah untuk yang memahami materi
 
 CONTOH SOAL YANG DIHINDARI:
-- Coding dengan sintaks pemrograman
-- Konfigurasi server atau database kompleks  
-- Analisis algoritma tingkat lanjut
-- Konsep networking di level enterprise
+========================================
+✗ Coding dengan sintaks pemrograman
+✗ Konfigurasi server atau database kompleks  
+✗ Analisis algoritma tingkat lanjut
+✗ Konsep networking di level enterprise
+✗ Pertanyaan opini atau preferensi subjektif
+✗ Soal dengan jawaban bergantung interpretasi
+✗ Pertanyaan dengan informasi yang kurang lengkap
 
 FORMAT OUTPUT - JSON ARRAY:
+========================================
 PENTING: Berikan response dalam format JSON array yang valid. Jangan tambahkan teks apapun sebelum atau sesudah JSON.
 
-Contoh format yang benar:
+CONTOH FORMAT YANG BENAR (DEFINITIF & JELAS):
 [{{
     "level": 1,
-    "question_type": "multiple_choice",
-    "soal": "Pertanyaan berdasarkan elemen ajar spesifik...",
-    "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-    "jawaban_benar": "Opsi A",
+    "question_type": "multiple_choice", 
+    "soal": "Fungsi utama CPU dalam sistem komputer adalah",
+    "options": [
+        "Menyimpan data secara permanen",
+        "Memproses instruksi dan data", 
+        "Menampilkan output ke layar",
+        "Menyediakan daya listrik"
+    ],
+    "jawaban_benar": "Memproses instruksi dan data",
     "p": 0.95,
-    "explanation": "Penjelasan mengapa jawaban benar",
-    "modul_reference": "Bagian spesifik modul yang dirujuk"
+    "explanation": "CPU (Central Processing Unit) adalah unit pemrosesan pusat yang bertugas mengeksekusi instruksi program dan memproses data dalam komputer",
+    "modul_reference": "Tujuan Pembelajaran: Menjelaskan komponen dasar komputer"
 }}]
 
-PASTIKAN:
+KRITERIA KUALITAS SOAL:
+========================================
+✓ SOAL harus menggunakan FAKTA TEKNIS yang dapat diverifikasi
+✓ OPSI JAWABAN harus spesifik dan tidak ambigu
+✓ JAWABAN BENAR harus 100% akurat menurut standar industri/akademik
+✓ PENGECOH harus jelas salah bagi yang memahami konsep
+✓ PENJELASAN harus memberikan alasan teknis yang solid
+✓ TIDAK ADA opsi yang memerlukan interpretasi subjektif
+
+VALIDASI SETIAP SOAL:
+========================================
+1. Apakah pertanyaan dapat dijawab dengan PASTI dari materi?
+2. Apakah jawaban benar dapat DIBUKTIKAN secara objektif?
+3. Apakah pengecoh jelas salah untuk yang memahami topik?
+4. Apakah tidak ada kata ambiguitas ("mungkin", "biasanya", dll)?
+5. Apakah istilah teknis yang digunakan STANDAR dan BAKU?
+
+PASTIKAN FORMAT JSON:
+========================================
 - Mulai langsung dengan '[' dan akhiri dengan ']'
 - Tidak ada teks penjelasan sebelum atau sesudah JSON
 - Gunakan double quotes untuk semua string
 - Tidak ada trailing comma setelah elemen terakhir
-- Jawaban benar harus tepat salah satu dari opsi A/B/C/D
+- Jawaban benar harus tepat salah satu dari opsi yang ada
+- Semua string harus bebas dari karakter khusus yang merusak JSON
 
 PANDUAN KHUSUS UNTUK KURIKULUM SMA KELAS X:
 ========================================
@@ -861,9 +1166,45 @@ HINDARI TOPIK KOMPLEKS:
 - Advanced cybersecurity
 - Machine learning atau AI development
 
+CHECKLIST KUALITAS SEBELUM MENGIRIM JAWABAN:
+========================================
+Pastikan SETIAP soal memenuhi kriteria berikut:
+
+□ PERTANYAAN:
+  - Tidak menggunakan kata: mungkin, biasanya, umumnya, sebaiknya, kemungkinan
+  - Menggunakan fakta teknis yang dapat diverifikasi dari sumber standar
+  - Bahasa jelas, langsung, dan definitif
+  - Dapat dijawab dengan pasti berdasarkan pengetahuan teknis
+
+□ OPSI JAWABAN:
+  - Tidak ada opsi yang memerlukan interpretasi subjektif  
+  - Jawaban benar 100% akurat menurut standar industri
+  - Pengecoh jelas salah bagi yang memahami konsep
+  - Tidak ada ambiguitas dalam formulasi opsi
+
+□ TERMINOLOGY:
+  - Menggunakan istilah teknis baku dan standar
+  - Tidak ada jargon yang dapat diinterpretasi berbeda
+  - Konsisten dengan terminologi yang diajarkan di SMA
+  - Sesuai dengan kurikulum dan standar pendidikan
+
+□ VERIFIKASI AKHIR:
+  - Soal dapat dikerjakan oleh siswa SMA kelas X
+  - Berkaitan langsung dengan materi modul ajar
+  - Tidak memerlukan pengetahuan di luar scope SMA
+  - Jawaban dapat dipertanggungjawabkan secara akademis
+
 TARGET: 35 soal total (5 soal per level) dalam format JSON array yang valid.
 
-PRINSIP KUNCI: Soal berkualitas = relevan dengan modul + sesuai usia SMA + mudah dipahami + membedakan kemampuan siswa secara efektif.
+PRINSIP KUNCI YANG HARUS DITERAPKAN:
+========================================
+1. DEFINITIF: Tidak ada ruang interpretasi ganda
+2. VERIFIABLE: Jawaban dapat dibuktikan dari sumber terpercaya  
+3. OBJECTIVE: Berdasarkan fakta, bukan opini atau preferensi
+4. PRECISE: Menggunakan istilah teknis yang tepat dan baku
+5. CLEAR: Bahasa lugas tanpa ambiguitas atau ketidakpastian
+6. EDUCATIONAL: Menguji pemahaman konsep, bukan hafalan
+7. APPROPRIATE: Sesuai tingkat kognitif siswa SMA kelas X
 """
     
     return prompt
@@ -873,9 +1214,9 @@ def extract_hybrid_module_components(content_text):
     Fungsi hybrid yang mencoba ekstraksi spesifik terlebih dahulu,
     jika gagal akan menggunakan fallback ke metode yang lebih umum
     """
-    # Coba ekstraksi spesifik terlebih dahulu
-    specific_components = extract_specific_module_components(content_text)
-    validation = validate_detected_keywords(specific_components)
+    # Coba ekstraksi spesifik Kurikulum Merdeka terlebih dahulu
+    specific_components = extract_kurikulum_merdeka_components(content_text)
+    validation = validate_kurikulum_merdeka_components(specific_components)
     
     # Jika quality score rendah, gunakan metode fallback
     if validation["quality_score"] < 30:  # Threshold rendah untuk fallback
@@ -2933,9 +3274,30 @@ def upload_file():
         if not is_valid_file:
             clear_progress(user_id)
             print(f"Validasi gagal: {validation_result}")
+            
+            # Buat pesan error yang lebih informatif berdasarkan jenis masalah
+            if "minimal 800 karakter" in validation_result:
+                error_message = "📄 File terlalu pendek! Modul Ajar Kurikulum Merdeka membutuhkan konten yang lebih lengkap (minimal 800 karakter). Pastikan dokumen berisi komponen-komponen yang diperlukan."
+            elif "Header 'MODUL AJAR'" in validation_result:
+                error_message = "📋 Header tidak ditemukan! File harus memiliki judul 'MODUL AJAR' di bagian atas dokumen sesuai format Kurikulum Merdeka."
+            elif "Tujuan Pembelajaran" in validation_result:
+                error_message = "🎯 Komponen Tujuan Pembelajaran tidak ditemukan! Modul Ajar Kurikulum Merdeka wajib memiliki bagian 'Tujuan Pembelajaran' yang jelas."
+            elif "Kompetensi Awal" in validation_result:
+                error_message = "📚 Komponen Kompetensi Awal tidak ditemukan! Ini adalah bagian penting dalam Kurikulum Merdeka yang menjelaskan kemampuan prasyarat siswa."
+            elif "Pemahaman Bermakna" in validation_result:
+                error_message = "💡 Komponen Pemahaman Bermakna tidak ditemukan! Bagian ini wajib ada untuk menjelaskan konsep inti yang ingin dipahami siswa."
+            elif "Identitas Modul" in validation_result:
+                error_message = "📝 Identitas Modul tidak lengkap! Pastikan ada informasi Mata Pelajaran, Kelas/Fase sesuai format Kurikulum Merdeka."
+            elif "Bukan Modul Ajar Kurikulum Merdeka" in validation_result:
+                error_message = "⚠️ File bukan Modul Ajar Kurikulum Merdeka yang valid! Sistem hanya menerima dokumen dengan format dan komponen sesuai standar Kurikulum Merdeka."
+            else:
+                error_message = f"❌ File tidak memenuhi standar Modul Ajar Kurikulum Merdeka: {validation_result}"
+                
             return jsonify({
                 "success": False,
-                "message": f"File tidak memenuhi kriteria modul ajar: {validation_result}"
+                "message": error_message,
+                "error_type": "invalid_module_format",
+                "suggestion": "💡 Pastikan file Anda adalah Modul Ajar Kurikulum Merdeka yang lengkap dengan komponen: Header MODUL AJAR, Identitas Modul, Tujuan Pembelajaran, Kompetensi Awal, dan Pemahaman Bermakna."
             }), 400
         
         content_text = validation_result
@@ -2959,13 +3321,34 @@ def upload_file():
         print(f"Quality score: {quality_score}/100")
         print(f"Issues: {quality_issues}")
         
-        # THRESHOLD FLEKSIBEL: Minimal 40 poin untuk diproses (dikurangi dari 60)
-        if quality_score < 40:
+        # THRESHOLD: Minimal 60 poin untuk diproses (dinaikkan untuk memastikan kualitas)
+        if quality_score < 60:
             clear_progress(user_id)
-            issues_text = "; ".join(quality_issues)
+            
+            # Buat pesan error yang lebih spesifik berdasarkan masalah yang ditemukan
+            main_issues = []
+            if "Tujuan pembelajaran tidak ditemukan" in quality_issues:
+                main_issues.append("🎯 Tujuan Pembelajaran tidak teridentifikasi dengan jelas")
+            if "Mata pelajaran tidak teridentifikasi" in quality_issues:
+                main_issues.append("📚 Mata Pelajaran tidak terdeteksi")
+            if "Kompetensi awal tidak teridentifikasi" in quality_issues:
+                main_issues.append("📝 Kompetensi Awal tidak ditemukan")
+            if "Pemahaman bermakna tidak ditemukan" in quality_issues:
+                main_issues.append("💡 Pemahaman Bermakna tidak teridentifikasi")
+                
+            if main_issues:
+                error_detail = "; ".join(main_issues)
+                error_message = f"📋 Komponen Modul Ajar tidak lengkap (skor kualitas: {quality_score}/100)!\n\nMasalah yang ditemukan:\n{error_detail}\n\n💡 Pastikan dokumen Anda memiliki struktur Kurikulum Merdeka yang lengkap."
+            else:
+                error_message = f"📄 Kualitas ekstraksi komponen rendah (skor: {quality_score}/100). Struktur dokumen tidak sesuai format Kurikulum Merdeka atau teks tidak dapat dibaca dengan baik."
+                
             return jsonify({
                 "success": False,
-                "message": f"Dokumen pembelajaran tidak memenuhi standar minimum (skor: {quality_score}/100). Masalah: {issues_text}. Pastikan dokumen memiliki tujuan pembelajaran yang jelas."
+                "message": error_message,
+                "error_type": "low_quality_extraction",
+                "quality_score": quality_score,
+                "issues": quality_issues,
+                "suggestion": "💡 Periksa format dokumen Anda. Pastikan menggunakan struktur Kurikulum Merdeka dengan komponen: I. Tujuan Pembelajaran, II. Kompetensi Awal, III. Pemahaman Bermakna"
             }), 400
 
         # Tambahkan logging dan validasi detail
@@ -3274,7 +3657,35 @@ def upload_file():
         db.session.rollback()
         import traceback
         traceback.print_exc()
-        return jsonify({"success": False, "message": f"Error pemrosesan: {str(e)}"}), 500
+        
+        # Buat pesan error yang lebih informatif berdasarkan jenis error
+        error_str = str(e).lower()
+        
+        if "progressinterval is not defined" in error_str:
+            error_message = "🔄 Terjadi kesalahan dalam sistem pelacakan progress. Silakan refresh halaman dan coba lagi."
+        elif "timeout" in error_str or "time" in error_str:
+            error_message = "⏱️ Pemrosesan memakan waktu terlalu lama. File terlalu besar atau kompleks. Silakan coba dengan file yang lebih sederhana."
+        elif "json" in error_str or "decode" in error_str:
+            error_message = "📄 Format respons tidak valid. Sistem AI mengalami gangguan sementara. Silakan coba lagi dalam beberapa menit."
+        elif "connection" in error_str or "network" in error_str:
+            error_message = "🌐 Gangguan koneksi ke sistem AI. Periksa koneksi internet Anda dan coba lagi."
+        elif "memory" in error_str or "overflow" in error_str:
+            error_message = "💾 File terlalu besar untuk diproses. Silakan gunakan file dengan ukuran lebih kecil (maksimal 15MB)."
+        elif "permission" in error_str or "access" in error_str:
+            error_message = "🔐 Tidak memiliki akses untuk memproses file. Pastikan Anda login sebagai guru dan file tidak terproteksi."
+        elif "database" in error_str or "sql" in error_str:
+            error_message = "💾 Gangguan pada database sistem. Tim teknis sedang memperbaiki. Silakan coba lagi dalam beberapa menit."
+        elif "extract" in error_str or "parsing" in error_str:
+            error_message = "📋 Gagal menganalisis isi dokumen. Pastikan file tidak rusak dan format sesuai (.pdf, .doc, .docx)."
+        else:
+            error_message = f"❌ Terjadi kesalahan sistem yang tidak terduga. Silakan coba lagi atau hubungi administrator jika masalah berlanjut.\n\nDetail teknis: {str(e)}"
+            
+        return jsonify({
+            "success": False, 
+            "message": error_message,
+            "error_type": "system_error",
+            "suggestion": "💡 Coba refresh halaman dan upload ulang file Anda. Pastikan file adalah Modul Ajar Kurikulum Merdeka yang valid dan berukuran tidak terlalu besar."
+        }), 500
 
 # Function to validate if a document contains educational content
 def check_educational_content(content_text):
