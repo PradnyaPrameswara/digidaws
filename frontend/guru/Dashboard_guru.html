@@ -1405,21 +1405,36 @@
 
         // Function to get current user ID (assuming it's available in the page context)
         function getCurrentUserId() {
-            // Try to get user ID from meta tag, data attribute, or global variable
+            // Try to get user ID from meta tag
             const userIdMeta = document.querySelector('meta[name="user-id"]');
-            if (userIdMeta) {
-                return userIdMeta.getAttribute('content');
+            if (userIdMeta && userIdMeta.getAttribute('content')) {
+                const userId = userIdMeta.getAttribute('content').trim();
+                if (userId && userId !== '') {
+                    console.log(`User ID from meta tag: ${userId}`);
+                    return userId;
+                }
             }
             
             // Alternative: get from data attribute on body or main element
             const bodyUserId = document.body.getAttribute('data-user-id');
-            if (bodyUserId) {
-                return bodyUserId;
+            if (bodyUserId && bodyUserId.trim() !== '') {
+                console.log(`User ID from body attribute: ${bodyUserId}`);
+                return bodyUserId.trim();
             }
             
-            // Fallback: assume user ID 1 for demo purposes (should be replaced with actual implementation)
-            console.warn("User ID not found, using fallback. Please implement proper user ID detection.");
-            return '1';
+            // Try from window global variable
+            if (window.currentUserId) {
+                console.log(`User ID from window global: ${window.currentUserId}`);
+                return window.currentUserId;
+            }
+            
+            // Fallback: try to extract from current URL or make a request
+            console.warn("User ID not found in meta tag or attributes, using fallback");
+            
+            // For testing: use a default user ID but warn about it
+            const fallbackId = '1';
+            console.warn(`Using fallback user ID: ${fallbackId}. In production, ensure proper user ID is available.`);
+            return fallbackId;
         }
 
         // Function to update loading step animation
@@ -1494,41 +1509,53 @@
             updateStep(1);
 
             try {
-                // Start progress polling
-                const userId = getCurrentUserId(); // We'll need to implement this
-                let progressInterval = null;
+                // Initialize progress tracking
+                const userId = getCurrentUserId();
+                console.log(`Starting progress tracking for user ID: ${userId}`);
                 
-                // Function to poll progress from backend
-                async function pollProgress() {
-                    try {
-                        const progressResponse = await fetch(`/api/progress/${userId}`);
-                        if (progressResponse.ok) {
-                            const progressData = await progressResponse.json();
-                            if (progressData.success && progressData.progress) {
-                                const currentStep = progressData.progress.current_step;
-                                const stepStatus = progressData.progress.steps[currentStep];
-                                
-                                // Update UI based on backend progress
-                                updateStep(currentStep);
-                                
-                                // Update status message if provided
-                                if (stepStatus && stepStatus.message) {
-                                    document.querySelector('.transfer-status').textContent = stepStatus.message;
-                                }
-                                
-                                // Stop polling if all steps completed
-                                if (currentStep === 5 && stepStatus.status === 'completed') {
-                                    clearInterval(progressInterval);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.log("Progress polling error:", error);
-                    }
+                // Create progress tracker instance
+                if (window.progressTracker) {
+                    window.progressTracker.stopPolling();
                 }
                 
-                // Start polling every 500ms
-                progressInterval = setInterval(pollProgress, 500);
+                window.progressTracker = new ProgressTracker(userId, null, {
+                    maxRetries: 15,      // Lebih banyak retry untuk VPS
+                    pollIntervalMs: 1000, // Poll setiap 1 detik (tidak terlalu agresif)
+                    timeoutMs: 120000     // Timeout 2 menit untuk proses AI
+                });
+                
+                // Override updateProgressUI untuk kompatibilitas dengan UI lama
+                window.progressTracker.updateProgressUI = function(progress) {
+                    console.log('Progress update received:', progress);
+                    
+                    // Update step UI dengan format lama
+                    if (progress && progress.current_step) {
+                        const currentStep = progress.current_step;
+                        updateStep(currentStep);
+                        
+                        // Update status message jika ada
+                        const statusElement = document.querySelector('.transfer-status');
+                        if (statusElement && progress.steps && progress.steps[currentStep]) {
+                            const stepData = progress.steps[currentStep];
+                            if (stepData.message) {
+                                statusElement.textContent = stepData.message;
+                            }
+                        }
+                        
+                        // Update progress bar berdasarkan step
+                        const progressBar = document.querySelector('.progress-bar');
+                        if (progressBar) {
+                            const progressPercent = (currentStep / 5) * 100;
+                            progressBar.style.width = progressPercent + '%';
+                        }
+                    }
+                };
+                
+                // Start progress tracking setelah delay kecil agar backend sempat setup
+                setTimeout(() => {
+                    console.log('Starting progress polling...');
+                    window.progressTracker.startPolling();
+                }, 1000); // Delay 1 detik
                 
                 let response = await fetch("/upload", {
                     method: "POST",
@@ -1548,19 +1575,22 @@
                 }
 
                 let result = await response.json();
-                
-                // Stop polling and show final result
-                clearInterval(progressInterval);
-                
-                // Final completion - ensure step 5 is completed
-                updateStep(5);
+
+                // Stop progress tracking
+                if (window.progressTracker) {
+                    // Final completion - ensure step 5 is completed
+                    updateStep(5);
+                    
+                    // Stop polling after a short delay to show completion
+                    setTimeout(() => {
+                        window.progressTracker.stopPolling();
+                    }, 2000);
+                }
                 
                 // Show success message after short delay
                 setTimeout(() => {
                     statusMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
-                }, 500);
-
-                if (result.data && Array.isArray(result.data)) {
+                }, 500);                if (result.data && Array.isArray(result.data)) {
                     allGeneratedQuestions = result.data;
 
                     updatelevelStatistics(result.data);
@@ -1576,6 +1606,11 @@
                 }
 
             } catch (error) {
+                // Stop progress tracking on error
+                if (window.progressTracker) {
+                    window.progressTracker.stopPolling();
+                }
+                
                 statusMessage.innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
                 console.error("Fetch error:", error);
             }
@@ -2469,6 +2504,134 @@
                 }, 5000);
             }
         }
+
+        /**
+         * Progress Tracking System untuk VPS Production
+         * Compatible dengan multiple Gunicorn workers
+         */
+        class ProgressTracker {
+            constructor(userId, progressContainer, options = {}) {
+                this.userId = userId;
+                this.progressContainer = progressContainer;
+                this.pollingInterval = null;
+                this.isActive = false;
+                this.retryCount = 0;
+                this.maxRetries = options.maxRetries || 10;
+                this.pollIntervalMs = options.pollIntervalMs || 500;
+                this.timeoutMs = options.timeoutMs || 30000;
+                
+                this.pollProgress = this.pollProgress.bind(this);
+                this.stopPolling = this.stopPolling.bind(this);
+                
+                window.addEventListener('beforeunload', () => {
+                    this.cleanup();
+                });
+            }
+
+            startPolling() {
+                if (this.isActive) {
+                    console.log('Progress polling already active');
+                    return;
+                }
+
+                this.isActive = true;
+                this.retryCount = 0;
+                
+                console.log(`Starting progress polling for user ${this.userId}`);
+                
+                this.pollProgress();
+                this.pollingInterval = setInterval(this.pollProgress, this.pollIntervalMs);
+                
+                setTimeout(() => {
+                    if (this.isActive) {
+                        console.log('Progress polling timeout reached, stopping...');
+                        this.stopPolling();
+                    }
+                }, this.timeoutMs);
+            }
+
+            async pollProgress() {
+                if (!this.isActive) return;
+
+                try {
+                    const response = await fetch(`/api/progress/${this.userId}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    this.retryCount = 0;
+                    
+                    if (data.success && data.progress) {
+                        this.updateProgressUI(data.progress);
+                    } else if (data.status === 'no_active_progress') {
+                        console.log('No active progress, stopping polling');
+                        this.stopPolling();
+                    }
+
+                } catch (error) {
+                    console.error('Progress polling error:', error);
+                    this.handlePollingError(error);
+                }
+            }
+
+            handlePollingError(error) {
+                this.retryCount++;
+                
+                if (this.retryCount >= this.maxRetries) {
+                    console.error(`Max retries (${this.maxRetries}) reached, stopping progress polling`);
+                    this.stopPolling();
+                    return;
+                }
+                
+                const backoffMs = Math.min(1000 * Math.pow(2, this.retryCount), 10000);
+                console.log(`Retry ${this.retryCount}/${this.maxRetries} in ${backoffMs}ms`);
+                
+                setTimeout(() => {
+                    if (this.isActive) {
+                        this.pollProgress();
+                    }
+                }, backoffMs);
+            }
+
+            updateProgressUI(progress) {
+                // This method will be overridden in the main script for UI compatibility
+                console.log('Progress update:', progress);
+            }
+
+            stopPolling() {
+                if (!this.isActive) return;
+
+                this.isActive = false;
+                
+                if (this.pollingInterval) {
+                    clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                }
+
+                console.log(`Progress polling stopped for user ${this.userId}`);
+                this.cleanup();
+            }
+
+            async cleanup() {
+                try {
+                    await fetch(`/api/progress/stop/${this.userId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    console.log('Progress tracking cleaned up on server');
+                } catch (error) {
+                    console.warn('Failed to cleanup progress tracking:', error);
+                }
+            }
+        }
+
+        // Make ProgressTracker globally available
+        window.ProgressTracker = ProgressTracker;
     </script>
 </body>
 </html>

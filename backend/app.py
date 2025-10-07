@@ -13,7 +13,7 @@ import pandas as pd
 import PyPDF2
 from docx import Document
 from flask import (Blueprint, Flask, flash, jsonify, redirect,
-                   render_template, request, send_file, url_for)
+                   render_template, request, send_file, send_from_directory, url_for)
 from flask_login import (LoginManager, UserMixin, current_user,
                          login_required, login_user, logout_user)
 from flask_sqlalchemy import SQLAlchemy
@@ -2772,19 +2772,118 @@ def emergency_json_parser(raw_text):
 @app.route('/api/progress/<int:user_id>', methods=['GET'])
 @login_required
 def get_upload_progress(user_id):
-    """Endpoint untuk mengecek progress upload"""
-    # Pastikan user hanya bisa akses progress sendiri atau guru bisa akses semua
-    if not (current_user.id == user_id or (hasattr(current_user, 'user_type') and current_user.user_type == 'guru')):
-        return jsonify({"message": "Akses ditolak"}), 403
-    
-    progress_data = get_progress(user_id)
-    if not progress_data:
-        return jsonify({"message": "Progress tidak ditemukan"}), 404
-    
-    return jsonify({
-        "success": True,
-        "progress": progress_data
-    })
+    """Endpoint untuk mengecek progress upload - Compatible dengan VPS multiple workers"""
+    try:
+        # Validasi user exists
+        if hasattr(current_user, 'user_type') and current_user.user_type == 'guru':
+            user = Guru.query.get(user_id)
+        else:
+            user = Siswa.query.get(user_id)
+            
+        if not user:
+            return jsonify({
+                "success": False, 
+                "message": "User tidak ditemukan",
+                "progress": None
+            }), 200  # Return 200 to stop endless polling
+            
+        # Pastikan user bisa akses progress sendiri atau guru bisa akses semua
+        if not (current_user.id == user_id or (hasattr(current_user, 'user_type') and current_user.user_type == 'guru')):
+            return jsonify({
+                "success": False,
+                "message": "Akses ditolak",
+                "progress": None
+            }), 200  # Return 200 to stop endless polling
+        
+        progress_data = get_progress(user_id)
+        if not progress_data:
+            # Return 200 dengan progress null untuk menghentikan polling yang tidak perlu
+            return jsonify({
+                "success": False,
+                "message": "Tidak ada progress aktif",
+                "progress": None,
+                "status": "no_active_progress"
+            }), 200
+        
+        return jsonify({
+            "success": True,
+            "progress": progress_data,
+            "status": "active"
+        })
+        
+    except Exception as e:
+        print(f"Error getting progress for user {user_id}: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": "Server error",
+            "progress": None,
+            "status": "error"
+        }), 200  # Return 200 to avoid endless error polling
+
+@app.route('/api/progress/stop/<int:user_id>', methods=['POST'])
+@login_required
+def stop_progress_tracking(user_id):
+    """Endpoint untuk menghentikan progress tracking"""
+    try:
+        # Validasi user permission
+        if not (current_user.id == user_id or (hasattr(current_user, 'user_type') and current_user.user_type == 'guru')):
+            return jsonify({
+                "success": False,
+                "message": "Akses ditolak"
+            }), 403
+        
+        clear_progress(user_id)
+        
+        return jsonify({
+            "success": True,
+            "message": "Progress tracking dihentikan"
+        })
+        
+    except Exception as e:
+        print(f"Error stopping progress for user {user_id}: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": "Server error"
+        }), 500
+
+@app.route('/api/progress/cleanup', methods=['POST'])
+@login_required
+def cleanup_old_progress():
+    """Endpoint untuk membersihkan progress tracking lama (hanya guru)"""
+    try:
+        if not (hasattr(current_user, 'user_type') and current_user.user_type == 'guru'):
+            return jsonify({
+                "success": False,
+                "message": "Akses ditolak. Hanya guru yang dapat membersihkan progress."
+            }), 403
+        
+        # Hapus progress yang lebih dari 1 jam
+        from datetime import timedelta
+        cutoff_time = datetime.datetime.now() - timedelta(hours=1)
+        
+        old_progress = ProgressTracker.query.filter(
+            ProgressTracker.updated_at < cutoff_time
+        ).all()
+        
+        count = 0
+        for progress in old_progress:
+            db.session.delete(progress)
+            count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"Berhasil membersihkan {count} progress lama"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error cleaning up old progress: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": "Server error"
+        }), 500
 
 # =========================================
 # ENDPOINT UPLOAD & GENERATE 5 SOAL PER level (35 TOTAL)
@@ -2798,8 +2897,9 @@ def upload_file():
     user_id = current_user.id
     print(f"[{datetime.datetime.now()}] Upload file endpoint called by teacher: {current_user.username}")
     
-    # Initialize progress tracking
-    update_progress(user_id, 1, "active", "Memulai proses upload...")
+    # Initialize progress tracking - STEP 1 START
+    print(f"[PROGRESS] Initializing progress for user {user_id}")
+    update_progress(user_id, 1, "pending", "Memulai proses upload...")
     
     if 'file' not in request.files:
         clear_progress(user_id)
@@ -2817,10 +2917,13 @@ def upload_file():
 
     try:
         # STEP 1: Upload dan validasi file
-        update_progress(user_id, 1, "completed", "File berhasil diunggah")
+        print(f"[PROGRESS] Step 1 - Reading file...")
+        update_progress(user_id, 1, "active", "Membaca dan memvalidasi file...")
         file_stream = file.read()
+        update_progress(user_id, 1, "completed", "File berhasil diunggah dan divalidasi")
         
-        # STEP 2: Analisis struktur dokumen
+        # STEP 2: Analisis struktur dokumen  
+        print(f"[PROGRESS] Step 2 - Analyzing document structure...")
         update_progress(user_id, 2, "active", "Menganalisis struktur dan format dokumen...")
         print(f"[{datetime.datetime.now()}] Memulai validasi file...")
         
@@ -2840,6 +2943,7 @@ def upload_file():
         update_progress(user_id, 2, "completed", "Struktur dokumen berhasil dianalisis")
         
         # STEP 3: Ekstraksi tujuan pembelajaran
+        print(f"[PROGRESS] Step 3 - Extracting learning objectives...")
         update_progress(user_id, 3, "active", "Mengekstrak tujuan pembelajaran dan komponen modul...")
         
         # VALIDASI PENDIDIKAN: Sudah dilakukan dalam validate_file_format_and_content
@@ -2892,6 +2996,7 @@ def upload_file():
         update_progress(user_id, 3, "completed", "Tujuan pembelajaran berhasil diekstrak")
         
         # STEP 4: Proses dengan AI Gemini
+        print(f"[PROGRESS] Step 4 - Processing with AI Gemini...")
         update_progress(user_id, 4, "active", "Memproses dengan AI Gemini untuk membuat soal...")
 
         # Buat DataFrame ringkas (mengganti convert_text_to_dataframe_improved)
@@ -2915,6 +3020,10 @@ def upload_file():
         raw_text = response.text.strip()
         print(f"[{datetime.datetime.now()}] Respons dari Gemini AI diterima.")
         update_progress(user_id, 4, "completed", "AI berhasil menghasilkan soal")
+        
+        # STEP 5: Menyimpan ke database
+        print(f"[PROGRESS] Step 5 - Saving to database...")
+        update_progress(user_id, 5, "active", "Memproses dan menyimpan soal ke database...")
         
         print("Raw AI response:", raw_text[:500])
         
