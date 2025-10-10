@@ -620,7 +620,7 @@
         </div>
         <div class="level-explanation">
           <p><i class="bi bi-info-circle me-2"></i><strong class="text-dark">Level Terakhir yang Dicapai: <span id="current-level-text">{{ current_level }}</span></strong></p>
-          <p class="mb-0">Diagram di atas menunjukkan progress Anda dalam tes diagnostik. Level berwarna hijau menandakan level yang telah Anda lewati, sedangkan level biru adalah level terakhir yang Anda capai. Sistem tes diagnostik menggunakan alur adaptif berdasarkan jawaban Anda untuk menentukan jalur tes.</p>
+          <p class="mb-0">Diagram di atas menunjukkan jalur spesifik yang Anda lalui dalam tes diagnostik adaptif. Hanya level yang benar-benar Anda kerjakan yang ditampilkan dengan warna - hijau untuk level yang telah selesai, biru untuk level terakhir yang dicapai. Level tanpa warna adalah level yang tidak Anda lalui karena sistem adaptif mengarahkan Anda ke jalur yang sesuai dengan kemampuan Anda.</p>
         </div>
       </div>
     </div>
@@ -1155,6 +1155,14 @@
           console.error("Error saat menambahkan informasi level ke jawaban:", levelError);
           console.warn("Melanjutkan dengan data yang ada meskipun terjadi error pada enrichAnswersWithLevels");
         }
+        
+        // Update level path setelah data jawaban tersedia
+        const currentLevelElement = document.getElementById('current-level-text');
+        if (currentLevelElement) {
+          const currentLevel = parseInt(currentLevelElement.textContent) || 1;
+          updateLevelPath(currentLevel);
+        }
+        
       } catch (error) {
         console.error("Error fetching answer history:", error);
         // Tetap lanjutkan eksekusi program meskipun gagal mengambil riwayat jawaban
@@ -1403,9 +1411,6 @@ function renderFilteredAnswers(type) {
       // Hitung akurasi
       const accuracyValue = totalValue > 0 ? Math.round((correctValue / totalValue) * 100) : 0;
       
-      // Perbarui visualisasi level path
-      updateLevelPath(currentLevel);
-      
       // Update nilai statistik
       document.getElementById('correct-value').textContent = correctValue;
       document.getElementById('incorrect-value').textContent = incorrectValue;
@@ -1476,21 +1481,63 @@ function renderFilteredAnswers(type) {
       
       // Generate personalized recommendations
       generateRecommendations(correctValue, incorrectValue, currentLevel);
+      
+      // Perbarui visualisasi level path setelah data siap
+      // Gunakan setTimeout untuk memastikan allAnswers sudah terisi
+      setTimeout(() => {
+        updateLevelPath(currentLevel);
+      }, 100);
     }
     
     // Update level path visualization
     function updateLevelPath(currentLevel) {
-      // Mark levels as active or completed
+      // Dapatkan level yang dilalui siswa dari riwayat jawaban
+      const passedLevels = getPassedLevelsFromAnswers();
+      
+      // Reset semua level ke state default
       for (let i = 1; i <= 7; i++) {
         const levelElement = document.getElementById(`level${i}`);
         if (levelElement) {
-          if (i < currentLevel) {
-            levelElement.classList.add('completed');
-          } else if (i === currentLevel) {
-            levelElement.classList.add('active');
+          // Reset classes
+          levelElement.classList.remove('completed', 'active');
+          
+          // Jika level ini dilalui siswa, beri warna
+          if (passedLevels.includes(i)) {
+            if (i === currentLevel) {
+              levelElement.classList.add('active'); // Level terakhir yang dicapai
+            } else {
+              levelElement.classList.add('completed'); // Level yang sudah dilewati
+            }
           }
+          // Jika level tidak dilalui, biarkan tanpa warna (default)
         }
       }
+    }
+    
+    // Fungsi untuk mendapatkan level yang dilalui siswa dari riwayat jawaban
+    function getPassedLevelsFromAnswers() {
+      const passedLevels = new Set();
+      
+      // Jika ada data jawaban, ekstrak level dari jawaban
+      if (allAnswers && allAnswers.length > 0) {
+        allAnswers.forEach(answer => {
+          if (answer.level && answer.level >= 1 && answer.level <= 7) {
+            passedLevels.add(answer.level);
+          }
+        });
+      }
+      
+      // Jika tidak ada data jawaban atau set kosong, fallback ke logic lama
+      if (passedLevels.size === 0) {
+        console.warn("Tidak ada data level dari jawaban, menggunakan fallback logic");
+        // Fallback: asumsikan siswa melewati level 1 sampai current level
+        for (let i = 1; i <= parseInt(document.getElementById('current-level-text').textContent) || 1; i++) {
+          passedLevels.add(i);
+        }
+      }
+      
+      // Konversi Set ke Array dan sort
+      return Array.from(passedLevels).sort((a, b) => a - b);
     }
     // Function to export results to Excel
 function exportToExcel() {

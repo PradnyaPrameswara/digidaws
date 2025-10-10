@@ -311,7 +311,129 @@
         
         <div class="page-break"></div>
         <div class="page-container">
-            <div class="section-title">B. Rekomendasi Pembelajaran</div>
+            <div class="section-title">B. Analisis Jawaban dan Rekomendasi Pembelajaran</div>
+            
+            <!-- Tabel 1: Analisis Mendalam Hasil Pembelajaran -->
+            <h4 style="color: #007bff; margin: 20px 0 15px 0; font-size: 12pt;">🧠 Analisis Mendalam Hasil Pembelajaran</h4>
+            
+            {% set total_answered = result.correct + result.incorrect %}
+            {% set accuracy_rate = (result.correct / total_answered * 100) if total_answered > 0 else 0 %}
+            
+            <table class="analysis-table" style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 10pt;">
+                <thead>
+                    <tr>
+                        <th style="background-color: #007bff; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 25%;">Aspek Analisis</th>
+                        <th style="background-color: #007bff; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 75%;">Hasil Analisis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Gambaran Umum Pencapaian</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
+                            Dari {{ total_answered }} soal yang kamu jawab pada materi "{{ collection.name }}", kamu berhasil menjawab dengan tepat sebanyak {{ result.correct }} soal dan {{ result.incorrect }} soal lainnya masih perlu diperbaiki. Ini menunjukkan tingkat penguasaan sebesar {{ "%.1f"|format(accuracy_rate) }}% untuk materi ini.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Analisis Pencapaian</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
+                            {% if accuracy_rate >= 85 %}
+                            Luar biasa, {{ student.nama.split()[0] }}! Kamu menunjukkan pemahaman yang sangat baik terhadap materi "{{ collection.name }}". Pencapaian {{ "%.1f"|format(accuracy_rate) }}% ini menandakan bahwa kamu sudah menguasai sebagian besar konsep dengan solid. Tahap kemampuan yang kamu capai (Tahap {{ result.current_level }}) menunjukkan bahwa kamu sudah siap untuk mengeksplorasi aspek yang lebih mendalam dan aplikatif dari materi ini.
+                            {% elif accuracy_rate >= 70 %}
+                            Bagus sekali, {{ student.nama.split()[0] }}! Dengan pencapaian {{ "%.1f"|format(accuracy_rate) }}%, kamu sudah memiliki fondasi yang kuat dalam materi "{{ collection.name }}". Tahap {{ result.current_level }} yang kamu capai menunjukkan pemahaman yang baik, namun masih ada ruang untuk pengembangan lebih lanjut. Beberapa konsep mungkin masih perlu diperdalam agar pemahamanmu menjadi lebih komprehensif.
+                            {% elif accuracy_rate >= 50 %}
+                            Kamu sudah menunjukkan pemahaman dasar yang cukup baik pada materi "{{ collection.name }}" dengan pencapaian {{ "%.1f"|format(accuracy_rate) }}%. Tahap {{ result.current_level }} yang kamu capai menunjukkan bahwa kamu sudah memahami konsep-konsep fundamental. Namun, untuk mencapai penguasaan yang lebih optimal, kamu perlu memperkuat beberapa area yang masih lemah dan meningkatkan kemampuan aplikasi konsep dalam berbagai situasi.
+                            {% else %}
+                            Jangan khawatir, {{ student.nama.split()[0] }}! Setiap proses pembelajaran membutuhkan waktu. Pencapaian {{ "%.1f"|format(accuracy_rate) }}% menunjukkan bahwa kamu masih dalam tahap membangun pemahaman terhadap materi "{{ collection.name }}". Tahap {{ result.current_level }} yang kamu capai adalah titik awal yang baik untuk memulai penguatan konsep-konsep dasar. Dengan strategi belajar yang tepat, kamu pasti bisa meningkatkan pemahamanmu secara signifikan.
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if result.incorrect > 0 %}
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Area yang Perlu Diperkuat</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
+                            Dari {{ result.incorrect }} jawaban yang belum tepat, ini memberikan petunjuk penting tentang area mana yang perlu mendapat perhatian lebih. Kesalahan-kesalahan ini bukanlah kegagalan, melainkan peluang emas untuk memperdalam pemahaman dan memperkuat konsep-konsep yang masih lemah. Setiap kesalahan memberikan insight berharga tentang cara berpikir dan pendekatan yang perlu disesuaikan dalam mempelajari materi "{{ collection.name }}".
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Potensi Pengembangan</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
+                            Berdasarkan pola jawaban yang kamu berikan, terlihat bahwa kamu memiliki potensi yang baik untuk terus berkembang dalam materi "{{ collection.name }}". 
+                            {% if result.current_level <= 2 %}
+                            Fokus utama saat ini sebaiknya pada penguatan pemahaman konsep-konsep dasar dan terminologi yang menjadi fondasi untuk pembelajaran selanjutnya.
+                            {% elif result.current_level <= 4 %}
+                            Kamu sudah siap untuk mengembangkan kemampuan aplikasi konsep dalam berbagai konteks dan situasi yang lebih kompleks.
+                            {% else %}
+                            Kamu sudah mencapai tahap yang memungkinkan untuk mengeksplorasi aspek kreatif dan analitis yang lebih mendalam dari materi ini.
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <!-- Tabel 2: Rekomendasi Belajar Berdasarkan Analisis -->
+            {% if result.incorrect > 0 %}
+            <h4 style="color: #f59e0b; margin: 20px 0 15px 0; font-size: 12pt;">📚 Rekomendasi Belajar Berdasarkan Analisis Jawaban</h4>
+            
+            {% set incorrect_percentage = (result.incorrect / (result.correct + result.incorrect) * 100) %}
+            
+            <table class="recommendation-analysis-table" style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 10pt;">
+                <thead>
+                    <tr>
+                        <th style="background-color: #f59e0b; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 25%;">Kategori Rekomendasi</th>
+                        <th style="background-color: #f59e0b; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 75%;">Strategi Pembelajaran yang Direkomendasikan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="background-color: #fff7ed; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Pola Kesalahan Teridentifikasi</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
+                            Dari analisis mendalam terhadap {{ result.incorrect }} jawaban yang belum tepat, saya menemukan pola pembelajaran yang dapat kita optimalkan untuk meningkatkan pemahamanmu dalam "{{ collection.name }}". 
+                            {% if incorrect_percentage >= 60 %}
+                            Meskipun masih banyak konsep yang perlu diperkuat, ini adalah kesempatan emas untuk membangun fondasi yang kuat dari awal. Fokus utama sebaiknya pada pemahaman konsep dasar secara bertahap dan sistematis.
+                            {% elif incorrect_percentage >= 30 %}
+                            Beberapa area spesifik perlu mendapat perhatian khusus, namun kemajuan yang sudah dicapai menunjukkan potensi yang baik. Kita akan fokus pada penguatan area yang lemah sambil mempertahankan kekuatan yang sudah ada.
+                            {% else %}
+                            Kesalahan yang ada cenderung pada detail-detail tertentu dan kemungkinan besar dapat diperbaiki dengan strategi yang tepat sasaran. Fokus pada fine-tuning pemahaman akan memberikan hasil yang optimal.
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #fff7ed; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Strategi Pembelajaran Utama</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
+                            {% if incorrect_percentage >= 60 %}
+                            <strong>1. Pembelajaran Bertahap dan Terstruktur:</strong> Mulai dengan memahami satu konsep fundamental setiap hari. Jangan terburu-buru pindah ke konsep berikutnya sebelum benar-benar menguasai yang sedang dipelajari. Buat catatan ringkas dengan contoh konkret untuk setiap konsep.<br><br>
+                            <strong>2. Visualisasi dan Analogi:</strong> Manfaatkan diagram, gambar, atau analogi sederhana untuk memahami konsep abstrak dalam "{{ collection.name }}". Cari video pembelajaran yang menggunakan animasi atau simulasi untuk memperjelas konsep yang sulit.<br><br>
+                            <strong>3. Praktik Berulang dengan Variasi:</strong> Kerjakan soal-soal dasar dengan pola yang sama secara berulang sampai menjadi otomatis, lalu secara bertahap tingkatkan variasi dan kompleksitas. Fokus pada akurasi, bukan kecepatan.
+                            {% elif incorrect_percentage >= 30 %}
+                            <strong>1. Identifikasi dan Perkuat Area Lemah:</strong> Dari pola kesalahan, fokuskan 70% waktu belajar pada konsep-konsep yang masih bermasalah. Buat daftar topik yang sering salah dan pelajari satu per satu secara mendalam dengan contoh beragam.<br><br>
+                            <strong>2. Hubungkan dengan Konsep yang Sudah Dikuasai:</strong> Cari kaitan antara materi yang sudah dipahami dengan yang masih sulit. Buat peta konsep yang menunjukkan hubungan antar topik untuk memperkuat pemahaman holistik.<br><br>
+                            <strong>3. Latihan Terfokus dan Reflektif:</strong> Setelah mengerjakan soal, selalu analisis mengapa jawaban benar atau salah. Buat catatan pola kesalahan dan cara pencegahannya. Diskusikan kesulitan dengan teman atau guru untuk mendapat perspektif berbeda.
+                            {% else %}
+                            <strong>1. Fine-tuning dan Pendalaman:</strong> Fokus pada detail-detail yang menyebabkan kesalahan. Sering kali ini berkaitan dengan ketelitian, pemahaman instruksi soal, atau penerapan rumus/konsep dalam konteks yang sedikit berbeda.<br><br>
+                            <strong>2. Latihan Soal Bertingkat:</strong> Tingkatkan kompleksitas soal secara bertahap. Cari soal-soal yang menggabungkan beberapa konsep sekaligus atau memerlukan analisis yang lebih mendalam untuk mengasah kemampuan berpikir kritis.<br><br>
+                            <strong>3. Eksplorasi dan Inovasi:</strong> Coba pendekatan alternatif dalam menyelesaikan masalah. Kembangkan intuisi dan kemampuan reasoning yang lebih kuat dengan mengeksplorasi berbagai metode penyelesaian untuk satu masalah yang sama.
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #fff7ed; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Motivasi & Dukungan</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6; background-color: #fef3c7;">
+                            <strong>💪 Motivasi Khusus:</strong> 
+                            {% if incorrect_percentage >= 60 %}
+                            Setiap ahli pernah memulai dari titik yang sama denganmu. Yang membedakan adalah konsistensi dan kesabaran dalam membangun pemahaman step by step. Setiap konsep yang berhasil dikuasai adalah kemenangan kecil yang layak dirayakan!
+                            {% elif incorrect_percentage >= 30 %}
+                            Kamu sudah berada di jalur yang benar! Kesalahan yang ada menunjukkan area spesifik yang perlu diperkuat. Dengan fokus dan strategi yang tepat, kemajuan signifikan sangat mungkin dicapai dalam waktu dekat.
+                            {% else %}
+                            Pencapaianmu sudah sangat baik! Kesalahan kecil yang ada adalah stepping stone untuk mencapai tingkat mastery. Dengan fine-tuning yang tepat, kamu bisa menjadi contoh bagi teman-teman lainnya.
+                            {% endif %}
+                            Ingat, proses pembelajaran yang berkelanjutan lebih berharga daripada hasil sempurna yang instan.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            {% endif %}
+
         {% set performance_analysis = {
             'total_questions': result.correct + result.incorrect,
             'accuracy_percentage': (result.correct / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0,
@@ -329,25 +451,9 @@
             }
         } %}
         
-        <p class="recommendation-intro">
-            Halo {{ student.nama.split()[0] }}, dari hasil tes "{{ collection.name }}", saya punya beberapa saran belajar khusus yang bisa kamu praktikkan di rumah. 
-            {% if performance_analysis.accuracy_percentage >= 80 %}
-            Wah, kamu sudah bagus banget nih! Tapi masih ada yang bisa ditingkatkan lagi.
-            {% elif performance_analysis.accuracy_percentage >= 60 %}
-            Kamu sudah di jalur yang benar, tinggal asah lagi beberapa bagian.
-            {% else %}
-            Jangan khawatir, mari kita perkuat pondasinya dulu step by step.
-            {% endif %}
-        </p>
-        
-        <table class="recommendation-table">
-            <thead>
-                <tr>
-                    <th class="rec-number" style="width: 5%;">No.</th>
-                    <th style="width: 95%;">Rekomendasi Belajar di Rumah</th>
-                </tr>
-            </thead>
-            <tbody>
+        <!-- Tabel Rekomendasi Belajar di Rumah telah dihapus sesuai permintaan -->
+        <div style="display: none;">
+            <!-- Konten tabel yang dihapus -->
                 {% if result.current_level == 1 %}
                 <tr>
                     <td class="rec-number">1</td>
@@ -430,18 +536,7 @@
                     <td><strong>Mulai Belajar Menilai:</strong> Coba lihat mana teknologi atau cara yang paling efektif dan efisien untuk masalah tertentu.</td>
                 </tr>
                 {% elif result.current_level == 6 %}
-                <tr>
-                    <td class="rec-number">1</td>
-                    <td><strong>Belajar Menilai dengan Objektif:</strong> Sekarang saatnya belajar membandingkan dan menilai teknologi secara adil. Mana yang lebih baik dan kenapa?</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">2</td>
-                    <td><strong>Lihat Dampak Positif dan Negatif:</strong> Coba pikir dampak baik dan buruk dari teknologi ini buat masyarakat, lingkungan, dan ekonomi.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">3</td>
-                    <td><strong>Gabungkan Semua yang Udah Dipelajari:</strong> Pakai semua pengetahuan dan skill yang udah kamu punya buat bikin keputusan teknologi yang tepat.</td>
-                </tr>
+                <!-- Baris rekomendasi untuk level 6 dihapus -->
                 {% elif result.current_level == 7 %}
                 <tr>
                     <td class="rec-number">1</td>
@@ -458,16 +553,9 @@
                 {% endif %}
                 
                 <!-- Rekomendasi umum untuk semua level -->
-                <tr>
-                    <td class="rec-number">{{ 5 if result.current_level <= 4 else 4 }}</td>
-                    <td><strong>Waktu Belajar Konsisten:</strong> Luangkan 20-30 menit setiap hari di waktu yang sama untuk fokus mempelajari {{ performance_analysis.next_focus.get(result.current_level, 'materi teknologi') }}. Konsistensi lebih penting dari durasi yang lama.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">{{ 6 if result.current_level <= 4 else 5 }}</td>
-                    <td><strong>Refleksi dan Evaluasi:</strong> Setiap minggu, tulis di jurnal tentang apa yang sudah kamu pelajari, apa yang masih sulit, dan apa yang ingin kamu pelajari selanjutnya tentang "{{ collection.name }}".</td>
-                </tr>
-            </tbody>
-        </table>
+                <!-- Baris rekomendasi umum dihapus -->
+        </div>
+        <!-- Tabel telah dihapus -->
             <p class="recommendation-outro">
                 {% if performance_analysis.accuracy_percentage >= 80 %}
                 Kerja bagus, {{ student.nama.split()[0] }}! Kamu sudah menguasai {{ performance_analysis.accuracy_percentage|round|int }}% materi ini. Lanjutkan dengan rekomendasi di atas untuk naik ke level yang lebih tinggi. Saya yakin kamu bisa jadi yang terdepan!

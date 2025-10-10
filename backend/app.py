@@ -2140,6 +2140,828 @@ def get_siswa_test_results(collection_id):
             "message": f"Server error: {str(e)}"
         }), 500
 
+# =========================================
+# SISTEM REKOMENDASI BELAJAR KONTEKSTUAL
+# =========================================
+
+def analyze_student_weaknesses(student_id, collection_id):
+    """
+    Menganalisis kelemahan siswa berdasarkan jawaban yang salah untuk memberikan rekomendasi belajar yang tepat
+    """
+    try:
+        # Ambil semua jawaban salah siswa untuk collection ini
+        wrong_answers = db.session.query(SiswaAnswer, Question)\
+            .join(Question, SiswaAnswer.question_id == Question.id)\
+            .join(CollectionQuestion, CollectionQuestion.question_id == Question.id)\
+            .filter(
+                SiswaAnswer.siswa_id == student_id,
+                CollectionQuestion.collection_id == collection_id,
+                SiswaAnswer.is_correct == False
+            ).all()
+        
+        if not wrong_answers:
+            return {"message": "Tidak ada jawaban salah ditemukan", "recommendations": []}
+        
+        # Kategorisasi berdasarkan level dan topik
+        weakness_analysis = {
+            "concept_gaps": [],      # Kesalahan konsep dasar
+            "application_gaps": [],  # Kesalahan aplikasi
+            "analysis_gaps": [],     # Kesalahan analisis
+            "level_statistics": {},  # Statistik per level
+            "topic_statistics": {}   # Statistik per topik
+        }
+        
+        for answer, question in wrong_answers:
+            level = question.level
+            topic = extract_topic_from_question(question.soal)
+            
+            # Update statistik level
+            if level not in weakness_analysis["level_statistics"]:
+                weakness_analysis["level_statistics"][level] = {"count": 0, "questions": []}
+            weakness_analysis["level_statistics"][level]["count"] += 1
+            weakness_analysis["level_statistics"][level]["questions"].append({
+                "question": question.soal,
+                "correct_answer": question.jawaban_benar,
+                "student_answer": answer.siswa_answer
+            })
+            
+            # Update statistik topik
+            if topic not in weakness_analysis["topic_statistics"]:
+                weakness_analysis["topic_statistics"][topic] = {"count": 0, "questions": []}
+            weakness_analysis["topic_statistics"][topic]["count"] += 1
+            weakness_analysis["topic_statistics"][topic]["questions"].append({
+                "question": question.soal,
+                "level": level,
+                "correct_answer": question.jawaban_benar
+            })
+            
+            # Kategorisasi berdasarkan level
+            if level in [1, 2]:  # Level dasar - konsep
+                weakness_analysis["concept_gaps"].append({
+                    "question": question.soal,
+                    "topic": topic,
+                    "level": level
+                })
+            elif level in [3, 4]:  # Level menengah - aplikasi
+                weakness_analysis["application_gaps"].append({
+                    "question": question.soal,
+                    "topic": topic,
+                    "level": level
+                })
+            else:  # Level tinggi - analisis
+                weakness_analysis["analysis_gaps"].append({
+                    "question": question.soal,
+                    "topic": topic,
+                    "level": level
+                })
+        
+        return weakness_analysis
+        
+    except Exception as e:
+        print(f"Error analyzing student weaknesses: {str(e)}")
+        return {"error": str(e), "recommendations": []}
+
+def extract_topic_from_question(question_text):
+    """
+    Mengekstrak topik dari teks soal untuk kategorisasi
+    """
+    question_lower = question_text.lower()
+    
+    # Mapping topik berdasarkan kata kunci
+    topic_keywords = {
+        "Jaringan Komputer": [
+            "jaringan", "network", "internet", "router", "switch", "hub", 
+            "protokol", "tcp", "ip", "http", "https", "dns", "dhcp",
+            "topologi", "lan", "wan", "wifi", "ethernet"
+        ],
+        "Keamanan Siber": [
+            "keamanan", "security", "password", "enkripsi", "virus", "malware",
+            "firewall", "antivirus", "phishing", "hacker", "cybersecurity"
+        ],
+        "Sistem Operasi": [
+            "sistem operasi", "windows", "linux", "android", "ios", "file system",
+            "command", "shell", "directory", "folder", "registry"
+        ],
+        "Aplikasi Perkantoran": [
+            "microsoft office", "word", "excel", "powerpoint", "spreadsheet",
+            "dokumen", "presentasi", "formula", "chart", "table"
+        ],
+        "Database": [
+            "database", "basis data", "sql", "query", "tabel", "field",
+            "record", "primary key", "foreign key", "join", "select"
+        ],
+        "Programming": [
+            "program", "coding", "algoritma", "variabel", "function", "loop",
+            "if", "else", "array", "string", "integer", "boolean"
+        ],
+        "Hardware": [
+            "hardware", "cpu", "ram", "storage", "hard disk", "ssd",
+            "processor", "motherboard", "vga", "monitor", "keyboard", "mouse"
+        ],
+        "Internet & Web": [
+            "browser", "website", "html", "css", "javascript", "url",
+            "domain", "hosting", "email", "social media", "cloud"
+        ]
+    }
+    
+    # Cari topik yang paling sesuai
+    topic_scores = {}
+    for topic, keywords in topic_keywords.items():
+        score = sum(1 for keyword in keywords if keyword in question_lower)
+        if score > 0:
+            topic_scores[topic] = score
+    
+    # Return topik dengan score tertinggi, atau "Umum" jika tidak ada yang cocok
+    if topic_scores:
+        return max(topic_scores, key=topic_scores.get)
+    else:
+        return "Teknologi Informasi Umum"
+
+def generate_contextual_recommendations(weakness_analysis):
+    """
+    Membuat rekomendasi belajar berdasarkan analisis kelemahan siswa
+    """
+    recommendations = []
+    
+    # Rekomendasi berdasarkan statistik topik
+    if weakness_analysis.get("topic_statistics"):
+        # Urutkan topik berdasarkan jumlah kesalahan terbanyak
+        sorted_topics = sorted(
+            weakness_analysis["topic_statistics"].items(),
+            key=lambda x: x[1]["count"],
+            reverse=True
+        )
+        
+        for topic, data in sorted_topics[:3]:  # Ambil 3 topik teratas
+            recommendation = create_topic_recommendation(topic, data["count"], data["questions"])
+            if recommendation:
+                recommendations.append(recommendation)
+    
+    # Rekomendasi berdasarkan level kesulitan
+    if weakness_analysis.get("level_statistics"):
+        level_recommendations = create_level_recommendations(weakness_analysis["level_statistics"])
+        recommendations.extend(level_recommendations)
+    
+    # Rekomendasi berdasarkan pola kesalahan
+    pattern_recommendations = create_pattern_recommendations(weakness_analysis)
+    recommendations.extend(pattern_recommendations)
+    
+    return recommendations
+
+def create_topic_recommendation(topic, error_count, questions):
+    """
+    Membuat rekomendasi spesifik untuk topik tertentu
+    """
+    # Template rekomendasi per topik
+    topic_recommendations = {
+        "Jaringan Komputer": {
+            "materials": [
+                "📖 Bab: Konsep Dasar Jaringan Komputer",
+                "🎥 Video: Pengenalan Topologi Jaringan",
+                "📝 Latihan: Mengidentifikasi Perangkat Jaringan",
+                "🔧 Praktik: Konfigurasi Jaringan Sederhana"
+            ],
+            "focus_areas": [
+                "Memahami definisi dan fungsi jaringan komputer",
+                "Mengenal jenis-jenis topologi jaringan",
+                "Memahami protokol komunikasi data",
+                "Mengidentifikasi perangkat jaringan dan fungsinya"
+            ]
+        },
+        "Keamanan Siber": {
+            "materials": [
+                "📖 Bab: Keamanan Digital dan Cyber Security",
+                "🎥 Video: Jenis-jenis Ancaman Siber",
+                "📝 Latihan: Membuat Password yang Kuat",
+                "🛡️ Praktik: Penggunaan Antivirus dan Firewall"
+            ],
+            "focus_areas": [
+                "Memahami jenis-jenis ancaman keamanan digital",
+                "Menerapkan praktik keamanan password",
+                "Mengenal malware dan cara pencegahannya",
+                "Memahami konsep enkripsi dasar"
+            ]
+        },
+        "Sistem Operasi": {
+            "materials": [
+                "📖 Bab: Sistem Operasi dan Manajemen File",
+                "🎥 Video: Fungsi dan Komponen Sistem Operasi",
+                "📝 Latihan: Navigasi File dan Folder",
+                "⚙️ Praktik: Pengaturan Sistem Operasi"
+            ],
+            "focus_areas": [
+                "Memahami fungsi utama sistem operasi",
+                "Menguasai manajemen file dan folder",
+                "Mengenal interface dan command line",
+                "Memahami proses dan multitasking"
+            ]
+        },
+        "Aplikasi Perkantoran": {
+            "materials": [
+                "📖 Bab: Aplikasi Produktivitas Perkantoran",
+                "🎥 Video: Tutorial Microsoft Office/LibreOffice",
+                "📝 Latihan: Membuat Dokumen dan Presentasi",
+                "📊 Praktik: Pengolahan Data dengan Spreadsheet"
+            ],
+            "focus_areas": [
+                "Menguasai pengolah kata (Word Processing)",
+                "Memahami spreadsheet dan formula",
+                "Membuat presentasi yang efektif",
+                "Integrasi antar aplikasi perkantoran"
+            ]
+        },
+        "Database": {
+            "materials": [
+                "📖 Bab: Konsep Basis Data",
+                "🎥 Video: Pengenalan Database dan SQL",
+                "📝 Latihan: Merancang Tabel Database",
+                "🗄️ Praktik: Query Sederhana"
+            ],
+            "focus_areas": [
+                "Memahami konsep database dan DBMS",
+                "Mengenal struktur tabel dan relasi",
+                "Memahami primary key dan foreign key",
+                "Dasar-dasar query SQL"
+            ]
+        },
+        "Hardware": {
+            "materials": [
+                "📖 Bab: Perangkat Keras Komputer",
+                "🎥 Video: Komponen-komponen Komputer",
+                "📝 Latihan: Identifikasi Hardware",
+                "🔧 Praktik: Perawatan Perangkat Keras"
+            ],
+            "focus_areas": [
+                "Mengenal komponen utama komputer",
+                "Memahami fungsi CPU, RAM, dan Storage",
+                "Mengenal perangkat input dan output",
+                "Dasar-dasar troubleshooting hardware"
+            ]
+        }
+    }
+    
+    # Ambil rekomendasi untuk topik, atau buat generic jika tidak ada
+    if topic in topic_recommendations:
+        rec = topic_recommendations[topic]
+    else:
+        rec = {
+            "materials": [
+                f"📖 Pelajari kembali materi: {topic}",
+                f"🎥 Cari video tutorial tentang: {topic}",
+                f"📝 Latihan soal-soal: {topic}",
+                f"🔍 Riset lebih dalam tentang: {topic}"
+            ],
+            "focus_areas": [
+                f"Pahami konsep dasar {topic}",
+                f"Pelajari aplikasi praktis {topic}",
+                f"Latihan problem solving {topic}"
+            ]
+        }
+    
+    return {
+        "type": "topic_focus",
+        "topic": topic,
+        "priority": "High" if error_count >= 3 else "Medium",
+        "error_count": error_count,
+        "title": f"📚 Fokus Belajar: {topic}",
+        "description": f"Anda memiliki {error_count} kesalahan pada topik ini. Perlu penguatan pemahaman konsep.",
+        "materials": rec["materials"],
+        "focus_areas": rec["focus_areas"],
+        "estimated_time": "2-3 jam belajar",
+        "difficulty": "Sesuai dengan level kesalahan Anda"
+    }
+
+def create_level_recommendations(level_statistics):
+    """
+    Membuat rekomendasi berdasarkan level kesulitan
+    """
+    recommendations = []
+    
+    for level, data in level_statistics.items():
+        if data["count"] >= 2:  # Jika ada 2+ kesalahan di level ini
+            level_info = get_level_description_with_study_tips(level)
+            
+            recommendation = {
+                "type": "level_focus",
+                "level": level,
+                "priority": "High" if data["count"] >= 3 else "Medium",
+                "error_count": data["count"],
+                "title": f"🎯 {level_info['title']}",
+                "description": f"Perkuat kemampuan di level ini ({data['count']} kesalahan ditemukan)",
+                "study_approach": level_info["study_tips"],
+                "practice_suggestions": level_info["practice_suggestions"],
+                "estimated_time": level_info["estimated_time"]
+            }
+            recommendations.append(recommendation)
+    
+    return recommendations
+
+def get_level_description_with_study_tips(level):
+    """
+    Memberikan deskripsi level beserta tips belajar
+    """
+    level_guides = {
+        1: {
+            "title": "Level 1 - Kesadaran Teknologi (Dasar)",
+            "study_tips": [
+                "🔍 Fokus pada definisi dan terminologi dasar",
+                "📖 Baca dan hafalkan konsep-konsep kunci",
+                "🎯 Gunakan flashcard untuk mengingat istilah",
+                "📝 Buat catatan ringkas dengan kata kunci"
+            ],
+            "practice_suggestions": [
+                "Latihan soal pilihan ganda tentang definisi",
+                "Quiz terminologi teknologi",
+                "Identifikasi komponen-komponen teknologi"
+            ],
+            "estimated_time": "1-2 jam"
+        },
+        2: {
+            "title": "Level 2 - Literasi Teknologi (Pemahaman)",
+            "study_tips": [
+                "🧠 Pahami hubungan antar konsep",
+                "📊 Buat mind map untuk menghubungkan ide",
+                "💭 Jelaskan konsep dengan kata-kata sendiri",
+                "🔄 Bandingkan dan kontraskan konsep serupa"
+            ],
+            "practice_suggestions": [
+                "Latihan menjelaskan fungsi teknologi",
+                "Klasifikasi jenis-jenis teknologi",
+                "Analisis hubungan cause-effect"
+            ],
+            "estimated_time": "2-3 jam"
+        },
+        3: {
+            "title": "Level 3 - Kemampuan Teknologi (Aplikasi)",
+            "study_tips": [
+                "🛠️ Praktik langsung dengan tools",
+                "📋 Ikuti step-by-step tutorial",
+                "🎮 Gunakan simulator atau virtual lab",
+                "✍️ Tulis prosedur dengan kata-kata sendiri"
+            ],
+            "practice_suggestions": [
+                "Tutorial hands-on dengan software",
+                "Simulasi konfigurasi sistem",
+                "Latihan troubleshooting sederhana"
+            ],
+            "estimated_time": "3-4 jam"
+        },
+        4: {
+            "title": "Level 4 - Kreativitas Teknologi (Problem Solving)",
+            "study_tips": [
+                "🧩 Latihan pemecahan masalah bertahap",
+                "🎯 Identifikasi pola dalam masalah",
+                "💡 Brainstorm multiple solutions",
+                "🔧 Praktik debugging dan troubleshooting"
+            ],
+            "practice_suggestions": [
+                "Case study problem solving",
+                "Debugging exercise",
+                "Design thinking untuk solusi teknologi"
+            ],
+            "estimated_time": "4-5 jam"
+        },
+        5: {
+            "title": "Level 5 - Kemampuan Lanjut (Analisis Mendalam)",
+            "study_tips": [
+                "🔬 Analisis sistem secara holistik",
+                "📈 Evaluasi pros dan cons solusi",
+                "🎓 Pelajari best practices industri",
+                "💼 Pahami konteks bisnis/organisasi"
+            ],
+            "practice_suggestions": [
+                "Studi kasus industri",
+                "Analisis perbandingan teknologi",
+                "Evaluasi efektivitas sistem"
+            ],
+            "estimated_time": "5-6 jam"
+        },
+        6: {
+            "title": "Level 6 - Kritik Teknologi (Evaluasi)",
+            "study_tips": [
+                "⚖️ Kembangkan kemampuan evaluasi kritis",
+                "📊 Analisis data dan metrics",
+                "🎯 Identifikasi kriteria evaluasi",
+                "💭 Pertimbangkan multiple perspectives"
+            ],
+            "practice_suggestions": [
+                "Technology assessment",
+                "Comparative analysis",
+                "Impact evaluation"
+            ],
+            "estimated_time": "6-7 jam"
+        },
+        7: {
+            "title": "Level 7 - Kreativitas + Kritik (Sintesis Tinggi)",
+            "study_tips": [
+                "🚀 Integrasikan multiple konsep",
+                "🎨 Design solusi inovatif",
+                "🌐 Pertimbangkan implikasi luas",
+                "🔮 Antisipasi trend dan perkembangan"
+            ],
+            "practice_suggestions": [
+                "Design project",
+                "Innovation workshop",
+                "Future technology prediction"
+            ],
+            "estimated_time": "7-8 jam"
+        }
+    }
+    
+    return level_guides.get(level, {
+        "title": f"Level {level} - Kemampuan Khusus",
+        "study_tips": ["Pelajari materi sesuai level kesulitan"],
+        "practice_suggestions": ["Latihan soal sesuai level"],
+        "estimated_time": "3-4 jam"
+    })
+
+def create_pattern_recommendations(weakness_analysis):
+    """
+    Membuat rekomendasi berdasarkan pola kesalahan
+    """
+    recommendations = []
+    
+    # Analisis pola berdasarkan jenis kesalahan
+    concept_gaps = len(weakness_analysis.get("concept_gaps", []))
+    application_gaps = len(weakness_analysis.get("application_gaps", []))
+    analysis_gaps = len(weakness_analysis.get("analysis_gaps", []))
+    
+    # Rekomendasi jika banyak kesalahan konsep dasar
+    if concept_gaps >= 3:
+        recommendations.append({
+            "type": "learning_pattern",
+            "pattern": "conceptual_weakness",
+            "priority": "Critical",
+            "title": "🏗️ Perkuat Fondasi Konsep Dasar",
+            "description": f"Ditemukan {concept_gaps} kesalahan pada konsep dasar. Penting untuk memperkuat pemahaman fundamental.",
+            "action_plan": [
+                "📖 Mulai dari definisi dan terminologi dasar",
+                "🎯 Gunakan metode pembelajaran visual (diagram, infografis)",
+                "📝 Buat rangkuman konsep dengan bahasa sendiri",
+                "👥 Diskusi dengan teman atau guru untuk klarifikasi",
+                "🔄 Review berkala konsep yang sudah dipelajari"
+            ],
+            "warning": "⚠️ Konsep dasar yang lemah akan mempengaruhi pembelajaran level yang lebih tinggi",
+            "estimated_time": "5-7 hari belajar intensif"
+        })
+    
+    # Rekomendasi jika banyak kesalahan aplikasi
+    if application_gaps >= 3:
+        recommendations.append({
+            "type": "learning_pattern", 
+            "pattern": "application_weakness",
+            "priority": "High",
+            "title": "⚙️ Tingkatkan Kemampuan Aplikasi",
+            "description": f"Ditemukan {application_gaps} kesalahan dalam mengaplikasikan konsep. Perlu lebih banyak praktik.",
+            "action_plan": [
+                "🛠️ Perbanyak latihan hands-on dan praktik langsung",
+                "📋 Ikuti tutorial step-by-step",
+                "🎮 Gunakan simulator atau tools pembelajaran interaktif",
+                "🔧 Latihan troubleshooting kasus sederhana",
+                "📊 Buat project kecil untuk menerapkan konsep"
+            ],
+            "estimated_time": "3-5 hari dengan praktik rutin"
+        })
+    
+    # Rekomendasi jika banyak kesalahan analisis
+    if analysis_gaps >= 2:
+        recommendations.append({
+            "type": "learning_pattern",
+            "pattern": "analysis_weakness", 
+            "priority": "Medium",
+            "title": "🧠 Kembangkan Kemampuan Analisis",
+            "description": f"Ditemukan {analysis_gaps} kesalahan dalam analisis tingkat tinggi. Perlu pengembangan critical thinking.",
+            "action_plan": [
+                "🔍 Latihan case study dan problem solving",
+                "🧩 Break down masalah kompleks menjadi bagian kecil",
+                "💭 Praktik berpikir sistematis dan logis",
+                "📊 Analisis cause-effect dalam teknologi",
+                "🎯 Evaluasi multiple solutions untuk satu masalah"
+            ],
+            "estimated_time": "1-2 minggu dengan latihan konsisten"
+        })
+    
+    return recommendations
+
+@app.route('/api/siswa/learning-recommendations/<int:collection_id>', methods=['GET'])
+@login_required
+def get_learning_recommendations(collection_id):
+    """
+    Endpoint untuk mendapatkan rekomendasi belajar berdasarkan hasil jawaban siswa
+    """
+    try:
+        user_id = request.args.get("user_id")
+        
+        # Validasi akses
+        if hasattr(current_user, 'user_type') and current_user.user_type == 'guru':
+            # Teacher dapat mengakses rekomendasi semua siswa di collection mereka
+            collection = QuestionCollection.query.filter_by(
+                id=collection_id, 
+                guru_id=current_user.id
+            ).first()
+            
+            if not collection:
+                return jsonify({"success": False, "message": "Collection not found"}), 404
+                
+            if not user_id:
+                return jsonify({"success": False, "message": "user_id required for teacher access"}), 400
+                
+        elif hasattr(current_user, 'user_type') and current_user.user_type == 'siswa':
+            # Siswa hanya dapat mengakses rekomendasi sendiri
+            user_id = current_user.id
+            
+            # Verify student has access to this collection
+            student_assigned = db.session.query(collection_students).filter_by(
+                collection_id=collection_id,
+                siswa_id=current_user.id
+            ).first() is not None
+            
+            if not student_assigned:
+                return jsonify({"success": False, "message": "Access denied"}), 403
+        else:
+            return jsonify({"success": False, "message": "Invalid user type"}), 403
+        
+        # Analisis kelemahan siswa
+        weakness_analysis = analyze_student_weaknesses(user_id, collection_id)
+        
+        if "error" in weakness_analysis:
+            return jsonify({
+                "success": False,
+                "message": f"Error analyzing weaknesses: {weakness_analysis['error']}"
+            }), 500
+        
+        # Generate rekomendasi kontekstual
+        recommendations = generate_contextual_recommendations(weakness_analysis)
+        
+        # Get collection info untuk konteks
+        collection = QuestionCollection.query.get(collection_id)
+        student = Siswa.query.get(user_id)
+        
+        # Summary statistik
+        total_errors = sum(data["count"] for data in weakness_analysis.get("topic_statistics", {}).values())
+        weak_topics = list(weakness_analysis.get("topic_statistics", {}).keys())[:3]
+        weak_levels = [level for level, data in weakness_analysis.get("level_statistics", {}).items() if data["count"] >= 2]
+        
+        return jsonify({
+            "success": True,
+            "student_name": student.nama if student else "Unknown",
+            "collection_name": collection.name if collection else "Unknown",
+            "analysis_summary": {
+                "total_errors": total_errors,
+                "weak_topics": weak_topics,
+                "weak_levels": weak_levels,
+                "concept_gaps": len(weakness_analysis.get("concept_gaps", [])),
+                "application_gaps": len(weakness_analysis.get("application_gaps", [])),
+                "analysis_gaps": len(weakness_analysis.get("analysis_gaps", []))
+            },
+            "recommendations": recommendations,
+            "detailed_analysis": weakness_analysis
+        })
+        
+    except Exception as e:
+        print(f"Error generating learning recommendations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "message": f"Server error: {str(e)}"
+        }), 500
+
+@app.route('/api/guru/learning-recommendations/<int:collection_id>/<int:student_id>', methods=['GET'])
+@login_required
+def get_student_learning_recommendations_for_teacher(collection_id, student_id):
+    """
+    Endpoint khusus untuk guru mendapatkan rekomendasi belajar siswa
+    """
+    try:
+        # Validasi akses guru
+        if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+            return jsonify({"success": False, "message": "Access denied"}), 403
+            
+        # Validasi koleksi milik guru
+        collection = QuestionCollection.query.filter_by(
+            id=collection_id, 
+            guru_id=current_user.id
+        ).first()
+        
+        if not collection:
+            return jsonify({"success": False, "message": "Collection not found"}), 404
+            
+        # Validasi siswa exists dan assigned ke collection ini
+        student = Siswa.query.get(student_id)
+        if not student:
+            return jsonify({"success": False, "message": "Student not found"}), 404
+            
+        student_assigned = db.session.query(collection_students).filter_by(
+            collection_id=collection_id,
+            siswa_id=student_id
+        ).first() is not None
+        
+        if not student_assigned:
+            return jsonify({"success": False, "message": "Student not assigned to this collection"}), 403
+        
+        # Analisis kelemahan siswa
+        weakness_analysis = analyze_student_weaknesses(student_id, collection_id)
+        
+        if "error" in weakness_analysis:
+            return jsonify({
+                "success": False,
+                "message": f"Error analyzing weaknesses: {weakness_analysis['error']}"
+            }), 500
+        
+        # Generate rekomendasi kontekstual
+        recommendations = generate_contextual_recommendations(weakness_analysis)
+        
+        # Get additional context
+        result = SiswaResult.query.filter_by(
+            siswa_id=student_id,
+            collection_id=collection_id
+        ).first()
+        
+        # Summary statistik
+        total_errors = sum(data["count"] for data in weakness_analysis.get("topic_statistics", {}).values())
+        weak_topics = list(weakness_analysis.get("topic_statistics", {}).keys())[:3]
+        weak_levels = [level for level, data in weakness_analysis.get("level_statistics", {}).items() if data["count"] >= 2]
+        
+        return jsonify({
+            "success": True,
+            "student_name": student.nama,
+            "collection_name": collection.name,
+            "student_result": {
+                "current_level": result.current_level if result else 0,
+                "correct": result.correct if result else 0,
+                "incorrect": result.incorrect if result else 0,
+                "accuracy": round((result.correct / (result.correct + result.incorrect) * 100), 2) if result and (result.correct + result.incorrect) > 0 else 0
+            },
+            "analysis_summary": {
+                "total_errors": total_errors,
+                "weak_topics": weak_topics,
+                "weak_levels": weak_levels,
+                "concept_gaps": len(weakness_analysis.get("concept_gaps", [])),
+                "application_gaps": len(weakness_analysis.get("application_gaps", [])),
+                "analysis_gaps": len(weakness_analysis.get("analysis_gaps", []))
+            },
+            "recommendations": recommendations,
+            "detailed_analysis": weakness_analysis
+        })
+        
+    except Exception as e:
+        print(f"Error generating teacher learning recommendations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "message": f"Server error: {str(e)}"
+        }), 500
+
+@app.route('/api/guru/collection-recommendations-summary/<int:collection_id>', methods=['GET'])
+@login_required
+def get_collection_recommendations_summary(collection_id):
+    """
+    Endpoint untuk guru mendapatkan ringkasan rekomendasi semua siswa dalam koleksi
+    """
+    try:
+        # Validasi akses guru
+        if not hasattr(current_user, 'user_type') or current_user.user_type != 'guru':
+            return jsonify({"success": False, "message": "Access denied"}), 403
+            
+        # Validasi koleksi milik guru
+        collection = QuestionCollection.query.filter_by(
+            id=collection_id, 
+            guru_id=current_user.id
+        ).first()
+        
+        if not collection:
+            return jsonify({"success": False, "message": "Collection not found"}), 404
+        
+        # Ambil semua siswa yang assigned ke koleksi ini
+        assigned_students = db.session.query(
+            Siswa, collection_students.c.assigned_at
+        ).join(
+            collection_students, 
+            Siswa.id == collection_students.c.siswa_id
+        ).filter(
+            collection_students.c.collection_id == collection_id
+        ).all()
+        
+        students_summary = []
+        collection_topics_count = {}
+        collection_levels_count = {}
+        total_students_analyzed = 0
+        
+        for student, assigned_at in assigned_students:
+            # Cek apakah siswa sudah mengerjakan tes
+            result = SiswaResult.query.filter_by(
+                siswa_id=student.id,
+                collection_id=collection_id
+            ).first()
+            
+            if not result:
+                # Siswa belum mengerjakan
+                students_summary.append({
+                    "student_id": student.id,
+                    "student_name": student.nama,
+                    "student_class": student.kelas,
+                    "status": "belum_mengerjakan",
+                    "assigned_date": assigned_at.strftime('%Y-%m-%d %H:%M:%S') if assigned_at else None,
+                    "recommendations_count": 0,
+                    "priority_summary": {"Critical": 0, "High": 0, "Medium": 0}
+                })
+                continue
+            
+            # Analisis kelemahan siswa
+            weakness_analysis = analyze_student_weaknesses(student.id, collection_id)
+            
+            if "error" not in weakness_analysis:
+                total_students_analyzed += 1
+                
+                # Generate rekomendasi
+                recommendations = generate_contextual_recommendations(weakness_analysis)
+                
+                # Hitung prioritas rekomendasi
+                priority_count = {"Critical": 0, "High": 0, "Medium": 0}
+                for rec in recommendations:
+                    priority = rec.get("priority", "Medium")
+                    if priority in priority_count:
+                        priority_count[priority] += 1
+                
+                # Update collection-wide statistics
+                for topic, data in weakness_analysis.get("topic_statistics", {}).items():
+                    if topic not in collection_topics_count:
+                        collection_topics_count[topic] = 0
+                    collection_topics_count[topic] += data["count"]
+                
+                for level, data in weakness_analysis.get("level_statistics", {}).items():
+                    if level not in collection_levels_count:
+                        collection_levels_count[level] = 0
+                    collection_levels_count[level] += data["count"]
+                
+                # Summary untuk siswa ini
+                students_summary.append({
+                    "student_id": student.id,
+                    "student_name": student.nama,
+                    "student_class": student.kelas,
+                    "status": "sudah_mengerjakan",
+                    "assigned_date": assigned_at.strftime('%Y-%m-%d %H:%M:%S') if assigned_at else None,
+                    "result": {
+                        "current_level": result.current_level,
+                        "correct": result.correct,
+                        "incorrect": result.incorrect,
+                        "accuracy": round((result.correct / (result.correct + result.incorrect) * 100), 2) if (result.correct + result.incorrect) > 0 else 0
+                    },
+                    "weakness_summary": {
+                        "total_errors": sum(data["count"] for data in weakness_analysis.get("topic_statistics", {}).values()),
+                        "weak_topics": list(weakness_analysis.get("topic_statistics", {}).keys())[:3],
+                        "weak_levels": [level for level, data in weakness_analysis.get("level_statistics", {}).items() if data["count"] >= 2]
+                    },
+                    "recommendations_count": len(recommendations),
+                    "priority_summary": priority_count
+                })
+            else:
+                students_summary.append({
+                    "student_id": student.id,
+                    "student_name": student.nama,
+                    "student_class": student.kelas,
+                    "status": "error_analysis",
+                    "assigned_date": assigned_at.strftime('%Y-%m-%d %H:%M:%S') if assigned_at else None,
+                    "recommendations_count": 0,
+                    "priority_summary": {"Critical": 0, "High": 0, "Medium": 0},
+                    "error": weakness_analysis.get("error", "Unknown error")
+                })
+        
+        # Urutkan topik dan level berdasarkan frekuensi
+        most_common_topics = sorted(collection_topics_count.items(), key=lambda x: x[1], reverse=True)[:5]
+        most_problematic_levels = sorted(collection_levels_count.items(), key=lambda x: x[1], reverse=True)[:3]
+        
+        return jsonify({
+            "success": True,
+            "collection_name": collection.name,
+            "collection_description": collection.description,
+            "total_students": len(assigned_students),
+            "students_completed": len([s for s in students_summary if s["status"] == "sudah_mengerjakan"]),
+            "students_pending": len([s for s in students_summary if s["status"] == "belum_mengerjakan"]),
+            "students_summary": students_summary,
+            "collection_analysis": {
+                "total_students_analyzed": total_students_analyzed,
+                "most_common_weak_topics": [{"topic": topic, "error_count": count} for topic, count in most_common_topics],
+                "most_problematic_levels": [{"level": level, "error_count": count} for level, count in most_problematic_levels],
+                "recommendations_needed": {
+                    "critical": sum(1 for s in students_summary if s.get("priority_summary", {}).get("Critical", 0) > 0),
+                    "high": sum(1 for s in students_summary if s.get("priority_summary", {}).get("High", 0) > 0),
+                    "medium": sum(1 for s in students_summary if s.get("priority_summary", {}).get("Medium", 0) > 0)
+                }
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error generating collection recommendations summary: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "message": f"Server error: {str(e)}"
+        }), 500
+
 # Helper function to get student answer history
 def get_student_answer_history(student_id, collection_id):
     try:
@@ -2151,14 +2973,14 @@ def get_student_answer_history(student_id, collection_id):
         if not collection_question_ids:
             return []
             
-        # Get answers for this student and these questions
+        # Get answers for this student and these questions, ordered by level and then by question id
         answers = db.session.query(SiswaAnswer, Question)\
             .join(Question, SiswaAnswer.question_id == Question.id)\
             .filter(
                 SiswaAnswer.siswa_id == student_id,
                 Question.id.in_(collection_question_ids)
             )\
-            .order_by(SiswaAnswer.answered_at.desc())\
+            .order_by(Question.level.asc(), Question.id.asc())\
             .all()
             
         # Format answers
@@ -7393,8 +8215,28 @@ def export_result_pdf():
         total = result.correct + result.incorrect
         accuracy = round((result.correct / total * 100), 2) if total > 0 else 0
         
-        # Generate rekomendasi pembelajaran yang ditingkatkan
-        recommendations = generate_ai_recommendations(student, result, collection_id)
+        # Generate rekomendasi pembelajaran kontekstual berdasarkan jawaban siswa
+        weakness_analysis = analyze_student_weaknesses(student.id, collection_id)
+        contextual_recommendations = generate_contextual_recommendations(weakness_analysis)
+        
+        # Generate rekomendasi AI tambahan
+        ai_recommendations = generate_ai_recommendations(student, result, collection_id)
+        
+        # Gabungkan kedua jenis rekomendasi
+        combined_recommendations = {
+            'contextual': contextual_recommendations,
+            'ai_general': ai_recommendations,
+            'weakness_summary': {
+                'total_errors': sum(data["count"] for data in weakness_analysis.get("topic_statistics", {}).values()),
+                'weak_topics': list(weakness_analysis.get("topic_statistics", {}).keys())[:3],
+                'weak_levels': [level for level, data in weakness_analysis.get("level_statistics", {}).items() if data["count"] >= 2],
+                'pattern_analysis': {
+                    'concept_gaps': len(weakness_analysis.get("concept_gaps", [])),
+                    'application_gaps': len(weakness_analysis.get("application_gaps", [])),
+                    'analysis_gaps': len(weakness_analysis.get("analysis_gaps", []))
+                }
+            }
+        }
         
         # Helper function untuk waktu sekarang
         def now():
@@ -7408,7 +8250,7 @@ def export_result_pdf():
             result=result,
             answers=answers,
             accuracy=accuracy,
-            recommendations=recommendations,
+            recommendations=combined_recommendations,
             total_questions=total,
             now=now
         )
