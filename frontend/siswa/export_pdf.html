@@ -561,11 +561,7 @@
                 Kerja bagus, {{ student.nama.split()[0] }}! Kamu sudah menguasai {{ performance_analysis.accuracy_percentage|round|int }}% materi ini. Lanjutkan dengan rekomendasi di atas untuk naik ke level yang lebih tinggi. Saya yakin kamu bisa jadi yang terdepan!
                 {% elif performance_analysis.accuracy_percentage >= 60 %}
                 Bagus sekali, {{ student.nama.split()[0] }}! Dengan penguasaan {{ performance_analysis.accuracy_percentage|round|int }}%, kamu tinggal sedikit lagi untuk mahir. Ikuti rekomendasi di atas secara konsisten, pasti kamu bisa naik level!
-                {% else %}
-                Jangan khawatir, {{ student.nama.split()[0] }}. Setiap ahli teknologi juga pernah mulai dari nol. Yang penting sekarang adalah konsisten mengikuti langkah-langkah di atas. Ingat, kemajuan kecil setiap hari akan jadi pencapaian besar!
                 {% endif %}
-                <br><br>
-                <strong>Tip Bonus:</strong> Ajak teman atau keluarga untuk belajar bareng tentang "{{ collection.name }}" - belajar jadi lebih seru dan kamu jadi lebih paham ketika menjelaskan ke orang lain!
             </p>
         </div>
         

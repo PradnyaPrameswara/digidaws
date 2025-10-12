@@ -582,48 +582,380 @@
       </button>
     </div>
     
-    <!-- Path visualization with explanation -->
+    <!-- MST Path Visualization -->
     <div class="card mb-4">
       <div class="card-header bg-white">
-        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Alur Progres Tes</h5>
+        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Alur Progres Tes MST (Multistage Adaptive Test)</h5>
       </div>
       <div class="card-body">
-        <div class="level-path d-none d-md-block">
-          <div class="level-step">
-            <div class="level-icon completed">1</div>
-            <div class="level-label">Level 1</div>
-          </div>
-          <div class="level-step">
-            <div class="level-icon completed">2</div>
-            <div class="level-label">Level 2</div>
-          </div>
-          <div class="level-step">
-            <div class="level-icon" id="level3">3</div>
-            <div class="level-label">Level 3</div>
-          </div>
-          <div class="level-step">
-            <div class="level-icon" id="level4">4</div>
-            <div class="level-label">Level 4</div>
-          </div>
-          <div class="level-step">
-            <div class="level-icon" id="level5">5</div>
-            <div class="level-label">Level 5</div>
-          </div>
-          <div class="level-step">
-            <div class="level-icon" id="level6">6</div>
-            <div class="level-label">Level 6</div>
-          </div>
-          <div class="level-step">
-            <div class="level-icon" id="level7">7</div>
-            <div class="level-label">Level 7</div>
+        <!-- MST Horizontal Diagram -->
+        <div class="mst-diagram-container mb-4">
+          <div class="mst-flow">
+            <!-- Stage I -->
+            <div class="mst-stage" id="mst-stage-1">
+              <div class="stage-header">Stage I</div>
+              <div class="level-node" id="level-node-1">1</div>
+            </div>
+            
+            <!-- Transition Line 1 -->
+            <div class="transition-line"></div>
+            
+            <!-- Stage II -->
+            <div class="mst-stage" id="mst-stage-2">
+              <div class="stage-header">Stage II</div>
+              <div class="level-node" id="level-node-2">2</div>
+            </div>
+            
+            <!-- Transition Line 2 -->
+            <div class="transition-line"></div>
+            
+            <!-- Stage III -->
+            <div class="mst-stage-split">
+              <div class="mst-stage upper-path" id="mst-stage-3-upper">
+                <div class="stage-header">Stage III</div>
+                <div class="level-node" id="level-node-4">4</div>
+              </div>
+              <div class="mst-stage lower-path" id="mst-stage-3-lower">
+                <div class="stage-header">Stage III</div>
+                <div class="level-node" id="level-node-3">3</div>
+              </div>
+            </div>
+            
+            <!-- Transition Line 3 -->
+            <div class="transition-line"></div>
+            
+            <!-- Stage IV -->
+            <div class="mst-stage" id="mst-stage-4">
+              <div class="stage-header">Stage IV</div>
+              <div class="final-levels">
+                <div class="level-node" id="level-node-7">7</div>
+                <div class="level-node" id="level-node-6">6</div>
+                <div class="level-node" id="level-node-5">5</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="level-explanation">
+        
+        <!-- Explanation -->
+        <div class="mst-explanation">
           <p><i class="bi bi-info-circle me-2"></i><strong class="text-dark">Level Terakhir yang Dicapai: <span id="current-level-text">{{ current_level }}</span></strong></p>
-          <p class="mb-0">Diagram di atas menunjukkan jalur spesifik yang Anda lalui dalam tes diagnostik adaptif. Hanya level yang benar-benar Anda kerjakan yang ditampilkan dengan warna - hijau untuk level yang telah selesai, biru untuk level terakhir yang dicapai. Level tanpa warna adalah level yang tidak Anda lalui karena sistem adaptif mengarahkan Anda ke jalur yang sesuai dengan kemampuan Anda.</p>
+          
+          <!-- Student Achievement Analysis -->
+          <div class="achievement-analysis mb-4">
+            <h6 class="text-success mb-3"><i class="bi bi-trophy me-2"></i>Analisis Pencapaian Anda</h6>
+            <div class="narrative-description" id="narrative-description">
+              <!-- Deskripsi naratif akan diisi oleh JavaScript -->
+            </div>
+          </div>
+          
+
         </div>
       </div>
     </div>
+    
+    <!-- CSS untuk MST Diagram -->
+    <style>
+      .mst-diagram-container {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        border: 1px solid rgba(0,0,0,0.1);
+        overflow-x: auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      
+      .mst-flow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        gap: 12px;
+        flex-wrap: nowrap;
+        min-height: 100px;
+      }
+      
+      .mst-stage {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 16px 12px;
+        text-align: center;
+        border: 2px solid #dee2e6;
+        min-width: 90px;
+        max-width: 140px;
+        transition: all 0.3s ease;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .mst-stage.passed {
+        background: #d1e7dd;
+        border-color: #198754;
+        box-shadow: 0 3px 8px rgba(25,135,84,0.2);
+      }
+      
+      .transition-line {
+        width: 30px;
+        height: 3px;
+        background: #dee2e6;
+        position: relative;
+        flex-shrink: 0;
+        border-radius: 2px;
+      }
+      
+      .transition-line::after {
+        content: '';
+        position: absolute;
+        right: -4px;
+        top: -2px;
+        width: 0;
+        height: 0;
+        border-left: 6px solid #dee2e6;
+        border-top: 3px solid transparent;
+        border-bottom: 3px solid transparent;
+      }
+      
+      .stage-header {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 10px;
+        text-align: center;
+        letter-spacing: 0.5px;
+      }
+      
+      .mst-stage.passed .stage-header {
+        color: #198754;
+        font-weight: 800;
+      }
+      
+      .level-node {
+        width: 40px;
+        height: 40px;
+        line-height: 40px;
+        background: #6c757d;
+        color: white;
+        border-radius: 50%;
+        font-weight: 700;
+        margin: 0 auto;
+        font-size: 1.1rem;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      }
+      
+      .mst-stage-split {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      
+      .upper-path {
+        transform: translateY(-4px);
+      }
+      
+      .lower-path {
+        transform: translateY(4px);
+      }
+      
+      .final-levels {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+      }
+      
+      .final-levels .level-node {
+        width: 36px;
+        height: 36px;
+        line-height: 36px;
+        font-size: 1rem;
+        margin: 2px auto;
+      }
+      
+      .mst-explanation {
+        background: rgba(13, 110, 253, 0.05);
+        border-radius: 10px;
+        padding: 20px;
+        border-left: 4px solid #0d6efd;
+      }
+      
+      .achievement-analysis {
+        background: linear-gradient(135deg, rgba(25, 135, 84, 0.05) 0%, rgba(13, 110, 253, 0.05) 100%);
+        border-radius: 10px;
+        padding: 18px;
+        border: 1px solid rgba(25, 135, 84, 0.2);
+      }
+      
+      .narrative-description {
+        background: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid rgba(0,0,0,0.1);
+        line-height: 1.6;
+        text-align: justify;
+      }
+      
+      .narrative-description p {
+        margin-bottom: 15px;
+        color: #495057;
+      }
+      
+      .mst-description {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        border: 1px solid rgba(0,0,0,0.1);
+      }
+      
+      .flow-description ol.list-styled {
+        padding-left: 20px;
+        margin-bottom: 15px;
+      }
+      
+      .flow-description ol.list-styled li {
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+      
+      .sub-list {
+        margin-top: 5px;
+        padding-left: 15px;
+      }
+      
+      .sub-list li {
+        margin-bottom: 3px;
+        font-size: 0.9rem;
+      }
+      
+      .advantages .advantage-item {
+        text-align: center;
+        padding: 10px;
+        background: #fff;
+        border-radius: 6px;
+        border: 1px solid rgba(0,0,0,0.1);
+        height: 100%;
+      }
+      
+      .advantages .advantage-item i {
+        font-size: 1.2rem;
+        margin-bottom: 5px;
+        display: block;
+      }
+      
+      .stage-legend {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(0,0,0,0.1);
+      }
+      
+      .stage-explanation {
+        text-align: center;
+        padding: 10px 8px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        border: 1px solid rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+      }
+      
+      .stage-explanation:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .stage-1-bg { background-color: rgba(25, 135, 84, 0.1); }
+      .stage-2-bg { background-color: rgba(13, 110, 253, 0.1); }
+      .stage-3-bg { background-color: rgba(253, 126, 20, 0.1); }
+      .stage-4-bg { background-color: rgba(111, 66, 193, 0.1); }
+      
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .mst-diagram-container {
+          padding: 15px;
+          overflow-x: auto;
+        }
+        
+        .mst-flow {
+          gap: 8px;
+          min-width: 450px;
+          min-height: 85px;
+        }
+        
+        .mst-stage {
+          min-width: 75px;
+          max-width: 115px;
+          padding: 12px 8px;
+        }
+        
+        .transition-line {
+          width: 25px;
+        }
+        
+        .level-node {
+          width: 34px;
+          height: 34px;
+          line-height: 34px;
+          font-size: 1rem;
+        }
+        
+        .stage-header {
+          font-size: 0.9rem;
+        }
+        
+        .final-levels .level-node {
+          width: 30px;
+          height: 30px;
+          line-height: 30px;
+          font-size: 0.9rem;
+        }
+      }
+      
+      @media (max-width: 576px) {
+        .mst-diagram-container {
+          padding: 12px;
+        }
+        
+        .mst-flow {
+          min-width: 380px;
+          gap: 6px;
+          min-height: 75px;
+        }
+        
+        .mst-stage {
+          min-width: 65px;
+          max-width: 95px;
+          padding: 10px 6px;
+        }
+        
+        .transition-line {
+          width: 20px;
+        }
+        
+        .level-node {
+          width: 30px;
+          height: 30px;
+          line-height: 30px;
+          font-size: 0.9rem;
+        }
+        
+        .stage-header {
+          font-size: 0.8rem;
+        }
+        
+        .final-levels .level-node {
+          width: 26px;
+          height: 26px;
+          line-height: 26px;
+          font-size: 0.8rem;
+        }
+      }
+    </style>
     
     <!-- Card untuk ringkasan hasil -->
     <div class="card summary-card mb-4">
@@ -777,6 +1109,8 @@
     let hasDataError = false; // Flag untuk menandai adanya kesalahan data
     let allAnswers = []; // Variable untuk menyimpan semua jawaban
     let questionLevelMap = {}; // Map untuk menyimpan ID soal -> level
+    let collectionQuestions = []; // Array untuk menyimpan data lengkap soal dari koleksi
+    let collectionInfo = {}; // Object untuk menyimpan informasi koleksi
     
     // Setup chart and visualizations
     document.addEventListener('DOMContentLoaded', function() {
@@ -799,6 +1133,27 @@
       }
     });
     
+    // Fungsi untuk mengambil informasi koleksi
+    async function fetchCollectionInfo() {
+      if (!collectionId) {
+        console.error("fetchCollectionInfo: collectionId tidak valid.");
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/collections/${collectionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            collectionInfo = data.data;
+            console.log("Informasi koleksi berhasil dimuat:", collectionInfo);
+          }
+        }
+      } catch (error) {
+        console.warn("Gagal mengambil informasi koleksi:", error);
+      }
+    }
+
     // Fungsi untuk mengambil data soal dan level dari server
     async function fetchQuestionData() {
       // Only fetch if userId is valid
@@ -809,6 +1164,8 @@
 
       try {
         console.log("Mengambil data soal dari database...");
+        // Ambil informasi koleksi terlebih dahulu
+        await fetchCollectionInfo();
         let successful = false;
         
         // Coba menggunakan endpoint koleksi terlebih dahulu
@@ -886,15 +1243,19 @@
         // Handle both API response formats
         if (data.success && Array.isArray(data.data)) {
           // Format /api/get_questions
+          collectionQuestions = data.data;
           data.data.forEach(question => {
             questionLevelMap[question.id] = question.level;
           });
+          console.log("Data soal lengkap berhasil dimuat", collectionQuestions);
           console.log("Peta soal ke level berhasil dibuat", questionLevelMap);
         } else if (Array.isArray(data)) {
           // Format /api/collections/${collectionId}/questions
+          collectionQuestions = data;
           data.forEach(question => {
             questionLevelMap[question.id] = question.level;
           });
+          console.log("Data soal lengkap berhasil dimuat", collectionQuestions);
           console.log("Peta soal ke level berhasil dibuat", questionLevelMap);
         } else {
           console.warn("Gagal membuat peta soal ke level, format data tidak dikenali:", data);
@@ -1482,36 +1843,75 @@ function renderFilteredAnswers(type) {
       // Generate personalized recommendations
       generateRecommendations(correctValue, incorrectValue, currentLevel);
       
-      // Perbarui visualisasi level path setelah data siap
+      // Perbarui visualisasi MST stages setelah data siap
       // Gunakan setTimeout untuk memastikan allAnswers sudah terisi
       setTimeout(() => {
-        updateLevelPath(currentLevel);
+        updateMSTStages(currentLevel);
+        generateAchievementAnalysis(currentLevel);
       }, 100);
     }
     
-    // Update level path visualization
-    function updateLevelPath(currentLevel) {
+    // Update MST stages visualization - hanya level yang dilalui yang hijau
+    function updateMSTStages(currentLevel) {
       // Dapatkan level yang dilalui siswa dari riwayat jawaban
       const passedLevels = getPassedLevelsFromAnswers();
       
-      // Reset semua level ke state default
-      for (let i = 1; i <= 7; i++) {
-        const levelElement = document.getElementById(`level${i}`);
-        if (levelElement) {
-          // Reset classes
-          levelElement.classList.remove('completed', 'active');
-          
-          // Jika level ini dilalui siswa, beri warna
-          if (passedLevels.includes(i)) {
-            if (i === currentLevel) {
-              levelElement.classList.add('active'); // Level terakhir yang dicapai
-            } else {
-              levelElement.classList.add('completed'); // Level yang sudah dilewati
-            }
-          }
-          // Jika level tidak dilalui, biarkan tanpa warna (default)
+      console.log("Passed levels:", passedLevels);
+      console.log("Current level:", currentLevel);
+      
+      // Reset semua level nodes ke state default (abu-abu)
+      const allLevelNodes = ['level-node-1', 'level-node-2', 'level-node-3', 'level-node-4', 'level-node-5', 'level-node-6', 'level-node-7'];
+      allLevelNodes.forEach(nodeId => {
+        const levelNode = document.getElementById(nodeId);
+        if (levelNode) {
+          levelNode.style.background = '#6c757d'; // Abu-abu default
+          levelNode.style.color = 'white';
         }
-      }
+      });
+      
+      // Reset semua stage ke state default
+      const allStages = ['mst-stage-1', 'mst-stage-2', 'mst-stage-3-upper', 'mst-stage-3-lower', 'mst-stage-4'];
+      allStages.forEach(stageId => {
+        const stageElement = document.getElementById(stageId);
+        if (stageElement) {
+          stageElement.classList.remove('passed');
+        }
+      });
+      
+      // Warnai hijau hanya level yang benar-benar dilalui siswa
+      passedLevels.forEach(level => {
+        const levelNode = document.getElementById(`level-node-${level}`);
+        if (levelNode) {
+          levelNode.style.background = '#198754'; // Hijau untuk level yang dilalui
+          levelNode.style.color = 'white';
+        }
+        
+        // Warnai stage yang sesuai jika ada level yang dilalui di dalamnya
+        if (level === 1) {
+          const stage1 = document.getElementById('mst-stage-1');
+          if (stage1) stage1.classList.add('passed');
+        }
+        
+        if (level === 2) {
+          const stage2 = document.getElementById('mst-stage-2');
+          if (stage2) stage2.classList.add('passed');
+        }
+        
+        if (level === 3) {
+          const stage3Lower = document.getElementById('mst-stage-3-lower');
+          if (stage3Lower) stage3Lower.classList.add('passed');
+        }
+        
+        if (level === 4) {
+          const stage3Upper = document.getElementById('mst-stage-3-upper');
+          if (stage3Upper) stage3Upper.classList.add('passed');
+        }
+        
+        if ([5, 6, 7].includes(level)) {
+          const stage4 = document.getElementById('mst-stage-4');
+          if (stage4) stage4.classList.add('passed');
+        }
+      });
     }
     
     // Fungsi untuk mendapatkan level yang dilalui siswa dari riwayat jawaban
@@ -1539,6 +1939,270 @@ function renderFilteredAnswers(type) {
       // Konversi Set ke Array dan sort
       return Array.from(passedLevels).sort((a, b) => a - b);
     }
+    
+    // Fungsi untuk menampilkan analisis pencapaian siswa dengan narasi deskriptif
+    function generateAchievementAnalysis(currentLevel) {
+      const detailedAnalysis = getDetailedAnswerAnalysis();
+      const narrativeContainer = document.getElementById('narrative-description');
+      
+      if (!narrativeContainer) return;
+      
+      // Generate narrative description only
+      generateNarrativeDescription(detailedAnalysis, currentLevel, narrativeContainer);
+    }
+    
+    // Fungsi untuk mendapatkan analisis jawaban yang detail dengan informasi koleksi
+    function getDetailedAnswerAnalysis() {
+      const analysis = {
+        correctLevels: [],
+        incorrectLevels: [],
+        totalQuestions: 0,
+        correctAnswers: 0,
+        accuracyRate: 0,
+        levelPerformance: {},
+        topicPerformance: {},
+        collectionFocus: '',
+        subjectAreas: [],
+        difficultyDistribution: {},
+        strengthAreas: [],
+        challengeAreas: [],
+        learningPattern: '',
+        cognitiveProfile: ''
+      };
+      
+      if (!allAnswers || allAnswers.length === 0) {
+        return analysis;
+      }
+
+      // Analisis informasi koleksi
+      if (collectionInfo.name) {
+        analysis.collectionFocus = collectionInfo.name;
+      }
+      if (collectionInfo.description) {
+        analysis.collectionDescription = collectionInfo.description;
+      }
+      
+      // Analisis per level dan topic
+      allAnswers.forEach(answer => {
+        const level = answer.level;
+        const isCorrect = answer.is_correct;
+        const questionId = answer.question_id;
+        
+        analysis.totalQuestions++;
+        if (isCorrect) {
+          analysis.correctAnswers++;
+          if (!analysis.correctLevels.includes(level)) {
+            analysis.correctLevels.push(level);
+          }
+        } else {
+          if (!analysis.incorrectLevels.includes(level)) {
+            analysis.incorrectLevels.push(level);
+          }
+        }
+        
+        // Tracking per level
+        if (!analysis.levelPerformance[level]) {
+          analysis.levelPerformance[level] = { correct: 0, total: 0, topics: [], questions: [] };
+        }
+        analysis.levelPerformance[level].total++;
+        if (isCorrect) {
+          analysis.levelPerformance[level].correct++;
+        }
+        
+        // Cari data soal yang lengkap dari collectionQuestions
+        const questionData = collectionQuestions.find(q => q.id === questionId);
+        if (questionData) {
+          // Collect topics for analysis
+          if (questionData.topic && !analysis.levelPerformance[level].topics.includes(questionData.topic)) {
+            analysis.levelPerformance[level].topics.push(questionData.topic);
+          }
+          
+          // Analisis per topik
+          const topic = questionData.topic || 'Umum';
+          if (!analysis.topicPerformance[topic]) {
+            analysis.topicPerformance[topic] = { correct: 0, total: 0, levels: [] };
+          }
+          analysis.topicPerformance[topic].total++;
+          if (isCorrect) {
+            analysis.topicPerformance[topic].correct++;
+          }
+          if (!analysis.topicPerformance[topic].levels.includes(level)) {
+            analysis.topicPerformance[topic].levels.push(level);
+          }
+          
+          // Collect subject areas
+          if (questionData.subject && !analysis.subjectAreas.includes(questionData.subject)) {
+            analysis.subjectAreas.push(questionData.subject);
+          }
+          
+          analysis.levelPerformance[level].questions.push({
+            id: questionId,
+            topic: questionData.topic,
+            difficulty: questionData.difficulty,
+            isCorrect: isCorrect
+          });
+        }
+      });
+      
+      analysis.accuracyRate = analysis.totalQuestions > 0 ? 
+        (analysis.correctAnswers / analysis.totalQuestions * 100).toFixed(1) : 0;
+      
+      // Sort levels
+      analysis.correctLevels.sort((a, b) => a - b);
+      analysis.incorrectLevels.sort((a, b) => a - b);
+      
+      // Simple learning pattern analysis
+      const correctLevels = analysis.correctLevels;
+      const incorrectLevels = analysis.incorrectLevels;
+      
+      if (correctLevels.some(l => l >= 4) && incorrectLevels.some(l => l <= 2)) {
+        analysis.learningPattern = 'advanced_with_gaps';
+      } else if (correctLevels.length > 0 && incorrectLevels.length > 0 && 
+          Math.abs(Math.max(...correctLevels) - Math.min(...incorrectLevels)) > 2) {
+        analysis.learningPattern = 'inconsistent_performance';
+      } else if (correctLevels.length >= 3 && correctLevels.every((level, index) => 
+          index === 0 || level >= correctLevels[index - 1])) {
+        analysis.learningPattern = 'progressive_improvement';
+      } else {
+        analysis.learningPattern = 'developing';
+      }
+      
+      return analysis;
+    }
+    
+    // Fungsi untuk membuat deskripsi naratif yang sederhana dan deskriptif dengan konteks koleksi
+    function generateNarrativeDescription(analysis, currentLevel, container) {
+      let narrative = '';
+      
+      const correctLevels = analysis.correctLevels;
+      const incorrectLevels = analysis.incorrectLevels;
+      const accuracyRate = parseFloat(analysis.accuracyRate);
+      const pathString = correctLevels.join('-');
+      
+      // Opening paragraph with collection context and MST diagnostic explanation
+      if (analysis.collectionFocus) {
+        narrative += `<p>Dalam tes diagnostik "<strong>${analysis.collectionFocus}</strong>" yang menggunakan sistem Multistage Adaptive Test (MST), Anda telah menjalani proses penilaian yang disesuaikan dengan kemampuan individual. Sistem MST bekerja dengan mengarahkan Anda melalui berbagai tahapan level berdasarkan performa pada setiap tahap sebelumnya, sehingga memberikan pengalaman tes yang personal dan akurat. Melalui alur diagnostik ini, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
+      } else {
+        narrative += `<p>Dalam tes diagnostik yang menggunakan sistem Multistage Adaptive Test (MST), Anda telah menjalani proses penilaian yang unik dan adaptif. Sistem MST mengarahkan setiap siswa melalui jalur yang berbeda-beda berdasarkan kemampuan yang ditunjukkan di setiap tahap. Tidak seperti tes konvensional yang memberikan soal yang sama untuk semua peserta, sistem diagnostik MST menyesuaikan tingkat kesulitan dan jalur tes berdasarkan jawaban Anda sebelumnya, memberikan gambaran yang lebih akurat tentang kemampuan sebenarnya. Melalui alur diagnostik yang personal ini, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
+      }
+      
+      if (correctLevels.length > 0) {
+        narrative += `Anda berhasil menguasai level ${correctLevels.join(', ')}, menunjukkan kemampuan yang baik di area-area tersebut. `;
+      }
+      
+      if (accuracyRate > 0) {
+        narrative += `Secara keseluruhan, tingkat akurasi Anda mencapai ${accuracyRate}% dari seluruh soal yang dijawab.`;
+      }
+      narrative += `</p>`;
+      
+      // Topic and subject analysis
+      if (Object.keys(analysis.topicPerformance).length > 0) {
+        narrative += `<p>Analisis berdasarkan area konten menunjukkan variasi kemampuan Anda di berbagai topik. `;
+        
+        const strongTopics = [];
+        const challengingTopics = [];
+        
+        Object.entries(analysis.topicPerformance).forEach(([topic, performance]) => {
+          const accuracy = (performance.correct / performance.total * 100);
+          if (accuracy >= 70) {
+            strongTopics.push(topic);
+          } else if (accuracy < 50) {
+            challengingTopics.push(topic);
+          }
+        });
+        
+        if (strongTopics.length > 0) {
+          narrative += `Anda menunjukkan penguasaan yang baik pada topik ${strongTopics.join(', ')}. `;
+        }
+        
+        if (challengingTopics.length > 0) {
+          narrative += `Sementara itu, topik ${challengingTopics.join(', ')} memberikan tantangan yang lebih besar dan menjadi area potensial untuk pengembangan lebih lanjut. `;
+        }
+        
+        narrative += `Pola ini memberikan insight yang berharga tentang profil kekuatan akademik Anda yang spesifik pada area konten yang diujikan.`;
+        narrative += `</p>`;
+      }
+      
+      // Performance pattern analysis with MST diagnostic explanation
+      if (correctLevels.length > 0 && incorrectLevels.length > 0) {
+        narrative += `<p>Alur diagnostik MST yang Anda tempuh mengungkap pola performa yang memberikan insight mendalam tentang profil kognitif Anda. Sistem MST bekerja dengan mengarahkan Anda ke jalur yang berbeda berdasarkan performa di setiap stage - jika berhasil di level awal, sistem mengarahkan ke jalur advanced, dan sebaliknya mengarahkan ke jalur remedial untuk penguatan konsep. `;
+        
+        // Advanced with gaps pattern
+        if (correctLevels.some(l => l >= 4) && incorrectLevels.some(l => l <= 2)) {
+          narrative += `Hasil diagnostik menunjukkan bahwa Anda diarahkan ke jalur advanced namun mengalami tantangan di beberapa konsep fundamental. Pola ini mengindikasikan kemampuan berpikir tingkat tinggi yang kuat, namun ada gap dalam foundational knowledge. Sistem MST berhasil mengidentifikasi bahwa Anda memiliki intuisi yang baik dalam menangani kompleksitas, tetapi memerlukan penguatan di area dasar untuk konsistensi optimal.`;
+        }
+        // Inconsistent performance
+        else if (Math.abs(Math.max(...correctLevels) - Math.min(...incorrectLevels)) > 2) {
+          narrative += `Jalur diagnostik MST mengungkap pola performa yang bervariasi, dengan keberhasilan cemerlang di level ${Math.max(...correctLevels)} namun menghadapi tantangan di level ${Math.min(...incorrectLevels)}. Sistem adaptif MST berhasil mendeteksi bahwa kemampuan Anda sangat dipengaruhi oleh konteks dan jenis materi. Pola routing yang tidak linear ini dalam sistem MST mengindikasikan profil learner yang memiliki area kekuatan spesifik namun memerlukan pendekatan pembelajaran yang disesuaikan dengan preferensi kognitif Anda.`;
+        }
+        // Progressive improvement
+        else if (correctLevels.every((level, index) => index === 0 || level >= correctLevels[index - 1])) {
+          narrative += `Sistem diagnostik MST berhasil mengidentifikasi pola pembelajaran yang ideal dalam performa Anda. Jalur yang Anda tempuh menunjukkan progression yang sistematis dan terstruktur, dimana sistem secara konsisten mengarahkan Anda ke level yang lebih tinggi berdasarkan keberhasilan di setiap stage. Pola routing linear ini dalam MST mengindikasikan proses pembelajaran yang sehat, kemampuan adaptasi yang excellent, dan pendekatan yang metodis dalam menguasai materi secara bertahap.`;
+        }
+        // Mixed performance
+        else {
+          narrative += `Alur diagnostik MST mengungkap profil kemampuan yang beragam, dengan kombinasi kekuatan dan area pengembangan yang tersebar di berbagai level. Sistem MST berhasil memetakan bahwa Anda memiliki pemahaman yang bervariasi tergantung pada kompleksitas dan konteks materi. Pattern routing dalam sistem diagnostik ini menunjukkan bahwa beberapa konsep telah Anda kuasai dengan baik, sementara area lain masih dalam tahap pengembangan, memberikan roadmap yang jelas untuk pembelajaran selanjutnya.`;
+        }
+        narrative += `</p>`;
+      }
+      
+      // Learning insights and recommendations with MST diagnostic explanation
+      narrative += `<p>Keunggulan sistem diagnostik MST terletak pada kemampuannya mengidentifikasi pola pembelajaran yang spesifik melalui analisis jalur yang Anda tempuh. Berdasarkan rute diagnostik yang Anda lalui pada konten "${analysis.collectionFocus || 'tes ini'}", sistem dapat memberikan insight mendalam tentang profil kemampuan Anda. Setiap percabangan dalam alur MST memberikan informasi diagnostik yang berharga tentang kekuatan dan area pengembangan, sehingga rekomendasi pembelajaran menjadi lebih terarah dan personal. `;
+      
+      if (correctLevels.includes(1) && correctLevels.includes(2)) {
+        narrative += `Kemampuan Anda di level fundamental sudah cukup solid, memberikan dasar yang baik untuk eksplorasi konsep yang lebih advanced. `;
+      }
+      
+      if (correctLevels.some(l => l >= 5)) {
+        narrative += `Pencapaian Anda di level tinggi menunjukkan kemampuan berpikir kritis dan analitis yang excellent. `;
+      }
+      
+      if (incorrectLevels.length > 0) {
+        narrative += `Area yang menghadapi tantangan di level ${incorrectLevels.join(' dan ')} memberikan petunjuk yang valuable untuk fokus pembelajaran selanjutnya. `;
+        
+        // Add topic-specific recommendations
+        const challengingLevelTopics = [];
+        incorrectLevels.forEach(level => {
+          if (analysis.levelPerformance[level] && analysis.levelPerformance[level].topics.length > 0) {
+            challengingLevelTopics.push(...analysis.levelPerformance[level].topics);
+          }
+        });
+        
+        if (challengingLevelTopics.length > 0) {
+          const uniqueTopics = [...new Set(challengingLevelTopics)];
+          narrative += `Secara khusus, fokus pada penguatan pemahaman di topik ${uniqueTopics.join(', ')} akan memberikan dampak positif yang signifikan. `;
+        }
+      }
+      
+      narrative += `Setiap individu memiliki pola pembelajaran yang unik, dan hasil ini memberikan gambaran tentang profil kognitif Anda yang dapat dimanfaatkan untuk strategi belajar yang lebih efektif dalam konteks materi yang diujikan.`;
+      narrative += `</p>`;
+      
+      // Future development suggestions with collection-specific recommendations
+      if (currentLevel < 7) {
+        narrative += `<p>Untuk pengembangan selanjutnya dalam konteks materi "${analysis.collectionFocus || 'ini'}", fokus pada penguatan di area yang masih menantang sambil mempertahankan kekuatan yang sudah ada akan memberikan hasil optimal. `;
+        
+        // Add specific recommendations based on subject areas and topics
+        if (analysis.subjectAreas.length > 0) {
+          narrative += `Mengingat fokus tes pada area ${analysis.subjectAreas.join(' dan ')}, `;
+        }
+        
+        if (analysis.learningPattern === 'advanced_with_gaps') {
+          narrative += `menghubungkan konsep-konsep tinggi dengan fondasi dasar dalam konteks materi yang diujikan akan membantu menciptakan pemahaman yang lebih utuh dan konsisten.`;
+        } else if (analysis.learningPattern === 'inconsistent_performance') {
+          narrative += `mengidentifikasi pola-pola spesifik yang membuat Anda berhasil di topik tertentu dan menerapkannya ke area lain dalam mata pelajaran ini akan membantu meningkatkan konsistensi performa.`;
+        } else {
+          narrative += `pembelajaran bertahap dengan penguatan konsep secara sistematis sesuai dengan struktur kurikulum yang diujikan akan membantu Anda mencapai potensi maksimal.`;
+        }
+        narrative += `</p>`;
+      }
+      
+      container.innerHTML = narrative;
+    }
+    
+
+    
+
+    
     // Function to export results to Excel
 function exportToExcel() {
   try {

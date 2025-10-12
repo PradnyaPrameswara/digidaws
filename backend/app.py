@@ -1617,32 +1617,9 @@ def siswa_access_hasil_sendiri():
     }), 200
 
 # Fungsi untuk mendaftarkan blueprint ke aplikasi
-def register_results_routes(app):
-    app.register_blueprint(results_bp, url_prefix='/api')
-
 # =========================================
 # AUTH ROUTES
-# =========================================
-@login_manager.user_loader
-def load_user(user_id):
-    try:
-        if isinstance(user_id, str):
-            if user_id.startswith('guru_'):
-                actual_id = int(user_id.split('_')[1])
-                return Guru.query.get(actual_id)
-            elif user_id.startswith('siswa_'):
-                actual_id = int(user_id.split('_')[1])
-                return Siswa.query.get(actual_id)
-            else:
-                # Coba langsung sebagai ID numerik
-                return Siswa.query.get(int(user_id))
-        elif isinstance(user_id, int):
-            # Default ke Siswa jika ID adalah integer langsung
-            return Siswa.query.get(user_id)
-    except (ValueError, IndexError, TypeError) as e:
-        # Log error jika terjadi masalah saat parsing ID
-        print(f"Error loading user with ID {user_id}: {str(e)}")
-    return None
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -1850,13 +1827,7 @@ def get_technology_taxonomy_short(level):
     return technology_mapping.get(level, "Tidak Dikenal")
 
 # Legacy functions for backward compatibility (deprecated)
-def get_bloom_taxonomy(level):
-    """DEPRECATED: Gunakan get_technology_taxonomy() sebagai gantinya."""
-    return get_technology_taxonomy(level)
 
-def get_bloom_taxonomy_short(level):
-    """DEPRECATED: Gunakan get_technology_taxonomy_short() sebagai gantinya.""" 
-    return get_technology_taxonomy_short(level)
 
 # =========================================
 # FUNGSI EVALUASI JAWABAN
@@ -5012,113 +4983,7 @@ def extract_text_from_docx_bytes(file_bytes: bytes, file_ext: str):
 # =========================================
 # NOTE: This is a legacy implementation that's been replaced by the more advanced version above.
 # This version is kept for backward compatibility with older code that might call it.
-def extract_educational_components_legacy(content_text, return_dict=False):
-    """
-    Legacy version - Extract educational components with improved precision to avoid extracting
-    irrelevant sections like "Informasi Umum" or administrative details.
-    This function is maintained for backward compatibility.
-    """
-    print("WARNING: Using legacy extract_educational_components_legacy() function. Consider updating code to use the newer version.")
-    
-    # Just call the current implementation
-    return extract_educational_components(content_text, return_dict)
-    
-    # # Old implementation would have been here
-    # results = {
-    #    "Modul/Elemen Ajar": "Tidak tersedia",
-    #    "Kompetensi Awal": "Tidak tersedia", 
-    #    "Tujuan Pembelajaran": "Tidak tersedia",
-    #    "Pemahaman Bermakna": "Tidak tersedia",
-    #    "Target Peserta Didik": "Tidak tersedia"
-    # }
-    # 
-    # # Split content into sections based on clear headers
-    # sections = split_document_into_sections(content_text)
-    # 
-    # # Extract each component with specific section targeting
-    # results["Modul/Elemen Ajar"] = extract_module_elements(sections)
-    results["Kompetensi Awal"] = extract_initial_competencies(sections)
-    results["Tujuan Pembelajaran"] = extract_learning_objectives(sections)
-    results["Pemahaman Bermakna"] = extract_meaningful_understanding(sections)
-    results["Target Peserta Didik"] = extract_target_students(sections)
-    
-    if return_dict:
-        return results
-    else:
-        return (
-            results["Modul/Elemen Ajar"],
-            results["Kompetensi Awal"],
-            results["Tujuan Pembelajaran"],
-            results["Pemahaman Bermakna"],
-            results["Target Peserta Didik"]
-        )
 
-
-def split_document_into_sections(content_text):
-    """
-    Split document into logical sections based on headers and structure.
-    Returns a dictionary with section names as keys and content as values.
-    """
-    sections = {}
-    lines = content_text.split('\n')
-    current_section = None
-    current_content = []
-    
-    for line in lines:
-        line_clean = line.strip()
-        
-        # Skip empty lines
-        if not line_clean:
-            continue
-            
-        # Check for major section headers (Roman numerals, numbers, or bold text)
-        if is_section_header(line_clean):
-            # Save previous section
-            if current_section and current_content:
-                sections[current_section] = '\n'.join(current_content)
-            
-            # Start new section
-            current_section = normalize_section_name(line_clean)
-            current_content = []
-        else:
-            # Add content to current section
-            if current_section:
-                current_content.append(line_clean)
-    
-    # Don't forget the last section
-    if current_section and current_content:
-        sections[current_section] = '\n'.join(current_content)
-    
-    return sections
-
-
-def is_section_header(line):
-    """Check if a line is likely a section header."""
-    line_lower = line.lower()
-    
-    # Roman numeral patterns
-    roman_pattern = r'^[ivxlcdm]+\.\s*'
-    
-    # Number patterns  
-    number_pattern = r'^\d+\.\s*'
-    
-    # Bold text patterns (** or uppercase)
-    bold_pattern = r'^\*\*.*\*\*$'
-    uppercase_pattern = r'^[A-Z\s]{3,}$'
-    
-    return (re.match(roman_pattern, line_lower) or 
-            re.match(number_pattern, line) or
-            re.match(bold_pattern, line) or
-            re.match(uppercase_pattern, line))
-
-
-def normalize_section_name(header):
-    """Normalize section header to standard format."""
-    # Remove numbering, asterisks, and extra spaces
-    normalized = re.sub(r'^[ivxlcdm]*\.?\s*', '', header, flags=re.IGNORECASE)
-    normalized = re.sub(r'^\d+\.?\s*', '', normalized)
-    normalized = re.sub(r'^\*\*|\*\*$', '', normalized)
-    return normalized.strip().lower()
 
 
 def extract_module_elements(sections):
@@ -5341,37 +5206,7 @@ def clean_topic_text(topic):
     return topic if len(topic) > 5 else None
 
 
-def clean_extracted_text(text):
-    """Enhanced text cleaning function."""
-    if not text or text.strip() == "":
-        return "Tidak tersedia"
-    
-    # Remove administrative noise patterns
-    noise_patterns = [
-        r'lampiran.*$',
-        r'daftar pustaka.*$', 
-        r'referensi.*$',
-        r'halaman \d+',
-        r'gambar \d+',
-        r'tabel \d+',
-        r'^[\d\.\-\•○●]\s*',  # Remove bullet points at start
-        r'\*\*([^*]+)\*\*',   # Remove bold markers
-    ]
-    
-    cleaned = text
-    for pattern in noise_patterns:
-        cleaned = re.sub(pattern, '', cleaned, flags=re.MULTILINE | re.IGNORECASE)
-    
-    # Clean up whitespace
-    cleaned = re.sub(r'\s+', ' ', cleaned)
-    cleaned = cleaned.strip()
-    
-    # Return first few sentences if too long
-    sentences = re.split(r'[.!?]+', cleaned)
-    if len(sentences) > 5:
-        cleaned = '. '.join(sentences[:5]) + '.'
-    
-    return cleaned if cleaned else "Tidak tersedia"
+
 
 def extract_text_from_docx(file_path):
     """Extract text from a Word document (.doc or .docx)"""
