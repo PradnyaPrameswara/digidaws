@@ -24,17 +24,36 @@
 
         /* Hero Section */
         .hero-section {
-            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 50%, #06b6d4 100%);
             color: white;
-            padding: 6rem 0;
+            padding: 8rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.05"><circle cx="30" cy="30" r="4"/></g></svg>') repeat;
+            z-index: 1;
+        }
+        .hero-section .container {
+            position: relative;
+            z-index: 2;
         }
         .hero-section h1 {
             font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .hero-section .lead {
             font-weight: 400;
-            max-width: 600px;
-            margin: 0 auto 2rem auto;
+            max-width: 650px;
+            margin: 0 auto 3rem auto;
+            font-size: 1.2rem;
+            line-height: 1.6;
         }
         .btn-custom {
             padding: 12px 30px;
@@ -111,12 +130,83 @@
 
         /* Footer */
         .footer {
-            background-color: #1e293b;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             color: #cbd5e1;
             padding: 2rem 0;
-            margin-top: 4rem;
-            text-align: center;
-            font-size: 14px;
+            margin-top: 6rem;
+            font-size: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #4f46e5, #3b82f6, #06b6d4);
+        }
+        .footer p {
+            margin-bottom: 0;
+            line-height: 1.4;
+            font-size: 11px;
+        }
+        .footer .row {
+            align-items: center;
+        }
+        
+        /* Name and Social Wrapper */
+        .name-social-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .location-text {
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        /* Social Media Links in Footer */
+        .social-links-footer {
+            display: flex;
+            gap: 8px;
+        }
+        .social-link-footer {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, rgba(203, 213, 225, 0.1), rgba(203, 213, 225, 0.05));
+            color: #cbd5e1;
+            border-radius: 50%;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(203, 213, 225, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .social-link-footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .social-link-footer:hover {
+            background: linear-gradient(135deg, #4f46e5, #3b82f6);
+            color: white;
+            transform: translateY(-3px) scale(1.1);
+            border-color: transparent;
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
+        }
+        .social-link-footer:hover::before {
+            left: 100%;
         }
         
         /* Gambar untuk guru dan siswa */
@@ -127,18 +217,492 @@
             border-radius: 12px;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
         }
+
+        /* Profile Image */
+        .profile-img {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Profile Image in Intro Section */
+        .profile-img-intro {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: center;
+            border: 6px solid #4f46e5;
+            box-shadow: 0 15px 40px rgba(79, 70, 229, 0.3), 0 5px 15px rgba(0,0,0,0.1);
+            display: block;
+            margin: 0 auto;
+            transform: scale(1.02);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .profile-img-intro::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #3b82f6, #06b6d4);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .profile-img-intro:hover {
+            transform: scale(1.08);
+            box-shadow: 0 20px 50px rgba(79, 70, 229, 0.4), 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .profile-img-intro:hover::before {
+            opacity: 0.3;
+        }
+
+        /* Logo Image */
+        .logo-img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+        }
+
+        /* Social Media Links */
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .social-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        .social-link:hover {
+            background-color: white;
+            color: #4f46e5;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Social Media Links in Intro Section */
+        .social-links-intro {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .social-link-intro {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            height: 45px;
+            background-color: #f1f5f9;
+            color: #4f46e5;
+            border-radius: 50%;
+            font-size: 1.3rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: 2px solid #e2e8f0;
+        }
+        .social-link-intro:hover {
+            background-color: #4f46e5;
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+            border-color: #4f46e5;
+        }
+
+        /* Biodata Section */
+        .biodata-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, #f8fafc 100%);
+            position: relative;
+        }
+        .biodata-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+            z-index: 0;
+        }
+        .biodata-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 4rem;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.1),
+                0 10px 25px rgba(0, 0, 0, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        .intro-text {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            color: #475569;
+        }
+        .biodata-content, .research-content {
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            padding: 2.5rem;
+            border-radius: 16px;
+            border-left: 5px solid #4f46e5;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .biodata-content::before, .research-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #4f46e5, #3b82f6, #06b6d4);
+        }
+        .biodata-content:hover, .research-content:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+        }
+        .biodata-item {
+            display: flex;
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .biodata-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .biodata-item .label {
+            font-weight: 600;
+            min-width: 120px;
+            color: #334155;
+            flex-shrink: 0;
+        }
+        .biodata-item .value {
+            color: #64748b;
+            margin-left: 0.5rem;
+        }
+        .research-item {
+            margin-bottom: 1.5rem;
+        }
+        .research-item:last-child {
+            margin-bottom: 0;
+        }
+        .research-item h6 {
+            color: #4f46e5;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .closing-text {
+            background: linear-gradient(135deg, #eef2ff 0%, #f1f5f9 50%, #e2e8f0 100%);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid rgba(79, 70, 229, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .closing-text::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #4f46e5, #3b82f6, #06b6d4);
+        }
+        .closing-text em {
+            font-style: italic;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        
+        /* Profile Section in Intro */
+        .profile-section {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .profile-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+            transition: left 0.5s;
+        }
+        .profile-section:hover::before {
+            left: 100%;
+        }
+        .profile-section h3 {
+            color: #1e293b;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin-bottom: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 5rem 0;
+            }
+            .profile-img {
+                width: 150px;
+                height: 150px;
+            }
+            .profile-img-intro {
+                width: 170px;
+                height: 170px;
+                transform: scale(1);
+                border-width: 4px;
+            }
+            .profile-img-intro:hover {
+                transform: scale(1.05);
+            }
+            .logo-img {
+                width: 50px;
+                height: 50px;
+            }
+            .hero-section h1 {
+                font-size: 2.2rem;
+            }
+            .hero-section .lead {
+                font-size: 1rem;
+                margin-bottom: 2rem;
+            }
+            .biodata-card {
+                padding: 2.5rem 1.5rem;
+                border-radius: 20px;
+            }
+            .biodata-content, .research-content {
+                padding: 2rem 1.5rem;
+                margin-bottom: 1.5rem;
+            }
+            .biodata-item {
+                flex-direction: column;
+                padding-bottom: 1rem;
+            }
+            .biodata-item .label {
+                min-width: auto;
+                margin-bottom: 0.5rem;
+                font-weight: 700;
+            }
+            .biodata-item .value {
+                margin-left: 0;
+            }
+            .profile-section {
+                padding: 2rem 1.5rem;
+            }
+            .profile-section h3 {
+                font-size: 1.4rem;
+            }
+            .social-link-intro {
+                width: 42px;
+                height: 42px;
+                font-size: 1.2rem;
+            }
+            .footer {
+                padding: 1.5rem 0;
+                margin-top: 4rem;
+                text-align: center;
+                font-size: 11px;
+            }
+            .footer .row > div {
+                margin-bottom: 1rem;
+            }
+            .footer .row > div:last-child {
+                margin-bottom: 0;
+            }
+            .footer p {
+                font-size: 10px;
+                line-height: 1.3;
+            }
+            .name-social-wrapper {
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+            .location-text {
+                text-align: center;
+                margin-bottom: 0.5rem !important;
+            }
+            .social-links-footer {
+                justify-content: center;
+                gap: 6px;
+            }
+            .social-link-footer {
+                width: 28px;
+                height: 28px;
+                font-size: 0.8rem;
+            }
+            .closing-text {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 576px) {
+            .hero-section {
+                padding: 4rem 0;
+            }
+            .hero-section h1 {
+                font-size: 1.8rem;
+            }
+            .profile-img-intro {
+                width: 150px;
+                height: 150px;
+            }
+            .biodata-card {
+                padding: 2rem 1rem;
+            }
+            .profile-section {
+                padding: 1.5rem 1rem;
+            }
+        }
     </style>
 </head>
 <body>
 
     <div class="hero-section text-center">
         <div class="container" data-aos="fade-up">
-            <h1 class="display-3 mb-3">DIGIDAWS</h1>
-            <p class="small mt-2" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis</p>
+            <div class="d-flex align-items-center justify-content-center mb-4">
+                <img src="../img/logo_digidaws.png" alt="DIGIDAWS Logo" class="logo-img me-3">
+                <h1 class="display-3 mb-0">DIGIDAWS</h1>
+                <img src="../img/logo_digidaws.png" alt="DIGIDAWS Logo" class="logo-img me-3">
+            </div>
             <p class="lead">Pahami kemampuan awal siswa secara akurat dan berikan pembelajaran yang lebih personal dan efektif.</p>
             <div>
                 <a href="{{ url_for('login') }}" class="btn btn-light btn-custom">Login</a>
                 <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-custom">Register</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Biodata Section -->
+    <div class="biodata-section section-padding">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="biodata-card" data-aos="fade-up">
+                        <div class="text-center mb-4">
+                            <h2 class="section-title mb-4">Kata Pengantar</h2>
+                            <!-- Profile Section -->
+                            <div class="profile-section mb-4">
+                                <div class="text-center">
+                                    <img src="../img/Foto_Profil.png" alt="Pradnya Prameswara" class="profile-img-intro mb-3">
+                                    <h3 class="mb-0">Anak Agung Gede Pradnya Prameswara</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="intro-text mb-5">
+                            <p class="lead text-justify">
+                                Om Swastyastu dan Selamat datang di platform <strong>DIGIDAWS</strong>. 
+                                Saya adalah <strong>Anak Agung Gede Pradnya Prameswara</strong>, mahasiswa Program Studi 
+                                Pendidikan Teknik Informatika, Fakultas Teknik dan Kejuruan, Universitas Pendidikan Ganesha (Undiksha).
+                            </p>
+                            <p class="text-justify">
+                                Platform DIGIDAWS (DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis) 
+                                merupakan hasil penelitian tugas akhir saya yang berfokus pada pengembangan sistem asesmen diagnostik berbasis 
+                                kecerdasan buatan untuk meningkatkan kualitas pembelajaran di Indonesia. Sistem ini dirancang dengan teknologi 
+                                Multistage Adaptive Testing (MST) yang mampu memberikan evaluasi yang akurat dan personal terhadap kemampuan awal siswa.
+                            </p>
+                        </div>
+                        
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="biodata-content">
+                                    <h4 class="mb-3"><i class="bi bi-person-fill me-2"></i>Biodata Peneliti</h4>
+                                    <div class="biodata-item">
+                                        <span class="label">Nama Lengkap:</span>
+                                        <span class="value">Anak Agung Gede Pradnya Prameswara</span>
+                                    </div>
+                                    <div class="biodata-item">
+                                        <span class="label">NIM:</span>
+                                        <span class="value">2215051040</span>
+                                    </div>
+                                    <div class="biodata-item">
+                                        <span class="label">Program Studi:</span>
+                                        <span class="value">Pendidikan Teknik Informatika (PTI)</span>
+                                    </div>
+                                    <div class="biodata-item">
+                                        <span class="label">Fakultas:</span>
+                                        <span class="value">Teknik dan Kejuruan</span>
+                                    </div>
+                                    <div class="biodata-item">
+                                        <span class="label">Universitas:</span>
+                                        <span class="value">Universitas Pendidikan Ganesha (Undiksha)</span>
+                                    </div>
+                                    <div class="biodata-item">
+                                        <span class="label">Alamat:</span>
+                                        <span class="value">Br. Sema, Bitera, Gianyar, Bali</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="research-content">
+                                    <h4 class="mb-3"><i class="bi bi-lightbulb-fill me-2"></i>Fokus Penelitian</h4>
+                                    <div class="research-item">
+                                        <h6>Asesmen Diagnostik Adaptif</h6>
+                                        <p class="small text-muted">Pengembangan sistem penilaian yang dapat menyesuaikan tingkat kesulitan soal berdasarkan kemampuan siswa secara real-time.</p>
+                                    </div>
+                                    <div class="research-item">
+                                        <h6>Kecerdasan Buatan dalam Pendidikan</h6>
+                                        <p class="small text-muted">Implementasi teknologi AI untuk menghasilkan soal otomatis dan memberikan analisis mendalam terhadap kemampuan siswa.</p>
+                                    </div>
+                                    <div class="research-item">
+                                        <h6>Multistage Adaptive Testing (MST)</h6>
+                                        <p class="small text-muted">Penggunaan algoritma MST untuk memberikan pengalaman tes yang lebih efisien dan akurat dalam mengukur kemampuan kognitif.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="closing-text mt-4 pt-4 border-top">
+                            <p class="text-center text-muted">
+                                <em>"Semoga platform ini dapat memberikan kontribusi positif bagi kemajuan pendidikan Indonesia 
+                                dan membantu para pendidik dalam memberikan pembelajaran yang lebih berkualitas dan personal."</em>
+                            </p>
+                        </div>
+                        
+
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -176,7 +740,8 @@
     <div class="benefits-section section-padding">
         <div class="container">
             <div class="text-center mb-5" data-aos="fade-up">
-                <h2 class="section-title">Manfaat untuk Anda</h2>
+                <h2 class="section-title">Tentang Proyek DIGIDAWS</h2>
+                <p class="text-muted">Sistem Asesmen Diagnostik Berbasis AI untuk Pendidikan Indonesia</p>
             </div>
             <div class="row g-5 align-items-center">
                 <div class="col-lg-6" data-aos="fade-right">
@@ -184,23 +749,23 @@
                 </div>
                 <div class="col-lg-6" data-aos="fade-left">
                     <h3>Untuk Guru 👨‍🏫</h3>
-                    <p class="text-muted">Fokus pada mengajar, bukan administrasi. Platform kami membantu Anda untuk:</p>
+                    <p class="text-muted">Fokus pada mengajar, bukan administrasi. Platform ini membantu Anda untuk:</p>
                     <div class="benefit-item">
                         <i class="bi bi-check-circle-fill icon"></i>
                         <div class="content">
-                            <b>Menghemat Waktu,</b> dengan pembuatan soal dan penilaian otomatis.
+                            <b>Menghemat Waktu,</b> dengan pembuatan soal dan penilaian otomatis berbasis AI.
                         </div>
                     </div>
                     <div class="benefit-item">
                         <i class="bi bi-check-circle-fill icon"></i>
                         <div class="content">
-                            <b>Memahami Kebutuhan Siswa,</b> melalui data kemampuan awal yang akurat.
+                            <b>Memahami Kebutuhan Siswa,</b> melalui data kemampuan awal yang akurat dengan MST (Multistage Adaptive Testing).
                         </div>
                     </div>
                     <div class="benefit-item">
                         <i class="bi bi-check-circle-fill icon"></i>
                         <div class="content">
-                            <b>Merancang Pembelajaran Efektif,</b> berdasarkan rekomendasi dan analisis data.
+                            <b>Merancang Pembelajaran Efektif,</b> berdasarkan rekomendasi dan analisis data yang mendalam.
                         </div>
                     </div>
                 </div>
@@ -215,19 +780,19 @@
                     <div class="benefit-item">
                         <i class="bi bi-check-circle-fill icon"></i>
                         <div class="content">
-                            <b>Mengenal Kekuatan & Kelemahan,</b> melalui hasil tes yang detail.
+                            <b>Mengenal Kekuatan & Kelemahan,</b> melalui hasil tes adaptif yang personal dan akurat.
                         </div>
                     </div>
                     <div class="benefit-item">
                         <i class="bi bi-check-circle-fill icon"></i>
                         <div class="content">
-                            <b>Mendapatkan Rekomendasi Belajar,</b> yang sesuai dengan kebutuhanmu.
+                            <b>Mendapatkan Rekomendasi Belajar,</b> yang disesuaikan dengan gaya belajar dan kebutuhanmu.
                         </div>
                     </div>
                     <div class="benefit-item">
                         <i class="bi bi-check-circle-fill icon"></i>
                         <div class="content">
-                            <b>Belajar Lebih Fokus dan Efisien,</b> pada materi yang paling kamu perlukan.
+                            <b>Belajar Lebih Fokus dan Efisien,</b> pada materi yang paling kamu perlukan berdasarkan analisis AI.
                         </div>
                     </div>
                 </div>
@@ -249,7 +814,27 @@
 
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2025 by Anak Agung Gede Pradnya Prameswara</p>
+            <div class="row align-items-center">
+                <div class="col-md-6 text-center text-md-start">
+                    <div class="name-social-wrapper">
+                        <p class="mb-0">&copy; 2025 by Anak Agung Gede Pradnya Prameswara</p>
+                        <div class="social-links-footer">
+                            <a href="https://www.instagram.com/gunxame/" target="_blank" class="social-link-footer">
+                                <i class="bi bi-instagram"></i>
+                            </a>
+                            <a href="https://www.linkedin.com/in/pradnyaprameswara/" target="_blank" class="social-link-footer">
+                                <i class="bi bi-linkedin"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    <p class="location-text mb-0">
+                        <i class="bi bi-geo-alt-fill me-1"></i>
+                        Jl. Udayana No.11, Banjar Tegal, Singaraja, Kabupaten Buleleng
+                    </p>
+                </div>
+            </div>
         </div>
     </footer>
 

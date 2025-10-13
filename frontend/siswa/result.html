@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="utf-8">
@@ -516,6 +516,117 @@
         padding: 0 15px;
       }
     }
+
+    /* Achievement Analysis Styles */
+    .level-achievement-display {
+      animation: bounceIn 0.8s ease-out;
+    }
+
+    @keyframes bounceIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+      70% {
+        transform: scale(0.9);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .strength-analysis, .improvement-analysis, .next-steps {
+      animation: fadeInUp 0.6s ease-out;
+      animation-fill-mode: both;
+    }
+
+    .strength-analysis {
+      animation-delay: 0.2s;
+    }
+
+    .improvement-analysis {
+      animation-delay: 0.4s;
+    }
+
+    .next-steps {
+      animation-delay: 0.6s;
+    }
+
+    /* Achievement card hover effects */
+    .achievement-analysis-container .card {
+      transition: all 0.3s ease;
+    }
+
+    .achievement-analysis-container .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Recommendation list styling */
+    #recommendation-list {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    #recommendation-list li {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-left: 4px solid #0d6efd;
+      transition: all 0.3s ease;
+    }
+
+    #recommendation-list li:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      background: rgba(255, 255, 255, 1);
+    }
+
+    /* Progress bar styling for achievement analysis */
+    .progress-bar {
+      transition: width 1.2s ease-out;
+    }
+
+    /* Badge hover effects in achievement analysis */
+    .badge {
+      transition: all 0.3s ease;
+    }
+
+    .badge:hover {
+      transform: scale(1.1);
+    }
+
+    /* Card border animations for achievement analysis */
+    .card.border-success, .card.border-warning, .card.border-primary, .card.border-info {
+      border-width: 2px !important;
+      transition: all 0.3s ease;
+    }
+
+    .card.border-success:hover {
+      border-color: #198754 !important;
+      box-shadow: 0 0 20px rgba(25, 135, 84, 0.2);
+    }
+
+    .card.border-warning:hover {
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 20px rgba(220, 53, 69, 0.2);
+    }
+
+    .card.border-primary:hover {
+      border-color: #0d6efd !important;
+      box-shadow: 0 0 20px rgba(13, 110, 253, 0.2);
+    }
+
+    .card.border-info:hover {
+      border-color: #0dcaf0 !important;
+      box-shadow: 0 0 20px rgba(13, 202, 240, 0.2);
+    }
   </style>
 </head>
 <body>
@@ -1003,17 +1114,17 @@
                 <div class="progress-container">
                   <label><strong>Performa Jawaban:</strong></label>
                   <div class="progress">
-                    <div id="correct-progress" class="progress-bar bg-success" role="progressbar" 
-                        aria-valuemin="0" aria-valuemax="100">
+                    <div id="correct-progress" class="progress-bar" role="progressbar" 
+                        style="background-color: #198754;" aria-valuemin="0" aria-valuemax="100">
                       <span id="correct-percent">0%</span>
                     </div>
-                    <div id="incorrect-progress" class="progress-bar bg-danger" role="progressbar" 
-                        aria-valuemin="0" aria-valuemax="100">
+                    <div id="incorrect-progress" class="progress-bar" role="progressbar" 
+                        style="background-color: #dc3545;" aria-valuemin="0" aria-valuemax="100">
                       <span id="incorrect-percent">0%</span>
                     </div>
                   </div>
                   <div class="progress-explanation">
-                    <i class="bi bi-info-circle me-1"></i> Diagram di atas menunjukkan perbandingan jawaban tepat (hijau) dan kurang tepat (merah) dari semua soal yang telah Anda kerjakan.
+                    <i class="bi bi-info-circle me-1"></i> Diagram di atas menunjukkan perbandingan jawaban tepat (<span style="color: #198754; font-weight: bold;">hijau</span>) dan kurang tepat (<span style="color: #dc3545; font-weight: bold;">merah</span>) dari semua soal yang telah Anda kerjakan.
                   </div>
                 </div>
                 
@@ -1055,17 +1166,35 @@
       </div>
     </div>
     
+    <!-- Analisis Pencapaian -->
+    <div class="card mb-4">
+      <div class="card-header bg-white">
+        <h3><i class="bi bi-trophy me-2"></i>Analisis Pencapaian Anda</h3>
+      </div>
+      <div class="card-body">
+        <div id="achievement-analysis-container">
+          <!-- Achievement analysis akan diisi secara dinamis -->
+          <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Memuat analisis pencapaian...</span>
+            </div>
+            <p class="mt-2">Menganalisis hasil tes Anda...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Rekomendasi -->
     <div class="card mb-5">
       <div class="card-header bg-white">
-        <h3><i class="bi bi-lightbulb me-2"></i>Rekomendasi</h3>
+        <h3><i class="bi bi-lightbulb me-2"></i>Bantuan Belajar untuk Anda</h3>
       </div>
       <div class="card-body">
         <div class="alert alert-primary">
           <h5><i class="bi bi-mortarboard me-2"></i>Saran Pembelajaran</h5>
-          <p>Berdasarkan hasil tes diagnostik Anda, berikut beberapa rekomendasi untuk meningkatkan pemahaman:</p>
+          <p>Berdasarkan hasil tes diagnostik Anda, berikut bantuan belajar yang sesuai dengan kemampuan Anda:</p>
           <ul id="recommendation-list">
-            <li>Sedang memuat rekomendasi...</li>
+            <li>Sedang memuat bantuan belajar...</li>
           </ul>
         </div>
       </div>
@@ -1784,12 +1913,19 @@ function renderFilteredAnswers(type) {
       const correctPercent = totalValue > 0 ? Math.round((correctValue / totalValue) * 100) : 0;
       const incorrectPercent = totalValue > 0 ? 100 - correctPercent : 0;
       
-      // Update progress bar
+      // Update progress bar dengan animasi halus
       const correctProgressBar = document.getElementById('correct-progress');
       const incorrectProgressBar = document.getElementById('incorrect-progress');
       
-      correctProgressBar.style.width = correctPercent + '%';
-      incorrectProgressBar.style.width = incorrectPercent + '%';
+      // Set width awal ke 0 untuk animasi
+      correctProgressBar.style.width = '0%';
+      incorrectProgressBar.style.width = '0%';
+      
+      // Animasi ke nilai target setelah delay singkat
+      setTimeout(() => {
+        correctProgressBar.style.width = correctPercent + '%';
+        incorrectProgressBar.style.width = incorrectPercent + '%';
+      }, 300);
       
       document.getElementById('correct-percent').textContent = correctPercent + '%';
       document.getElementById('incorrect-percent').textContent = incorrectPercent + '%';
@@ -1848,6 +1984,7 @@ function renderFilteredAnswers(type) {
       setTimeout(() => {
         updateMSTStages(currentLevel);
         generateAchievementAnalysis(currentLevel);
+        generateStudentFriendlyAnalysis(correctValue, incorrectValue, currentLevel);
       }, 100);
     }
     
@@ -2079,11 +2216,11 @@ function renderFilteredAnswers(type) {
       const accuracyRate = parseFloat(analysis.accuracyRate);
       const pathString = correctLevels.join('-');
       
-      // Opening paragraph with collection context and MST diagnostic explanation
+      // Opening paragraph dengan konteks singkat
       if (analysis.collectionFocus) {
-        narrative += `<p>Dalam tes diagnostik "<strong>${analysis.collectionFocus}</strong>" yang menggunakan sistem Multistage Adaptive Test (MST), Anda telah menjalani proses penilaian yang disesuaikan dengan kemampuan individual. Sistem MST bekerja dengan mengarahkan Anda melalui berbagai tahapan level berdasarkan performa pada setiap tahap sebelumnya, sehingga memberikan pengalaman tes yang personal dan akurat. Melalui alur diagnostik ini, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
+        narrative += `<p>Dalam tes diagnostik "<strong>${analysis.collectionFocus}</strong>", Anda telah menjalani penilaian bertingkat yang disesuaikan dengan kemampuan individual. Melalui jalur diagnostik ini, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
       } else {
-        narrative += `<p>Dalam tes diagnostik yang menggunakan sistem Multistage Adaptive Test (MST), Anda telah menjalani proses penilaian yang unik dan adaptif. Sistem MST mengarahkan setiap siswa melalui jalur yang berbeda-beda berdasarkan kemampuan yang ditunjukkan di setiap tahap. Tidak seperti tes konvensional yang memberikan soal yang sama untuk semua peserta, sistem diagnostik MST menyesuaikan tingkat kesulitan dan jalur tes berdasarkan jawaban Anda sebelumnya, memberikan gambaran yang lebih akurat tentang kemampuan sebenarnya. Melalui alur diagnostik yang personal ini, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
+        narrative += `<p>Melalui tes diagnostik bertingkat yang adaptif, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
       }
       
       if (correctLevels.length > 0) {
@@ -2123,75 +2260,57 @@ function renderFilteredAnswers(type) {
         narrative += `</p>`;
       }
       
-      // Performance pattern analysis with MST diagnostic explanation
+      // Performance pattern analysis singkat
       if (correctLevels.length > 0 && incorrectLevels.length > 0) {
-        narrative += `<p>Alur diagnostik MST yang Anda tempuh mengungkap pola performa yang memberikan insight mendalam tentang profil kognitif Anda. Sistem MST bekerja dengan mengarahkan Anda ke jalur yang berbeda berdasarkan performa di setiap stage - jika berhasil di level awal, sistem mengarahkan ke jalur advanced, dan sebaliknya mengarahkan ke jalur remedial untuk penguatan konsep. `;
+        narrative += `<p>Pola pencapaian Anda menunjukkan: `;
         
         // Advanced with gaps pattern
         if (correctLevels.some(l => l >= 4) && incorrectLevels.some(l => l <= 2)) {
-          narrative += `Hasil diagnostik menunjukkan bahwa Anda diarahkan ke jalur advanced namun mengalami tantangan di beberapa konsep fundamental. Pola ini mengindikasikan kemampuan berpikir tingkat tinggi yang kuat, namun ada gap dalam foundational knowledge. Sistem MST berhasil mengidentifikasi bahwa Anda memiliki intuisi yang baik dalam menangani kompleksitas, tetapi memerlukan penguatan di area dasar untuk konsistensi optimal.`;
+          narrative += `kemampuan berpikir tingkat tinggi yang kuat, namun perlu penguatan di konsep fundamental untuk konsistensi optimal.`;
         }
         // Inconsistent performance
         else if (Math.abs(Math.max(...correctLevels) - Math.min(...incorrectLevels)) > 2) {
-          narrative += `Jalur diagnostik MST mengungkap pola performa yang bervariasi, dengan keberhasilan cemerlang di level ${Math.max(...correctLevels)} namun menghadapi tantangan di level ${Math.min(...incorrectLevels)}. Sistem adaptif MST berhasil mendeteksi bahwa kemampuan Anda sangat dipengaruhi oleh konteks dan jenis materi. Pola routing yang tidak linear ini dalam sistem MST mengindikasikan profil learner yang memiliki area kekuatan spesifik namun memerlukan pendekatan pembelajaran yang disesuaikan dengan preferensi kognitif Anda.`;
+          narrative += `performa bervariasi dengan keunggulan di level ${Math.max(...correctLevels)} namun tantangan di level ${Math.min(...incorrectLevels)}, menunjukkan kekuatan spesifik yang dapat dikembangkan.`;
         }
         // Progressive improvement
         else if (correctLevels.every((level, index) => index === 0 || level >= correctLevels[index - 1])) {
-          narrative += `Sistem diagnostik MST berhasil mengidentifikasi pola pembelajaran yang ideal dalam performa Anda. Jalur yang Anda tempuh menunjukkan progression yang sistematis dan terstruktur, dimana sistem secara konsisten mengarahkan Anda ke level yang lebih tinggi berdasarkan keberhasilan di setiap stage. Pola routing linear ini dalam MST mengindikasikan proses pembelajaran yang sehat, kemampuan adaptasi yang excellent, dan pendekatan yang metodis dalam menguasai materi secara bertahap.`;
+          narrative += `progression sistematis dan terstruktur, menunjukkan proses pembelajaran yang sehat dan metodis.`;
         }
         // Mixed performance
         else {
-          narrative += `Alur diagnostik MST mengungkap profil kemampuan yang beragam, dengan kombinasi kekuatan dan area pengembangan yang tersebar di berbagai level. Sistem MST berhasil memetakan bahwa Anda memiliki pemahaman yang bervariasi tergantung pada kompleksitas dan konteks materi. Pattern routing dalam sistem diagnostik ini menunjukkan bahwa beberapa konsep telah Anda kuasai dengan baik, sementara area lain masih dalam tahap pengembangan, memberikan roadmap yang jelas untuk pembelajaran selanjutnya.`;
+          narrative += `profil kemampuan beragam dengan kekuatan dan area pengembangan tersebar, memberikan roadmap jelas untuk pembelajaran lanjut.`;
         }
         narrative += `</p>`;
       }
       
-      // Learning insights and recommendations with MST diagnostic explanation
-      narrative += `<p>Keunggulan sistem diagnostik MST terletak pada kemampuannya mengidentifikasi pola pembelajaran yang spesifik melalui analisis jalur yang Anda tempuh. Berdasarkan rute diagnostik yang Anda lalui pada konten "${analysis.collectionFocus || 'tes ini'}", sistem dapat memberikan insight mendalam tentang profil kemampuan Anda. Setiap percabangan dalam alur MST memberikan informasi diagnostik yang berharga tentang kekuatan dan area pengembangan, sehingga rekomendasi pembelajaran menjadi lebih terarah dan personal. `;
+      // Learning insights singkat
+      narrative += `<p>Berdasarkan hasil diagnostik pada "${analysis.collectionFocus || 'materi ini'}", `;
       
       if (correctLevels.includes(1) && correctLevels.includes(2)) {
-        narrative += `Kemampuan Anda di level fundamental sudah cukup solid, memberikan dasar yang baik untuk eksplorasi konsep yang lebih advanced. `;
+        narrative += `kemampuan fundamental Anda sudah solid untuk eksplorasi yang lebih advanced. `;
       }
       
       if (correctLevels.some(l => l >= 5)) {
-        narrative += `Pencapaian Anda di level tinggi menunjukkan kemampuan berpikir kritis dan analitis yang excellent. `;
+        narrative += `Pencapaian di level tinggi menunjukkan kemampuan berpikir kritis yang excellent. `;
       }
       
       if (incorrectLevels.length > 0) {
-        narrative += `Area yang menghadapi tantangan di level ${incorrectLevels.join(' dan ')} memberikan petunjuk yang valuable untuk fokus pembelajaran selanjutnya. `;
-        
-        // Add topic-specific recommendations
-        const challengingLevelTopics = [];
-        incorrectLevels.forEach(level => {
-          if (analysis.levelPerformance[level] && analysis.levelPerformance[level].topics.length > 0) {
-            challengingLevelTopics.push(...analysis.levelPerformance[level].topics);
-          }
-        });
-        
-        if (challengingLevelTopics.length > 0) {
-          const uniqueTopics = [...new Set(challengingLevelTopics)];
-          narrative += `Secara khusus, fokus pada penguatan pemahaman di topik ${uniqueTopics.join(', ')} akan memberikan dampak positif yang signifikan. `;
-        }
+        narrative += `Area tantangan di level ${incorrectLevels.join(' dan ')} menjadi fokus pembelajaran selanjutnya.`;
+      } else {
+        narrative += `profil pembelajaran Anda menunjukkan konsistensi yang baik di semua level.`;
       }
-      
-      narrative += `Setiap individu memiliki pola pembelajaran yang unik, dan hasil ini memberikan gambaran tentang profil kognitif Anda yang dapat dimanfaatkan untuk strategi belajar yang lebih efektif dalam konteks materi yang diujikan.`;
       narrative += `</p>`;
       
-      // Future development suggestions with collection-specific recommendations
+      // Saran pengembangan singkat
       if (currentLevel < 7) {
-        narrative += `<p>Untuk pengembangan selanjutnya dalam konteks materi "${analysis.collectionFocus || 'ini'}", fokus pada penguatan di area yang masih menantang sambil mempertahankan kekuatan yang sudah ada akan memberikan hasil optimal. `;
-        
-        // Add specific recommendations based on subject areas and topics
-        if (analysis.subjectAreas.length > 0) {
-          narrative += `Mengingat fokus tes pada area ${analysis.subjectAreas.join(' dan ')}, `;
-        }
+        narrative += `<p><strong>Langkah Selanjutnya:</strong> `;
         
         if (analysis.learningPattern === 'advanced_with_gaps') {
-          narrative += `menghubungkan konsep-konsep tinggi dengan fondasi dasar dalam konteks materi yang diujikan akan membantu menciptakan pemahaman yang lebih utuh dan konsisten.`;
+          narrative += `Hubungkan konsep tinggi dengan fondasi dasar untuk pemahaman yang konsisten.`;
         } else if (analysis.learningPattern === 'inconsistent_performance') {
-          narrative += `mengidentifikasi pola-pola spesifik yang membuat Anda berhasil di topik tertentu dan menerapkannya ke area lain dalam mata pelajaran ini akan membantu meningkatkan konsistensi performa.`;
+          narrative += `Identifikasi pola keberhasilan Anda dan terapkan ke area lain untuk konsistensi.`;
         } else {
-          narrative += `pembelajaran bertahap dengan penguatan konsep secara sistematis sesuai dengan struktur kurikulum yang diujikan akan membantu Anda mencapai potensi maksimal.`;
+          narrative += `Lanjutkan pembelajaran bertahap dengan penguatan sistematis sesuai kurikulum.`;
         }
         narrative += `</p>`;
       }
@@ -2291,7 +2410,7 @@ function performExcelExport() {
 }
 
 // Event listener sudah ditangani di fungsi setupExportButtons()
-    // Generate personalized recommendations
+    // Generate personalized recommendations dengan bahasa yang ramah siswa
     function generateRecommendations(correct, incorrect, currentLevel) {
       const recommendationList = document.getElementById('recommendation-list');
       if (!recommendationList) return;
@@ -2303,34 +2422,416 @@ function performExcelExport() {
       // Clear existing recommendations
       recommendationList.innerHTML = '';
       
-      // Add recommendations based on performance
+      // Add recommendations based on performance dengan bahasa yang ramah
       if (accuracy < 50) {
-        recommendations.push('Fokus pada peningkatan pemahaman dasar materi');
-        recommendations.push('Perbaiki konsep dasar untuk meningkatkan kemampuan');
-        recommendations.push('Cari sumber belajar tambahan untuk materi yang belum dipahami');
+        recommendations.push({
+          icon: '📚',
+          text: 'Mulai dengan memperkuat konsep dasar. Jangan terburu-buru, belajar pelan tapi pasti!',
+          type: 'primary'
+        });
+        recommendations.push({
+          icon: '🤝', 
+          text: 'Jangan malu untuk bertanya pada guru atau teman. Mereka pasti senang membantu!',
+          type: 'info'
+        });
+        recommendations.push({
+          icon: '🎯',
+          text: 'Coba gunakan cara belajar yang kamu suka: video, gambar, atau praktek langsung',
+          type: 'success'
+        });
+        recommendations.push({
+          icon: '⏰',
+          text: 'Buat jadwal belajar rutin 15-30 menit setiap hari. Konsistensi adalah kunci!',
+          type: 'warning'
+        });
       } else if (accuracy < 75) {
-        recommendations.push('Tingkatkan pemahaman pada level menengah (3-4)');
-        recommendations.push('Pelajari kembali materi yang berkaitan dengan soal yang dijawab salah');
-        recommendations.push('Latih kemampuan aplikasi konsep pada konteks berbeda');
+        recommendations.push({
+          icon: '🚀',
+          text: 'Kamu sudah di jalur yang tepat! Tingkatkan dengan banyak latihan soal variasi',
+          type: 'success'
+        });
+        recommendations.push({
+          icon: '🔍',
+          text: 'Review jawaban yang salah dan pahami mengapa jawaban itu kurang tepat',
+          type: 'info'
+        });
+        recommendations.push({
+          icon: '📝',
+          text: 'Buat catatan kecil untuk konsep-konsep yang masih membingungkan',
+          type: 'primary'
+        });
+        recommendations.push({
+          icon: '👥',
+          text: 'Diskusi dengan teman sekelas bisa membantu melihat sudut pandang yang berbeda',
+          type: 'secondary'
+        });
       } else {
-        recommendations.push('Lanjutkan pembelajaran ke materi yang lebih kompleks');
-        recommendations.push('Coba tes pada koleksi lain untuk memperluas penguasaan materi');
-        recommendations.push('Bantu teman yang mungkin kesulitan dengan materi yang sudah Anda kuasai');
+        recommendations.push({
+          icon: '🌟',
+          text: 'Luar biasa! Kamu sudah menguasai dengan baik. Saatnya eksplorasi yang lebih menantang!',
+          type: 'success'
+        });
+        recommendations.push({
+          icon: '🎓',
+          text: 'Coba materi pengayaan atau ikuti olimpiade untuk mengasah kemampuan lebih jauh',
+          type: 'primary'
+        });
+        recommendations.push({
+          icon: '🤗',
+          text: 'Berbagi ilmu dengan mengajari teman yang masih kesulitan. Teaching is learning!',
+          type: 'info'
+        });
+        recommendations.push({
+          icon: '📖',
+          text: 'Eksplorasi topik-topik terkait yang mungkin menarik minatmu',
+          type: 'warning'
+        });
       }
       
       // Add level-specific recommendations
       if (currentLevel < 5) {
-        recommendations.push(`Ulangi tes untuk mencapai level yang lebih tinggi (saat ini: ${currentLevel})`);
-      } else {
-        recommendations.push('Selamat mencapai level akhir! Coba tes lain untuk tantangan baru');
+        recommendations.push({
+          icon: '🎯',
+          text: `Tantang diri untuk mencapai level yang lebih tinggi! Sekarang kamu di level ${currentLevel}, masih ada peluang naik!`,
+          type: 'primary'
+        });
+      } else if (currentLevel >= 5) {
+        recommendations.push({
+          icon: '👑',
+          text: 'Amazing! Kamu sudah mencapai level tinggi. Coba koleksi soal lain untuk tantangan baru!',
+          type: 'success'
+        });
       }
       
-      // Add recommendations to the list
+      // Add motivational recommendation
+      recommendations.push({
+        icon: '💪',
+        text: 'Yang terpenting: jangan pernah berhenti belajar dan selalu percaya pada kemampuanmu!',
+        type: 'danger'
+      });
+      
+      // Add recommendations to the list dengan styling yang menarik
       recommendations.forEach(rec => {
         const li = document.createElement('li');
-        li.textContent = rec;
+        li.className = 'mb-2';
+        li.innerHTML = `
+          <div class="d-flex align-items-start">
+            <span class="me-2 fs-5">${rec.icon}</span>
+            <span class="flex-grow-1">${rec.text}</span>
+            <span class="badge bg-${rec.type} ms-2" style="font-size: 0.6em;">Tips</span>
+          </div>
+        `;
         recommendationList.appendChild(li);
       });
+    }
+
+    // Fungsi untuk menghasilkan analisis pencapaian yang ramah siswa
+    function generateStudentFriendlyAnalysis(correct, incorrect, currentLevel) {
+      const container = document.getElementById('achievement-analysis-container');
+      if (!container) return;
+      
+      const total = correct + incorrect;
+      const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+      
+      let analysisHTML = '';
+      
+      // Bagian 1: Pencapaian Level
+      analysisHTML += `
+        <div class="row mb-4">
+          <div class="col-12">
+            <div class="card border-primary">
+              <div class="card-body text-center">
+                <h4 class="text-primary mb-3"><i class="bi bi-award me-2"></i>Pencapaian Level Anda</h4>
+                <div class="level-achievement-display mb-3">
+                  <span class="badge bg-primary fs-4 px-4 py-2">Level ${currentLevel}</span>
+                </div>
+                <p class="lead">
+                  ${getLevelAchievementMessage(currentLevel)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Bagian 2: Analisis Performa
+      analysisHTML += `
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card border-success h-100">
+              <div class="card-body">
+                <h5 style="color: #198754;"><i class="bi bi-check-circle me-2"></i>Kekuatan Anda</h5>
+                <div class="mb-3">
+                  <div class="d-flex align-items-center">
+                    <span class="badge me-2" style="background-color: #198754;">${correct}</span>
+                    <span>Jawaban Tepat</span>
+                  </div>
+                  <div class="progress mt-2" style="height: 8px;">
+                    <div class="progress-bar" style="background-color: #198754; --progress-width: ${accuracy}%; width: 0%;"></div>
+                  </div>
+                </div>
+                <div class="strength-analysis">
+                  ${getStrengthAnalysis(accuracy, correct, currentLevel)}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card border-warning h-100">
+              <div class="card-body">
+                <h5 style="color: #dc3545;"><i class="bi bi-exclamation-triangle me-2"></i>Area Pengembangan</h5>
+                <div class="mb-3">
+                  <div class="d-flex align-items-center">
+                    <span class="badge me-2" style="background-color: #dc3545;">${incorrect}</span>
+                    <span>Jawaban Kurang Tepat</span>
+                  </div>
+                  <div class="progress mt-2" style="height: 8px;">
+                    <div class="progress-bar" style="background-color: #dc3545; --progress-width: ${100 - accuracy}%; width: 0%;"></div>
+                  </div>
+                </div>
+                <div class="improvement-analysis">
+                  ${getImprovementAnalysis(accuracy, incorrect, currentLevel)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Bagian 3: Motivasi dan Langkah Selanjutnya
+      analysisHTML += `
+        <div class="row">
+          <div class="col-12">
+            <div class="card border-info">
+              <div class="card-body">
+                <h5 class="text-info"><i class="bi bi-rocket me-2"></i>Langkah Selanjutnya</h5>
+                <div class="next-steps">
+                  ${getNextStepsMessage(accuracy, currentLevel, correct, incorrect)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      container.innerHTML = analysisHTML;
+      
+      // Trigger progress bar animations after DOM update
+      setTimeout(() => {
+        const progressBars = container.querySelectorAll('.progress-bar');
+        progressBars.forEach(bar => {
+          const targetWidth = bar.style.getPropertyValue('--progress-width');
+          bar.style.width = targetWidth;
+        });
+      }, 100);
+    }
+
+    // Fungsi untuk mendapatkan pesan pencapaian level dengan fokus struktur materi
+    function getLevelAchievementMessage(level) {
+      const messages = {
+        1: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Kamu telah menguasai dasar-dasar materi pada tingkat pemahaman dan hafalan. Fondasi pengetahuanmu sudah mulai terbangun! 📚</span>`,
+        2: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Excellent! Kamu berhasil menerapkan konsep dasar dalam situasi sederhana. Kemampuan aplikasimu berkembang baik! 🎯</span>`,
+        3: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Impressive! Kamu mampu menganalisis informasi dan memecahkan masalah tingkat menengah. Berpikir kritismu semakin tajam! 🔍</span>`,
+        4: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Outstanding! Kamu berhasil menguasai analisis mendalam dan evaluasi konsep. Kemampuan sintesis dan pemecahan masalah kompleks terasah! 💡</span>`,
+        5: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Remarkable! Kamu mencapai kemampuan evaluasi tinggi dan dapat membuat keputusan berdasar kriteria yang tepat! ⚡</span>`,
+        6: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Exceptional! Kamu telah menguasai kemampuan sintesis dan kreasi. Dapat menghubungkan berbagai konsep menjadi solusi inovatif! 🌟</span>`,
+        7: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">MASTERFUL! Pencapaian tertinggi dalam hierarki pembelajaran! Kamu mampu menciptakan, merancang, dan menghasilkan karya original! 👑</span>`
+      };
+      return messages[level] || `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Selamat atas pencapaianmu dalam struktur pembelajaran bertingkat! 🎉</span>`;
+    }
+
+    // Fungsi untuk analisis kekuatan berdasar struktur materi
+    function getStrengthAnalysis(accuracy, correct, level) {
+      if (accuracy >= 80) {
+        return `
+          <p class="mb-2" style="color: #198754;"><strong>🎯 Penguasaan Materi Excellent!</strong></p>
+          <p>Dengan ${accuracy}% ketepatan, kamu menunjukkan penguasaan struktural yang kuat:</p>
+          <ul class="small">
+            <li><strong>Pemahaman Konseptual:</strong> Materi dasar sudah dikuasai dengan solid</li>
+            <li><strong>Aplikasi Pengetahuan:</strong> Mampu menerapkan konsep pada berbagai konteks</li>
+            <li><strong>Analisis & Sintesis:</strong> Berpikir tingkat tinggi sudah berkembang baik</li>
+            <li><strong>Transfer Learning:</strong> Dapat menghubungkan antar konsep dengan tepat</li>
+          </ul>
+        `;
+      } else if (accuracy >= 60) {
+        return `
+          <p class="mb-2" style="color: #198754;"><strong>👍 Fondasi Materi Solid!</strong></p>
+          <p>Dengan ${accuracy}% ketepatan, kamu menunjukkan penguasaan yang baik pada:</p>
+          <ul class="small">
+            <li><strong>Konsep Fundamental:</strong> Dasar-dasar materi sudah terpahami</li>
+            <li><strong>Penerapan Sederhana:</strong> Mampu menggunakan rumus dan prosedur standar</li>
+            <li><strong>Pemecahan Masalah:</strong> Bisa menyelesaikan soal dengan pola familiar</li>
+            <li><strong>Koneksi Konsep:</strong> Mulai bisa menghubungkan antar topik</li>
+          </ul>
+        `;
+      } else {
+        return `
+          <p class="mb-2" style="color: #198754;"><strong>💪 Pondasi Awal Terbangun!</strong></p>
+          <p>Dari ${correct} jawaban benar, kamu menunjukkan kemajuan pada:</p>
+          <ul class="small">
+            <li><strong>Pengenalan Konsep:</strong> Mulai familiar dengan terminologi dan definisi</li>
+            <li><strong>Hafalan Dasar:</strong> Ingatan untuk fakta-fakta penting sudah mulai terbentuk</li>
+            <li><strong>Pemahaman Literal:</strong> Bisa memahami informasi langsung dari teks</li>
+            <li><strong>Potensi Berkembang:</strong> Foundation untuk pembelajaran lanjut sudah ada</li>
+          </ul>
+        `;
+      }
+    }
+
+    // Fungsi untuk analisis area pengembangan berdasar struktur materi
+    function getImprovementAnalysis(accuracy, incorrect, level) {
+      if (incorrect === 0) {
+        return `
+          <p class="mb-2" style="color: #dc3545;"><strong>🌟 Mastery Sempurna!</strong></p>
+          <p>Tidak ada kesalahan dalam struktur materi ini! Peluang pengembangan lanjut:</p>
+          <ul class="small">
+            <li><strong>Eksplorasi Mendalam:</strong> Pelajari aspek advanced dari topik yang sama</li>
+            <li><strong>Transfer Knowledge:</strong> Terapkan konsep ini ke bidang lain</li>
+            <li><strong>Peer Teaching:</strong> Bantu teman memahami struktur materi ini</li>
+            <li><strong>Higher Order Thinking:</strong> Coba soal-soal olimpiade atau kompetisi</li>
+          </ul>
+        `;
+      } else if (accuracy >= 70) {
+        return `
+          <p class="mb-2" style="color: #dc3545;"><strong>📈 Hampir Tuntas!</strong></p>
+          <p>${incorrect} area dalam struktur materi perlu diperkuat. Target pengembangan:</p>
+          <ul class="small">
+            <li><strong>Detail Procedural:</strong> Teliti lagi langkah-langkah penyelesaian</li>
+            <li><strong>Koneksi Konsep:</strong> Perkuat hubungan antar topik dalam materi</li>
+            <li><strong>Aplikasi Kontekstual:</strong> Latih penerapan dalam situasi berbeda</li>
+            <li><strong>Metacognition:</strong> Evaluasi strategi belajar yang digunakan</li>
+          </ul>
+        `;
+      } else {
+        return `
+          <p class="mb-2" style="color: #dc3545;"><strong>🚀 Struktur Learning Gap!</strong></p>
+          <p>${incorrect} area dalam hierarki materi perlu penguatan systematik:</p>
+          <ul class="small">
+            <li><strong>Prerequisite Skills:</strong> Pastikan konsep prasyarat sudah dikuasai</li>
+            <li><strong>Scaffolding Learning:</strong> Belajar bertahap dari level sederhana</li>
+            <li><strong>Conceptual Framework:</strong> Bangun kerangka berpikir yang terstruktur</li>
+            <li><strong>Practice & Reflection:</strong> Latihan terbimbing dengan feedback</li>
+          </ul>
+        `;
+      }
+    }
+
+    // Fungsi untuk pesan langkah selanjutnya
+    function getNextStepsMessage(accuracy, level, correct, incorrect) {
+      let message = '';
+      
+      if (accuracy >= 85) {
+        message = `
+          <div class="alert alert-success border-0 mb-3">
+            <h6><i class="bi bi-trophy-fill me-2"></i>Prestasi Luar Biasa!</h6>
+            <p class="mb-2">Kamu sudah menguasai materi ini dengan sangat baik! Saatnya melangkah ke tantangan berikutnya:</p>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card bg-light border-0">
+                <div class="card-body p-3">
+                  <h6 class="text-success">💡 Eksplorasi Lebih Dalam</h6>
+                  <ul class="small mb-0">
+                    <li>Cari materi pengayaan atau olimpiade</li>
+                    <li>Baca buku atau artikel terkait</li>
+                    <li>Ikuti kompetisi atau lomba</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card bg-light border-0">
+                <div class="card-body p-3">
+                  <h6 class="text-primary">🤝 Bantu Sesama</h6>
+                  <ul class="small mb-0">
+                    <li>Ajari teman yang kesulitan</li>
+                    <li>Buat catatan untuk dibagi</li>
+                    <li>Jadi tutor sebaya</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (accuracy >= 60) {
+        message = `
+          <div class="alert alert-info border-0 mb-3">
+            <h6><i class="bi bi-graph-up-arrow me-2"></i>Kamu Di Jalur yang Tepat!</h6>
+            <p class="mb-2">Performamu sudah cukup baik, tapi masih ada ruang untuk berkembang. Yuk tingkatkan lagi:</p>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card bg-light border-0">
+                <div class="card-body p-3">
+                  <h6 class="text-info">📚 Perkuat Pemahaman</h6>
+                  <ul class="small mb-0">
+                    <li>Review materi yang masih lemah</li>
+                    <li>Buat ringkasan atau mind map</li>
+                    <li>Diskusi dengan teman atau guru</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card bg-light border-0">
+                <div class="card-body p-3">
+                  <h6 class="text-warning">🎯 Latihan Terarah</h6>
+                  <ul class="small mb-0">
+                    <li>Fokus pada tipe soal yang salah</li>
+                    <li>Cari contoh soal serupa</li>
+                    <li>Latihan rutin sedikit demi sedikit</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        message = `
+          <div class="alert alert-warning border-0 mb-3">
+            <h6><i class="bi bi-heart-fill me-2"></i>Jangan Menyerah, Kamu Pasti Bisa!</h6>
+            <p class="mb-2">Setiap orang punya kecepatan belajar yang berbeda. Yang penting adalah terus berusaha. Mari kita buat rencana belajar yang fun:</p>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card bg-light border-0">
+                <div class="card-body p-3">
+                  <h6 class="text-success">🌱 Mulai dari Dasar</h6>
+                  <ul class="small mb-0">
+                    <li>Pahami konsep dasar dulu</li>
+                    <li>Belajar pelan-pelan tapi konsisten</li>
+                    <li>Gunakan cara belajar yang kamu suka</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card bg-light border-0">
+                <div class="card-body p-3">
+                  <h6 class="text-danger">❤️ Cari Dukungan</h6>
+                  <ul class="small mb-0">
+                    <li>Minta bantuan guru atau teman</li>
+                    <li>Gabung grup belajar</li>
+                    <li>Jangan malu bertanya</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Tambahkan motivasi penutup
+      message += `
+        <div class="mt-4 p-3 bg-gradient" style="background: linear-gradient(45deg, #e3f2fd, #f3e5f5); border-radius: 10px;">
+          <div class="text-center">
+            <h6 class="text-dark mb-2">💪 Ingat Selalu:</h6>
+            <p class="mb-0 text-dark"><em>"Setiap jawaban yang salah adalah langkah menuju jawaban yang benar. Terus belajar, terus berkembang, dan percaya pada kemampuanmu!"</em></p>
+          </div>
+        </div>
+      `;
+      
+      return message;
     }
 
     // Fungsi untuk setup tombol export (PDF dan Excel)
