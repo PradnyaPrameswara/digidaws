@@ -2,3 +2,8 @@
 python-version
 __pycache__/
 .python-version
+
+# Cloudflare sensitive files
+cloudflare/cert.pem
+cloudflare/*.json
+cloudflare/credentials.json

@@ -89,11 +89,20 @@ server {
 }
 ```
 
+## Cloudflare Tunnel (Production)
+Untuk deployment dengan Cloudflare Tunnel (mengatasi error 1033):
+```bash
+cd cloudflare
+sudo ./setup.sh
+# Ikuti instruksi manual untuk melengkapi konfigurasi
+```
+Lihat `cloudflare/README.md` untuk panduan lengkap.
+
 ## Keamanan & Best Practices
 - Jangan commit file .env ke repo publik.
 - Gunakan user DB non-root dengan hak minimal.
 - Pastikan SECRET_KEY unik & panjang.
-- Tambah HTTPS (Let's Encrypt) via Nginx.
+- Tambah HTTPS (Let's Encrypt) via Nginx atau Cloudflare Tunnel.
 - Rotasi log (sudah ada RotatingFileHandler + bisa tambah logrotate).
 
 ## Migrasi
