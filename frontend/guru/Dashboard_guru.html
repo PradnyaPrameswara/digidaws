@@ -46,34 +46,36 @@
             gap: 10px;
         }
 
-        /* Selector lebih spesifik untuk badge */
+        /* 5 Level Taksonomi Teknologi MST Adaptive */
         .badge.level-1, span.badge.level-1, .progress-bar.level-1 {
-            background-color: #198754 !important;
+            background-color: #1976d2 !important; /* Level 1: Awareness - Blue */
+            color: white !important;
         }
 
         .badge.level-2, span.badge.level-2, .progress-bar.level-2 {
-            background-color: #28a745 !important;
+            background-color: #7b1fa2 !important; /* Level 2: Literacy - Purple */
+            color: white !important;
         }
 
         .badge.level-3, span.badge.level-3, .progress-bar.level-3 {
-            background-color: #ffc107 !important;
+            background-color: #388e3c !important; /* Level 3: Capability - Green */
+            color: white !important;
         }
 
         .badge.level-4, span.badge.level-4, .progress-bar.level-4 {
-            background-color: #fd7e14 !important;
+            background-color: #f57c00 !important; /* Level 4: Creativity - Orange */
+            color: white !important;
         }
 
         .badge.level-5, span.badge.level-5, .progress-bar.level-5 {
-            background-color: #c35144 !important;
+            background-color: #d32f2f !important; /* Level 5: Criticism - Red */
+            color: white !important;
         }
 
-        .badge.level-6, span.badge.level-6, .progress-bar.level-6 {
-            background-color: #e74c3c !important;
-        }
-
-        .badge.level-7, span.badge.level-7, .progress-bar.level-7 {
-            background-color: #dc3545 !important;
-        }
+        /* Difficulty badges for MST */
+        .badge.difficulty-easy { background-color: #28a745 !important; color: white !important; }
+        .badge.difficulty-medium { background-color: #ffc107 !important; color: black !important; }
+        .badge.difficulty-hard { background-color: #dc3545 !important; color: white !important; }
 
         /* Navbar styles */
         .navbar {
@@ -82,6 +84,32 @@
 
         .navbar-brand {
             font-weight: bold;
+        }
+        .navbar-brand .brand-logo {
+            height: 28px;
+            width: auto;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        /* Non-clickable brand */
+        .navbar-brand-disabled {
+            pointer-events: none;
+            cursor: default;
+            text-decoration: none;
+            color: #fff !important;
+        }
+
+        /* Active link styling in navbar (white indicator) */
+        .navbar .nav-link {
+            color: rgba(255,255,255,0.85);
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .navbar .nav-link:hover,
+        .navbar .nav-link.active {
+            color: #fff !important;
+            background-color: rgba(255,255,255,0.12);
         }
 
         .user-info {
@@ -319,23 +347,88 @@
                 transform: translate3d(0, 40px, 0);
             }
         }
+        
+        /* Scroll-to-top floating button */
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: none;
+            z-index: 1050;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            padding: 0;
+        }
+        .scroll-top-btn.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .scroll-top-btn i {
+            font-size: 1.25rem;
+        }
+
+        /* Modern table styling for statistics */
+        .table-modern {
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .table-modern thead.table-light th {
+            background-color: #f8f9fa !important;
+            color: #212529 !important;
+            border-bottom: 1px solid #e9ecef !important;
+        }
+        .table-modern tbody tr:hover {
+            background-color: rgba(13,110,253,0.05);
+        }
+        .table-modern tbody tr {
+            border-top: 1px solid #e9ecef;
+        }
+        .table-modern tbody tr:first-child {
+            border-top: none;
+        }
+        .table-modern tfoot tr,
+        .table-modern tbody tr.table-primary {
+            border-top: 2px solid #cfe2ff;
+        }
+        .level-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        /* Helper column to fit 5 cards per row on large screens */
+        @media (min-width: 992px) {
+            .col-lg-20p { flex: 0 0 20%; max-width: 20%; }
+        }
     </style>
 </head>
 <body>
 
     <nav class="navbar navbar-expand-lg navbar-dark main-navbar">
         <div class="container">
-            <a class="navbar-brand" href="#" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIGIDAWS</a>
+            <span class="navbar-brand navbar-brand-disabled" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">
+                <img src="/img/logo_digidaws.png" alt="Logo DIGIDAWS" class="brand-logo">DIGIDAWS
+            </span>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="mainNavbar">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/guru" id="nav-dashboard">Dashboard</a>
+                        <a class="nav-link" href="/guru" id="nav-dashboard">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/guru/collections" id="nav-collections">Koleksi Soal</a>
+                        <a class="nav-link" href="/guru/collections" id="nav-collections">
+                            <i class="bi bi-journal-bookmark"></i> Koleksi Soal
+                        </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/guru/panduan" id="nav-guide">
@@ -357,18 +450,94 @@
 
 
     <div class="container mt-5">
-        <h2 class="text-center">Generate Soal Pilihan Ganda</h2>
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h1 class="mb-3"><i class="bi bi-diagram-3"></i> Pembuatan Soal Diagnostik Menggunakan AI</h1>
+                        <p class="text-muted">Unggah Modul Ajar, lalu sistem AI menghasilkan soal pilihan ganda berlabel Level (1–5) dan tingkat kesulitan (Easy/Medium/Hard) untuk asesmen diagnostik yang adaptif.</p>
+                        <div class="alert alert-primary">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Catatan:</strong> Penentuan jalur adaptif dilakukan saat pelaksanaan tes/latihan. Di halaman ini Anda mempersiapkan bank soal terverifikasi dan seimbang untuk dipakai pada asesmen tersebut.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MST System Overview for Teachers -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-shuffle"></i> Alur Sistem</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">Berikut alur pembuatan dan pengelolaan soal diagnostik berbantuan AI:</p>
+                        <ol>
+                            <li><strong>Unggah</strong> file Modul Ajar (doc/pdf).</li>
+                            <li><strong>AI mengekstrak</strong> materi inti dan kompetensi.</li>
+                            <li><strong>AI menghasilkan</strong> soal pilihan ganda berlabel <em>Level</em> (1–5) dan <em>Difficulty</em> (E/M/H).</li>
+                            <li><strong>Tinjau statistik</strong> distribusi level dan kesulitan.</li>
+                            <li><strong>Filter & review</strong> soal, lalu <strong>pilih</strong> yang valid.</li>
+                            <li><strong>Simpan</strong> ke <em>Collection</em> untuk dipakai pada asesmen/ujian.</li>
+                        </ol>
+                        <div class="alert alert-light">
+                            <small><i class="bi bi-info-circle"></i> Label level & kesulitan digunakan saat menyusun asesmen adaptif. Jalur adaptif ditentukan ketika tes dijalankan, bukan pada tahap pembuatan soal.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Penting untuk Guru</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">Sebagai kurator, mohon perhatikan hal berikut:</p>
+                        <ul>
+                            <li><strong>Akurasi label:</strong> Pastikan level (1–5) dan kesulitan (E/M/H) sesuai konten.</li>
+                            <li><strong>Kualitas isi:</strong> Bahasa jelas, tidak ambigu, opsi jawaban unik, distraktor bermutu.</li>
+                            <li><strong>Kesesuaian materi:</strong> Selaras dengan tujuan pembelajaran dan konteks siswa.</li>
+                            <li><strong>Persebaran seimbang:</strong> Tiap level idealnya memiliki variasi E/M/H.</li>
+                            <li><strong>Etika & orisinalitas:</strong> Hindari plagiarisme, sertakan penjelasan ringkas bila tersedia.</li>
+                        </ul>
+                        <div class="alert alert-light">
+                            <small><i class="bi bi-lightbulb"></i> AI membantu percepatan, namun keputusan akhir kelayakan soal tetap pada guru.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="card mt-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-robot"></i> Pembuatan Soal Diagnostik Berbasis AI</h4>
+            </div>
             <div class="card-body">
                 <form id="uploadForm" enctype="multipart/form-data">
                     <label for="fileInput" class="form-label">Pilih File (doc/pdf)</label>
                     <input type="file" id="fileInput" name="file" class="form-control mb-3" accept=".doc, .docx, .pdf" required>
-                    <div class="alert alert-info">
-                        <strong>Informasi:</strong> Sistem akan menghasilkan soal pilihan ganda berdasarkan konten dari file yang diunggah
+                    <div class="alert alert-success">
+                        <h6><i class="bi bi-robot"></i> Generate Soal MST dengan AI</h6>
+                        <p class="mb-2">Sistem AI akan menganalisis konten dan menghasilkan soal berdasarkan:</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="mb-0">
+                                    <li><strong>5 Level Taksonomi:</strong> Level 1 (Awareness) → Level 5 (Criticism)</li>
+                                    <li><strong>3 Tingkat Kesulitan:</strong> Easy, Medium, Hard</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="mb-0">
+                                    <li><strong>MST Compatibility:</strong> Sesuai alur percabangan</li>
+                                    <li><strong>Auto-labeling:</strong> Technology level + difficulty</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-file-earmark-arrow-up"></i> Upload & Generate Soal Pilihan Ganda
+                        <i class="bi bi-file-earmark-arrow-up"></i> Upload & Generate Soal MST Adaptive
                     </button>
                 </form>
 
@@ -378,7 +547,7 @@
 
         <div class="card mt-4">
             <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">Statistik Soal Taksonomi Teknologi</h4>
+                <h4 class="mb-0"><i class="bi bi-graph-up"></i> Statistik Soal - 5 Level Taksonomi Teknologi</h4>
             </div>
             <div class="card-body">
                 <div id="levelStatistics" class="mt-3">
@@ -390,12 +559,12 @@
                             <p>Memuat statistik level...</p>
                         </div>
                     </div>
-                    <table class="table table-striped mt-3">
-                        <thead class="table-dark">
+                    <table class="table table-hover align-middle table-modern mt-3">
+                        <thead class="table-light">
                             <tr>
-                                <th>Stage/Kotak <i class="bi bi-info-circle-fill ms-1" style="cursor: pointer;" id="levelInfoTableHead" title="Klik untuk melihat detail taksonomi"></i></th>
-                                <th>Jumlah Soal</th>
-                                <th>Probabilitas (p) Rata-rata</th>
+                                <th class="text-nowrap">Level Taksonomi Teknologi</th>
+                                <th class="text-center">Jumlah Soal</th>
+                                <th>Tingkat Kesulitan</th>
                             </tr>
                         </thead>
                         <tbody id="levelSummaryBody">
@@ -410,7 +579,7 @@
 
         <div class="card mt-4">
             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">Soal Pilihan Ganda yang Dihasilkan</h4>
+                <h4 class="mb-0"><i class="bi bi-collection"></i> Soal Dihasilkan Oleh AI</h4>
                 <span id="selectionCounter" class="badge bg-light text-dark">0 soal dipilih</span>
             </div>
             <div class="card-body">
@@ -427,35 +596,31 @@
 
                 <div class="row mb-4">
                     <div class="col-md-4">
-                        <label for="levelFilter" class="form-label">Filter berdasarkan level:</label>
+                        <label for="levelFilter" class="form-label">Filter Level Taksonomi:</label>
                         <select id="levelFilter" class="form-select">
-                            <option value="all">Semua level</option>
-                            <option value="1">level 1</option>
-                            <option value="2">level 2</option>
-                            <option value="3">level 3</option>
-                            <option value="4">level 4</option>
-                            <option value="5">level 5</option>
-                            <option value="6">level 6</option>
-                            <option value="7">level 7</option>
+                            <option value="all">Semua Level (1–5)</option>
+                            <option value="1">Level 1: Awareness</option>
+                            <option value="2">Level 2: Literacy</option>
+                            <option value="3">Level 3: Capability</option>
+                            <option value="4">Level 4: Creativity</option>
+                            <option value="5">Level 5: Criticism</option>
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label for="difficultyFilter" class="form-label">Filter berdasarkan Kesulitan:</label>
+                        <label for="difficultyFilter" class="form-label">Filter Tingkat Kesulitan MST:</label>
                         <select id="difficultyFilter" class="form-select">
-                            <option value="all">Semua Tingkat</option>
-                            <option value="very_easy">Sangat Mudah (0.91 < p ≤ 0.95)</option>
-                            <option value="easy">Mudah (0.81 < p ≤ 0.90)</option>
-                            <option value="medium">Sedang (0.21 < p ≤ 0.80)</option>
-                            <option value="hard">Sulit (p ≤ 0.20)</option>
+                            <option value="all">Semua Tingkat Kesulitan</option>
+                            <option value="easy">Easy - Untuk jalur bawah adaptif</option>
+                            <option value="medium">Medium - Untuk jalur tengah/start</option>
+                            <option value="hard">Hard - Untuk jalur atas adaptif</option>
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label for="collectionFilter" class="form-label">Status Collection:</label>
+                        <label for="collectionFilter" class="form-label">Status di Koleksi:</label>
                         <select id="collectionFilter" class="form-select">
-                            <option value="not_in_collection">Belum Dalam Collection</option>
                             <option value="all">Semua Soal</option>
-                            <option value="in_collection">Sudah Dalam Collection</option>
-
+                            <option value="not_in_collection">Belum dalam Koleksi</option>
+                            <option value="in_collection">Sudah dalam Koleksi</option>
                         </select>
                     </div>
                 </div>
@@ -487,97 +652,92 @@
         let selectionCounterElement = null;
         let questionsInCollection = []; // Move this declaration to the top with other variables
 
-        // Objek untuk menyimpan penjelasan setiap level - DIPERBARUI sesuai alur taksonomi teknologi terbaru
+        // 5 Level Taksonomi Teknologi untuk MST Adaptive System
         const levelExplanations = {
             1: {
-                title: "Stage I (Kotak 1): Kesadaran Teknologi",
-                competency: "Pemahaman definisi, istilah, dan identifikasi teknologi dasar",
-                bloom: "C1: Mengingat (Remembering)",
-                cognitive_process: "Mengingat dan mengenali terminologi teknologi",
-                example: "Definisi, istilah, identifikasi teknologi dasar",
-                sample_question: "Alat yang digunakan untuk menyimpan data berbasis internet adalah...",
+                title: "Level 1: Awareness (Kesadaran Teknologi)",
+                competency: "Mengenali/mengingat istilah, alat dasar teknologi",
+                bloom: "Mengingat (Remembering)",
+                cognitive_process: "Mengingat dan mengenali terminologi teknologi dasar",
+                example: "Definisi teknologi digital, mengenali perangkat IT dasar",
+                sample_question: "Apa yang dimaksud dengan teknologi digital?",
                 knowledge_type: "Knowledge That",
-                difficulty: "Sangat Mudah (p = 0.95)",
-                icon: "bi-lightbulb",
-                color: "#198754"
+                difficulty: "Medium (untuk starting point MST)",
+                icon: "bi-eye",
+                color: "#1976d2",
+                mst_usage: "Titik awal semua siswa - Level 1 Medium"
             },
             2: {
-                title: "Stage II (Kotak 2): Literasi Teknologi", 
-                competency: "Klasifikasi, hubungan antar teknologi, dan penjelasan fungsi",
-                bloom: "C2: Memahami (Understanding)",
-                cognitive_process: "Memahami hubungan dan klasifikasi teknologi",
-                example: "Klasifikasi, hubungan antar teknologi, penjelasan fungsi",
-                sample_question: "Manakah teknologi yang termasuk komunikasi sinkron?",
+                title: "Level 2: Literacy (Literasi Teknologi)", 
+                competency: "Menjelaskan fungsi, cara kerja sederhana teknologi",
+                bloom: "Memahami (Understanding)",
+                cognitive_process: "Memahami hubungan dan menjelaskan cara kerja teknologi",
+                example: "Menjelaskan cara kerja internet, fungsi aplikasi",
+                sample_question: "Bagaimana cara kerja dasar internet?",
                 knowledge_type: "Knowledge That",
-                difficulty: "Mudah (p = 0.90)",
+                difficulty: "Easy (jalur bawah) / Hard (jalur atas)",
                 icon: "bi-book",
-                color: "#28a745"
+                color: "#7b1fa2",
+                mst_usage: "Stage 2 - Percabangan pertama berdasarkan performa Level 1"
             },
             3: {
-                title: "Stage III (Kotak 3): Kemampuan Teknologi",
-                competency: "Aplikasi praktis, instruksi, dan puzzle urutan teknologi",
-                bloom: "C3: Menerapkan (Applying)", 
-                cognitive_process: "Menerapkan pengetahuan dalam situasi praktis",
-                example: "Aplikasi praktis, instruksi, puzzle urutan",
-                sample_question: "Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim",
-                knowledge_type: "Knowledge That + How",
-                difficulty: "Sedang (p = 0.75)",
+                title: "Level 3: Capability (Kemampuan Teknologi)",
+                competency: "Menggunakan fitur dasar untuk tugas rutin",
+                bloom: "Menerapkan (Applying)", 
+                cognitive_process: "Menerapkan teknologi dalam tugas praktis sehari-hari",
+                example: "Menggunakan spreadsheet, membuat presentasi digital",
+                sample_question: "Untuk membuat presentasi digital yang menarik, fitur apa yang paling penting?",
+                knowledge_type: "Knowledge How",
+                difficulty: "Medium (jalur tengah) / Hard (jalur atas)",
                 icon: "bi-gear",
-                color: "#ffc107"
+                color: "#388e3c",
+                mst_usage: "Stage 3 - Mengukur kemampuan praktis teknologi"
             },
             4: {
-                title: "Stage III (Kotak 4): Kreativitas Teknologi Dasar",
-                competency: "Modifikasi, debugging, dan analisis error sederhana",
-                bloom: "C4: Menganalisis (Analyzing)",
-                cognitive_process: "Menganalisis dan memecahkan masalah teknologi",
-                example: "Modifikasi, debugging, analisis error sederhana",
-                sample_question: "Program gagal menyimpan skor. Apa perbaikan yang tepat?",
-                knowledge_type: "Knowledge That + How",
-                difficulty: "Sedang-Sulit (p = 0.67)",
-                icon: "bi-tools",
-                color: "#fd7e14"
+                title: "Level 4: Creativity (Kreativitas Teknologi)",
+                competency: "Merancang/membuat solusi/produk baru sederhana",
+                bloom: "Menganalisis + Mencipta",
+                cognitive_process: "Merancang solusi kreatif menggunakan teknologi",
+                example: "Membuat aplikasi sederhana, merancang website untuk bisnis",
+                sample_question: "Jika ingin membuat aplikasi sederhana untuk mencatat pengeluaran harian, pendekatan mana yang paling praktis?",
+                knowledge_type: "Knowledge How + Why",
+                difficulty: "Easy/Medium/Hard (semua jalur adaptif)",
+                icon: "bi-lightbulb",
+                color: "#f57c00",
+                mst_usage: "Stage 4 - Kreativitas dengan titik henti kedua di Easy"
             },
             5: {
-                title: "Stage IV (Kotak 5): Kemampuan Teknologi Lanjutan",
-                competency: "Aplikasi lanjutan dan puzzle assembly terbimbing",
-                bloom: "C3: Menerapkan (Applying) - Lanjut",
-                cognitive_process: "Menerapkan teknologi pada situasi kompleks",
-                example: "Aplikasi lanjutan, puzzle assembly terbimbing",
-                sample_question: "Integrasikan database dengan antarmuka untuk sistem inventori",
-                knowledge_type: "Knowledge That + How",
-                difficulty: "Sedang (p = 0.75)",
-                icon: "bi-cpu-fill",
-                color: "#c35144"
-            },
-            6: {
-                title: "Stage IV (Kotak 6): Kritik Teknologi", 
-                competency: "Evaluasi trade-off, menilai solusi, dan kritik teknologi",
-                bloom: "C5: Mengevaluasi (Evaluating)",
-                cognitive_process: "Mengevaluasi dan mengkritik solusi teknologi",
-                example: "Evaluasi trade-off, menilai solusi, kritik teknologi",
-                sample_question: "Bandingkan cloud storage vs local storage. Faktor utama yang dipertimbangkan adalah...",
-                knowledge_type: "Knowledge That + How + Why",
-                difficulty: "Sulit (p = 0.20)",
-                icon: "bi-clipboard-check",
-                color: "#e74c3c"
-            },
-            7: {
-                title: "Stage IV (Kotak 7): Kreativitas + Kritik Teknologi",
-                competency: "Merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi",
-                bloom: "C6: Mencipta (Creating) + C5: Evaluating",
-                cognitive_process: "Menciptakan dan mengevaluasi solusi teknologi kompleks",
-                example: "Merancang solusi baru, integrasi multi-konsep, optimalisasi",
-                sample_question: "Rancang sistem absen otomatis dengan sensor & database. Komponen wajib yang digunakan adalah...",
-                knowledge_type: "Knowledge That + How + Why",
-                difficulty: "Sangat Sulit (p = 0.17)",
-                icon: "bi-award",
-                color: "#dc3545"
+                title: "Level 5: Criticism (Evaluasi Kritis Teknologi)",
+                competency: "Mengevaluasi dampak, efektivitas, memberi justifikasi",
+                bloom: "Mengevaluasi (Evaluating)",
+                cognitive_process: "Mengevaluasi dan mengkritik dampak teknologi secara mendalam",
+                example: "Menilai efektivitas implementasi AI, evaluasi bias algoritma",
+                sample_question: "Dalam konteks etika AI, mengapa bias dalam algoritma menjadi masalah serius?",
+                knowledge_type: "Knowledge How + Why",
+                difficulty: "Easy/Medium/Hard (tingkat akhir berdasarkan jalur)",
+                icon: "bi-search",
+                color: "#d32f2f",
+                mst_usage: "Stage 5 - Final evaluation untuk diagnosis akhir"
             }
         };
 
         document.addEventListener("DOMContentLoaded", async function() {
             try {
                 console.log("Halaman dimuat, mengambil data soal...");
+
+                // Set active nav based on current path
+                const path = window.location.pathname || '';
+                const navDashboard = document.getElementById('nav-dashboard');
+                const navCollections = document.getElementById('nav-collections');
+                const navGuide = document.getElementById('nav-guide');
+                [navDashboard, navCollections, navGuide].forEach(el => el && el.classList.remove('active'));
+                if (path === '/guru' || path === '/guru/') {
+                    navDashboard && navDashboard.classList.add('active');
+                } else if (path.startsWith('/guru/collections')) {
+                    navCollections && navCollections.classList.add('active');
+                } else if (path.startsWith('/guru/panduan')) {
+                    navGuide && navGuide.classList.add('active');
+                }
                 
                 // First load questions in collection
                 await loadQuestionsInCollection();
@@ -590,10 +750,17 @@
                 
                 initializeQuestionSelection();
 
-                // Setup event listener untuk pop-up info level pada tabel header
-                document.getElementById('levelInfoTableHead').addEventListener('click', () => {
-                    showLevelExplanationPopup('all'); // Menampilkan semua penjelasan level
-                });
+                // Initialize difficulty options then render with current filters (also updates stats)
+                try { updateDifficultyFilterOptions(); } catch (e) { console.warn('Initial updateDifficultyFilterOptions error:', e); }
+                try { filterAndDisplayQuestions(); } catch (e) { console.warn('Initial filterAndDisplayQuestions error:', e); }
+
+                // Setup event listener untuk pop-up info level pada tabel header (ikon header dihapus)
+                const infoHead = document.getElementById('levelInfoTableHead');
+                if (infoHead) {
+                    infoHead.addEventListener('click', () => {
+                        showLevelExplanationPopup('all');
+                    });
+                }
 
                 // Setup event listener untuk ikon info di setiap baris level tabel
                 document.getElementById('levelSummaryBody').addEventListener('click', (event) => {
@@ -642,7 +809,7 @@
                                             <small class="text-muted">${info.bloom} | ${info.knowledge_type}</small>
                                         </div>
                                         <div class="text-end">
-                                            <span class="badge" style="background-color: ${info.color};">L${i}</span>
+                                            <span class="badge" style="background-color: ${info.color};">Level ${i}</span>
                                         </div>
                                     </div>
                                     
@@ -669,7 +836,7 @@
                             • Stage I-II: Pemahaman dasar teknologi (Knowledge That)<br>
                             • Stage III: Aplikasi praktis (Knowledge That + How)<br>
                             • Stage IV: Evaluasi & kreativitas tinggi (Knowledge That + How + Why)<br>
-                            • Probabilitas (p) menunjukkan tingkat kesulitan soal (0.95 = sangat mudah, 0.17 = sangat sulit)</small>
+                            • Tingkat kesulitan menggunakan Easy/Medium/Hard untuk mendukung alur adaptif MST</small>
                         </div>
                     </div>
                 `;
@@ -806,7 +973,7 @@
                     attempt++;
                     console.log(`Mengambil data soal (percobaan ${attempt})...`);
                     const timestamp = new Date().getTime();
-                    const fetchUrl = `/get_questions?show_all=true&debug=true&t=${timestamp}`;
+                    const fetchUrl = `${window.location.origin}/get_questions?show_all=true&debug=true&t=${timestamp}`;
                     console.log(`Fetching URL: ${fetchUrl}`);
 
                     const response = await fetch(fetchUrl);
@@ -900,7 +1067,7 @@
                     Memeriksa database...
                 </div>`;
 
-            fetch('/api/db_check?t=' + new Date().getTime())
+            fetch(`${window.location.origin}/api/db_check?t=` + new Date().getTime())
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -932,6 +1099,7 @@
         }
 
         document.getElementById("levelFilter").addEventListener("change", function() {
+            try { updateDifficultyFilterOptions(); } catch (e) { console.warn('updateDifficultyFilterOptions error:', e); }
             filterAndDisplayQuestions();
         });
 
@@ -962,15 +1130,11 @@
             console.log(`Setelah filter level: ${filteredQuestions.length} soal`);
 
             if (selectedDifficulty !== "all") {
-                if (selectedDifficulty === "very_easy") {
-                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) > 0.90 && parseFloat(q.p) <= 0.95);
-                } else if (selectedDifficulty === "easy") {
-                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) <= 0.90 && parseFloat(q.p) > 0.80);
-                } else if (selectedDifficulty === "medium") {
-                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) <= 0.80 && parseFloat(q.p) > 0.20);
-                } else if (selectedDifficulty === "hard") {
-                    filteredQuestions = filteredQuestions.filter(q => parseFloat(q.p) <= 0.20);
-                }
+                filteredQuestions = filteredQuestions.filter(q => {
+                    // Get difficulty from q.difficulty or convert from p value
+                    const difficulty = q.difficulty || (q.p >= 0.75 ? 'Easy' : q.p >= 0.45 ? 'Medium' : 'Hard');
+                    return difficulty.toLowerCase() === selectedDifficulty.toLowerCase();
+                });
             }
             if (selectedCollectionStatus !== "all") {
                 if (selectedCollectionStatus === "in_collection") {
@@ -1121,7 +1285,7 @@
                 iconElement.style.fontSize = "0.9rem";
                 
                 const textElement = document.createElement("span");
-                textElement.textContent = `L${q.level}`;
+                textElement.textContent = `Level ${q.level}`;
                 
                 badgeContent.appendChild(iconElement);
                 badgeContent.appendChild(textElement);
@@ -1134,12 +1298,14 @@
                     showLevelExplanationPopup(q.level);
                 });
                 
-                const pBadge = document.createElement("span");
-                pBadge.className = "badge bg-secondary";
-                pBadge.textContent = `p: ${q.p}`;
+                const difficultyBadge = document.createElement("span");
+                // Use difficulty if available, otherwise convert p value to difficulty
+                const difficulty = q.difficulty || (q.p >= 0.75 ? 'Easy' : q.p >= 0.45 ? 'Medium' : 'Hard');
+                difficultyBadge.className = `badge difficulty-${difficulty.toLowerCase()}`;
+                difficultyBadge.textContent = difficulty;
                 
                 questionInfo.appendChild(levelBadge);
-                questionInfo.appendChild(pBadge);
+                questionInfo.appendChild(difficultyBadge);
                 
                 if (questionsInCollection.includes(q.id)) {
                     const collectionBadge = document.createElement("span");
@@ -1177,7 +1343,7 @@
 
                     if (result.isConfirmed) {
                         try {
-                            const response = await fetch(`/api/questions/${questionId}`, {
+                            const response = await fetch(`${window.location.origin}/api/questions/${questionId}`, {
                                 method: 'DELETE',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -1269,30 +1435,154 @@
 
             // Don't need setupCheckboxHandlers and setupDeleteHandlers anymore since we added listeners directly
             updateSelectedCount();
+
+            // Keep the level statistics in sync with the current filtered dataset (real-time)
+            try { updatelevelStatistics(getFilteredQuestions(true) || []); } catch (e) { console.warn('updatelevelStatistics error:', e); }
+        }
+
+        // Helper: derive difficulty label from question (q.difficulty or fallback from q.p)
+        function getDifficultyLabel(q) {
+            const d = (q && q.difficulty) ? String(q.difficulty).trim() : '';
+            if (d) {
+                const dl = d.toLowerCase();
+                if (dl === 'easy' || dl === 'e') return 'Easy';
+                if (dl === 'medium' || dl === 'm') return 'Medium';
+                if (dl === 'hard' || dl === 'h') return 'Hard';
+            }
+            const p = typeof q.p === 'number' ? q.p : parseFloat(q.p);
+            if (!isNaN(p)) {
+                if (p >= 0.75) return 'Easy';
+                if (p >= 0.45) return 'Medium';
+                return 'Hard';
+            }
+            return 'Medium';
+        }
+
+        // Compute the base set for difficulty options: respects level and collection filters, but not difficulty
+        function getBaseQuestionsForDifficulty() {
+            const selectedLevel = document.getElementById('levelFilter')?.value || 'all';
+            const selectedCollectionStatus = document.getElementById('collectionFilter')?.value || 'all';
+
+            let base = Array.isArray(allGeneratedQuestions) ? [...allGeneratedQuestions] : [];
+
+            if (selectedLevel !== 'all') {
+                base = base.filter(q => String(q.level) === String(selectedLevel));
+            }
+
+            if (selectedCollectionStatus !== 'all') {
+                if (selectedCollectionStatus === 'in_collection') {
+                    base = base.filter(q => Array.isArray(questionsInCollection) && questionsInCollection.includes(q.id));
+                } else if (selectedCollectionStatus === 'not_in_collection') {
+                    base = base.filter(q => !Array.isArray(questionsInCollection) || !questionsInCollection.includes(q.id));
+                }
+            }
+
+            return base;
+        }
+
+        // Update the Difficulty filter options based on currently available questions (real-time)
+        function updateDifficultyFilterOptions() {
+            const select = document.getElementById('difficultyFilter');
+            if (!select) return;
+
+            const baseQuestions = getBaseQuestionsForDifficulty();
+
+            // Count difficulties
+            const counts = { Easy: 0, Medium: 0, Hard: 0 };
+            baseQuestions.forEach(q => {
+                counts[getDifficultyLabel(q)]++;
+            });
+
+            const total = baseQuestions.length;
+            const prevValue = select.value;
+
+            // Build options dynamically (only include difficulties that exist)
+            const options = [];
+            options.push({ value: 'all', label: `Semua (${total})`, disabled: false });
+            ['Easy','Medium','Hard'].forEach(k => {
+                const c = counts[k] || 0;
+                options.push({ value: k.toLowerCase(), label: `${k} (${c})`, disabled: c === 0 });
+            });
+
+            // Replace options
+            select.innerHTML = '';
+            options.forEach(opt => {
+                const o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                if (opt.disabled) o.disabled = true;
+                select.appendChild(o);
+            });
+
+            // Preserve previous selection if still valid; otherwise fallback to 'all'
+            const values = options.map(o => o.value);
+            if (values.includes(prevValue)) {
+                select.value = prevValue;
+            } else {
+                select.value = 'all';
+            }
+        }
+
+        // Get the list of questions matching current Level, Difficulty, and Collection filters
+        function getFilteredQuestions(includeDifficulty = true) {
+            const selectedLevel = document.getElementById('levelFilter')?.value || 'all';
+            const selectedDifficulty = document.getElementById('difficultyFilter')?.value || 'all';
+            const selectedCollectionStatus = document.getElementById('collectionFilter')?.value || 'all';
+
+            let items = Array.isArray(allGeneratedQuestions) ? [...allGeneratedQuestions] : [];
+
+            if (selectedLevel !== 'all') {
+                items = items.filter(q => String(q.level) === String(selectedLevel));
+            }
+
+            if (includeDifficulty && selectedDifficulty !== 'all') {
+                items = items.filter(q => getDifficultyLabel(q).toLowerCase() === selectedDifficulty.toLowerCase());
+            }
+
+            if (selectedCollectionStatus !== 'all') {
+                if (selectedCollectionStatus === 'in_collection') {
+                    items = items.filter(q => Array.isArray(questionsInCollection) && questionsInCollection.includes(q.id));
+                } else if (selectedCollectionStatus === 'not_in_collection') {
+                    items = items.filter(q => !Array.isArray(questionsInCollection) || !questionsInCollection.includes(q.id));
+                }
+            }
+
+            return items;
         }
 
         function updatelevelStatistics(questions) {
             const levelCounts = {};
-            const levelDifficulties = {};
+            const levelDifficultyDistribution = {};
 
-            for (let i = 1; i <= 7; i++) {
+            // Initialize for 5 levels only (MST system)
+            for (let i = 1; i <= 5; i++) {
                 levelCounts[i] = 0;
-                levelDifficulties[i] = [];
+                levelDifficultyDistribution[i] = {Easy: 0, Medium: 0, Hard: 0};
             }
 
             questions.forEach(q => {
                 const level = parseInt(q.level);
-                if (levelCounts[level] !== undefined) {
+                if (level >= 1 && level <= 5) {
                     levelCounts[level]++;
-                    levelDifficulties[level].push(parseFloat(q.p));
+                    // Get difficulty from q.difficulty or convert from p value
+                    const difficulty = q.difficulty || (q.p >= 0.75 ? 'Easy' : q.p >= 0.45 ? 'Medium' : 'Hard');
+                    levelDifficultyDistribution[level][difficulty]++;
                 }
             });
 
-            const levelAvgDifficulties = {};
-            for (let level in levelDifficulties) {
-                const difficulties = levelDifficulties[level];
-                levelAvgDifficulties[level] = difficulties.length > 0 ?
-                    difficulties.reduce((sum, p) => sum + p, 0) / difficulties.length : 0;
+            const levelDifficultyText = {};
+            for (let level in levelDifficultyDistribution) {
+                const dist = levelDifficultyDistribution[level];
+                const total = dist.Easy + dist.Medium + dist.Hard;
+                if (total > 0) {
+                    const parts = [];
+                    if (dist.Easy > 0) parts.push(`E:${dist.Easy}`);
+                    if (dist.Medium > 0) parts.push(`M:${dist.Medium}`);
+                    if (dist.Hard > 0) parts.push(`H:${dist.Hard}`);
+                    levelDifficultyText[level] = parts.length > 0 ? parts.join(', ') : '-';
+                } else {
+                    levelDifficultyText[level] = '-';
+                }
             }
 
             const tbody = document.getElementById("levelSummaryBody");
@@ -1301,41 +1591,44 @@
             const levelStatCharts = document.getElementById("levelStatCharts");
             levelStatCharts.innerHTML = '';
 
-            Object.keys(levelCounts).forEach(level => {
+            // Only create charts for MST levels 1-5
+            for (let level = 1; level <= 5; level++) {
                 const tr = document.createElement("tr");
                 // Gunakan levelExplanations untuk display yang konsisten
                 let levelDisplay;
                 if (level !== 'Total') {
                     const levelInfo = levelExplanations[level];
-                    const levelIcon = levelInfo ? levelInfo.icon : 'bi-question-circle';
                     const levelColor = levelInfo ? levelInfo.color : '#6c757d';
-                    const levelTitle = levelInfo ? levelInfo.title : `Level ${level}`;
                     
                     levelDisplay = `
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div class="d-flex align-items-center">
-                                <i class="${levelIcon} me-2" style="color: ${levelColor};"></i>
-                                <span class="level-table-text">L${level}</span>
-                            </div>
-                            <i class="bi bi-info-circle-fill level-info-icon" 
-                               data-level="${level}" 
-                               style="cursor: pointer; color: ${levelColor}; opacity: 0.7;" 
-                               title="Klik untuk detail ${levelTitle}"></i>
+                        <div class="d-flex align-items-center">
+                            <span class="level-dot" style="background-color: ${levelColor};"></span>
+                            <span class="level-table-text">Level ${level}</span>
                         </div>
                     `;
                 } else {
                     levelDisplay = `<strong><i class="bi bi-bar-chart me-2"></i>Total</strong>`;
                 }
 
-                tr.innerHTML = `
-                    <td>${levelDisplay}</td>
-                    <td>${levelCounts[level]}</td>
-                    <td>${levelAvgDifficulties[level].toFixed(2)}</td>
-                `;
-                tbody.appendChild(tr);
+                // Only show data for levels that exist in 5-level MST system
+                if (level >= 1 && level <= 5) {
+                    const dist = levelDifficultyDistribution[level];
+                    const diffHtml = (dist.Easy + dist.Medium + dist.Hard) > 0 ? `
+                        ${dist.Easy > 0 ? `<span class="badge difficulty-easy me-1">E:${dist.Easy}</span>` : ''}
+                        ${dist.Medium > 0 ? `<span class="badge difficulty-medium me-1">M:${dist.Medium}</span>` : ''}
+                        ${dist.Hard > 0 ? `<span class="badge difficulty-hard">H:${dist.Hard}</span>` : ''}
+                    ` : '<small class="text-muted">-</small>';
+
+                    tr.innerHTML = `
+                        <td class="text-nowrap">${levelDisplay}</td>
+                        <td class="text-center fw-semibold">${levelCounts[level]}</td>
+                        <td>${diffHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
 
                 const chartCol = document.createElement("div");
-                chartCol.className = "col-md-3 mb-3";
+                chartCol.className = "col-6 col-sm-4 col-md-3 col-lg-20p mb-3";
 
                 // Gunakan levelExplanations untuk chart yang konsisten
                 const levelInfo = levelExplanations[level];
@@ -1387,18 +1680,30 @@
                 });
 
                 levelStatCharts.appendChild(chartCol);
-            });
+            }
 
+            // Add total row
             const totalRow = document.createElement("tr");
             totalRow.className = "table-primary";
             const total = Object.values(levelCounts).reduce((sum, count) => sum + count, 0);
-            const avgDifficulty = total > 0 ?
-                Object.values(levelAvgDifficulties).reduce((sum, diff) => sum + diff, 0) / 7 : 0;
-
+            
+            // Calculate total difficulty distribution
+            let totalEasy = 0, totalMedium = 0, totalHard = 0;
+            Object.values(levelDifficultyDistribution).forEach(dist => {
+                totalEasy += dist.Easy;
+                totalMedium += dist.Medium;
+                totalHard += dist.Hard;
+            });
+            const totalDiffHtml = `
+                ${totalEasy > 0 ? `<span class="badge difficulty-easy me-1">E:${totalEasy}</span>` : ''}
+                ${totalMedium > 0 ? `<span class="badge difficulty-medium me-1">M:${totalMedium}</span>` : ''}
+                ${totalHard > 0 ? `<span class="badge difficulty-hard">H:${totalHard}</span>` : ''}
+            `;
+            
             totalRow.innerHTML = `
-                <td><strong>Total</strong></td>
-                <td><strong>${total}</strong></td>
-                <td><strong>${avgDifficulty.toFixed(2)}</strong></td>
+                <td class="text-nowrap"><strong><i class="bi bi-bar-chart me-2"></i>Total</strong></td>
+                <td class="text-center fw-semibold"><strong>${total}</strong></td>
+                <td>${totalDiffHtml || '<small class="text-muted">-</small>'}</td>
             `;
             tbody.appendChild(totalRow);
         }
@@ -1605,7 +1910,7 @@
                 }
                 
                 window.progressTracker = new ProgressTracker(userId, null, {
-                    maxRetries: 15,      // Lebih banyak retry untuk VPS
+                    maxRetries: 15,     // Lebih banyak retry untuk VPS
                     pollIntervalMs: 1000, // Poll setiap 1 detik (tidak terlalu agresif)
                     timeoutMs: 120000     // Timeout 2 menit untuk proses AI
                 });
@@ -1643,7 +1948,7 @@
                     window.progressTracker.startPolling();
                 }, 1000); // Delay 1 detik
                 
-                let response = await fetch("/upload", {
+                let response = await fetch(`${window.location.origin}/upload`, {
                     method: "POST",
                     body: formData
                 });
@@ -1751,100 +2056,74 @@
                             Memeriksa database secara langsung...
                         </div>
                     `;
-                console.log("Memanggil endpoint /api/check_questions_count");
+                    console.log("Memanggil endpoint /api/check_questions_count");
 
-                const timestamp = new Date().getTime();
-                const response = await fetch(`/api/check_questions_count?t=${timestamp}`);
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error(`Server returned error: ${response.status}`, errorText);
-                    throw new Error(`Server error: ${response.status}`);
-                }
-
-                const responseText = await response.text();
-                console.log("Raw response:", responseText);
-
-                let result;
-                try {
-                    result = JSON.parse(responseText);
-                } catch (e) {
-                    console.error("Failed to parse JSON:", e);
-                    throw new Error("Invalid JSON response from server");
-                }
-
-                if (result.success) {
-                    statusMessage.innerHTML = `
-                        <div class='alert alert-success'>
-                            <h5>Hasil Pemeriksaan Database:</h5>
-                            <ul>
-                                <li>Total soal: ${result.totalQuestions}</li>
-                                <li>Soal per level: ${JSON.stringify(result.levelDistribution)}</li>
-                            </ul>
-                            <button class="btn btn-sm btn-primary mt-2" id="refreshQuestionsBtn">Reload Soal dari Database</button>
-                        </div>
-                    `;
-
-                    document.getElementById("refreshQuestionsBtn").addEventListener("click", function() {
-                        fetchQuestions(1);
-                    });
-                } else {
-                    statusMessage.innerHTML = "<div class='alert alert-danger'>" + result.message + "</div>";
-                }
-            } catch (error) {
-                document.getElementById("statusMessage").innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
-                console.error("Check database error:", error);
-            }
-        });
-        }
-
-        // Event listener for reset database button if it exists
-        const resetDbButton = document.getElementById("resetDbButton");
-        if (resetDbButton) {
-            resetDbButton.addEventListener("click", async function() {
-            if (confirm("Apakah Anda yakin ingin menghapus semua soal dan jawaban pengguna?")) {
-                try {
-                    const resetMessage = document.getElementById("resetMessage");
-                    resetMessage.innerHTML = `
-                        <div class='alert alert-info'>
-                            <div class="spinner-container">
-                                <div class="spinner-border spinner-border-sm" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                            Sedang menghapus data...
-                        </div>
-                    `;
-
-                    const response = await fetch("/reset_database", {
-                        method: "POST"
-                    });
+                    const timestamp = new Date().getTime();
+                    const response = await fetch(`${window.location.origin}/api/check_questions_count?t=${timestamp}`);
 
                     if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`Server returned error: ${response.status}`, errorText);
                         throw new Error(`Server error: ${response.status}`);
                     }
 
-                    const result = await response.json();
+                    const responseText = await response.text();
+                    console.log("Raw response:", responseText);
+
+                    let result;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        console.error("Failed to parse JSON:", e);
+                        throw new Error("Invalid JSON response from server");
+                    }
 
                     if (result.success) {
-                        resetMessage.innerHTML = "<div class='alert alert-success'>" + result.message + "</div>";
-                        allGeneratedQuestions = [];
-                        document.getElementById("questionList").innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
-                        document.getElementById("levelSummaryBody").innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
-                        document.getElementById("levelStatCharts").innerHTML = "";
-                        document.getElementById("statusMessage").innerHTML = "";
+                        statusMessage.innerHTML = `
+                            <div class='alert alert-success'>
+                                <h5>Hasil Pemeriksaan Database:</h5>
+                                <ul>
+                                    <li>Total soal: ${result.totalQuestions}</li>
+                                    <li>Soal per level: ${JSON.stringify(result.levelDistribution)}</li>
+                                </ul>
+                                <button class="btn btn-sm btn-primary mt-2" id="refreshQuestionsBtn">Reload Soal dari Database</button>
+                            </div>
+                        `;
 
-                        selectedQuestions = [];
-                        updateSelectedCount();
-                    } else {
-                        resetMessage.innerHTML = "<div class='alert alert-danger'>" + result.message + "</div>";
+                        const resetResponse = await fetch(`${window.location.origin}/reset_database`, {
+                            method: "POST"
+                        });
+
+                        if (!resetResponse.ok) {
+                            throw new Error(`Server error: ${resetResponse.status}`);
+                        }
+
+                        const resetResult = await resetResponse.json();
+
+                        const resetMessageEl = document.getElementById("resetMessage") || document.getElementById("statusMessage");
+
+                        if (resetResult.success) {
+                            if (resetMessageEl) resetMessageEl.innerHTML = "<div class='alert alert-success'>" + resetResult.message + "</div>";
+                            allGeneratedQuestions = [];
+                            document.getElementById("questionList").innerHTML = "<div class='alert alert-warning'>Tidak ada soal yang dibuat</div>";
+                            document.getElementById("levelSummaryBody").innerHTML = "<tr><td colspan='3' class='text-center'>Tidak ada data</td></tr>";
+                            document.getElementById("levelStatCharts").innerHTML = "";
+                            document.getElementById("statusMessage").innerHTML = "";
+
+                            selectedQuestions = [];
+                            updateSelectedCount();
+                        } else {
+                            if (resetMessageEl) resetMessageEl.innerHTML = "<div class='alert alert-danger'>" + (resetResult.message || 'Gagal mereset database') + "</div>";
+                        }
                     }
                 } catch (error) {
-                    document.getElementById("resetMessage").innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
+                    const resetMessageEl = document.getElementById("resetMessage") || document.getElementById("statusMessage");
+                    if (resetMessageEl) {
+                        resetMessageEl.innerHTML = "<div class='alert alert-danger'>Terjadi kesalahan: " + error.message + "</div>";
+                    }
                     console.error("Reset error:", error);
                 }
-            }
-        });
+            });
         }
 
         function setupCheckboxHandlers() {
@@ -1927,7 +2206,7 @@
 
                     if (result.isConfirmed) {
                         try {
-                            const response = await fetch(`/api/questions/${questionId}`, {
+                            const response = await fetch(`${window.location.origin}/api/questions/${questionId}`, {
                                 method: 'DELETE',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -2361,7 +2640,7 @@
 
         async function loadQuestionsInCollection() {
             try {
-                const response = await fetch('/api/questions/in_collection');
+                const response = await fetch(`${window.location.origin}/api/questions/in_collection`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -2376,6 +2655,7 @@
         }
 
         document.getElementById("collectionFilter").addEventListener("change", function() {
+            try { updateDifficultyFilterOptions(); } catch (e) { console.warn('updateDifficultyFilterOptions error:', e); }
             filterAndDisplayQuestions();
         });
 
@@ -2386,7 +2666,7 @@
 
                 select.innerHTML = '<option value="">Memuat koleksi...</option>';
 
-                const response = await fetch('/api/collections');
+                const response = await fetch(`${window.location.origin}/api/collections`);
                 const data = await response.json();
 
                 if (data.success && data.collections.length > 0) {
@@ -2438,7 +2718,7 @@
                     question_ids: questionIds
                 });
 
-                const response = await fetch('/api/collections', {
+                const response = await fetch(`${window.location.origin}/api/collections`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2515,7 +2795,7 @@
                     question_ids: questionIds
                 });
 
-                const response = await fetch(`/api/collections/${collectionId}/questions`, {
+                const response = await fetch(`${window.location.origin}/api/collections/${collectionId}/questions`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2529,12 +2809,12 @@
 
                 if (!response.ok) {
                     let errorMessage = `Error ${response.status}: ${response.statusText}`;
-                    try {
+                    try { // <-- Blok 'try' yang hilang telah ditambahkan
                         const errorData = await response.json();
                         if (errorData && errorData.message) {
                             errorMessage = errorData.message;
                         }
-                    } catch (parseError) {
+                    } catch (parseError) { // <-- 'catch' ini sekarang valid
                         console.error('Error parsing error response:', parseError);
                     }
                     throw new Error(errorMessage);
@@ -2673,7 +2953,7 @@
                 if (!this.isActive) return;
 
                 try {
-                    const response = await fetch(`/api/progress/${this.userId}`, {
+                    const response = await fetch(`${window.location.origin}/api/progress/${this.userId}`, {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -2738,7 +3018,7 @@
 
             async cleanup() {
                 try {
-                    await fetch(`/api/progress/stop/${this.userId}`, {
+                    await fetch(`${window.location.origin}/api/progress/stop/${this.userId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -2751,6 +3031,50 @@
 
         // Make ProgressTracker globally available
         window.ProgressTracker = ProgressTracker;
+
+        // Scroll-to-top button behavior
+        document.addEventListener('DOMContentLoaded', function() {
+            const scrollBtn = document.getElementById('scrollTopBtn');
+            if (!scrollBtn) return;
+
+            const toggleVisibility = () => {
+                if (window.scrollY > 600) {
+                    scrollBtn.classList.add('show');
+                } else {
+                    scrollBtn.classList.remove('show');
+                }
+            };
+
+            window.addEventListener('scroll', toggleVisibility, { passive: true });
+            toggleVisibility();
+
+            scrollBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
     </script>
+
+    <!-- MST System Footer -->
+    <footer class="bg-light mt-5 py-4 border-top">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8">
+                    <h6 class="text-primary"><i class="bi bi-gear"></i> Sistem MST Adaptive - Dashboard Guru</h6>
+                    <p class="text-muted mb-0">
+                        <small>Multistage Adaptive Testing dengan 5 Level Taksonomi Teknologi. 
+                        Sistem ini menggunakan alur percabangan kompleks untuk diagnosis kemampuan yang lebih akurat.</small>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <!-- Tombol panduan di footer dihapus sesuai permintaan -->
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Scroll-to-top floating button -->
+    <button type="button" id="scrollTopBtn" class="btn btn-primary scroll-top-btn" aria-label="Kembali ke atas" title="Kembali ke atas">
+        <i class="bi bi-arrow-up"></i>
+    </button>
 </body>
 </html>

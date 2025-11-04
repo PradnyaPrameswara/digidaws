@@ -307,127 +307,157 @@
   <script>
     const userId = "{{ current_user.id }}";
     let teachersData = [];
-
-    // ### KODE PERBAIKAN ###
-
-    // Fungsi ini dipanggil saat siswa mengklik sebuah tes di dashboard
-    async function startTest(collectionId) {
-        if (!collectionId) {
-            Swal.fire('Error', 'ID koleksi tidak valid.', 'error');
-            return;
-        }
-        
-        Swal.fire({
-            title: 'Memeriksa Status Tes...',
-            didOpen: () => Swal.showLoading(),
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
-
-        const isCompleted = await checkTestCompletionStatus(collectionId);
-        
-        if (!isCompleted) {
-            Swal.close();
-            Swal.fire({
-                title: 'Mulai Tes',
-                html: `
-                  <div class="text-start">
-                    <p><i class="bi bi-info-circle text-primary me-2"></i> Anda akan memulai tes diagnostik.</p>
-                    <p><i class="bi bi-check-circle text-success me-2"></i> Pastikan Anda berada di tempat yang tenang.</p>
-                    <p><strong>Apakah Anda siap untuk memulai tes?</strong></p>
-                  </div>
-                `,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Saya Siap',
-                cancelButtonText: 'Batal',
-                confirmButtonColor: '#0d6efd'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    window.location.href = `/qna?collection_id=${collectionId}`;
-                }
-            });
-        }
+    
+    // Utility: Resolve a promise within ms, otherwise return fallback
+    function withTimeout(promise, ms = 8000, fallback = null) {
+      return Promise.race([
+        promise,
+        new Promise(resolve => setTimeout(() => resolve(fallback !== null ? fallback : { completed: false, timeout: true }), ms))
+      ]);
     }
 
-    // Fungsi untuk memeriksa apakah tes sudah selesai
-    async function checkTestCompletionStatus(collectionId) {
-        try {
-            const response = await fetch(`/api/siswa/test_status?collection_id=${collectionId}&user_id=${userId}&t=${new Date().getTime()}`);
-            if (!response.ok) throw new Error(`Error server: ${response.status}`);
-            
-            const data = await response.json();
-            const currentLevel = parseInt(data.current_level || 0);
-            const isCompleted = data.is_completed === true || [5, 6, 7].includes(currentLevel);
-            
-            if (isCompleted) {
-                await showTestResultPopup(collectionId);
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error("Error memeriksa status tes:", error);
-            Swal.fire('Error', 'Gagal memeriksa status tes. Coba lagi nanti.', 'error');
-            return false;
-        }
+  // Status cache untuk menghindari request berulang
+  const statusCache = new Map(); // key: collectionId, value: { completed: boolean }
+
+  function showReadinessAndStart(collectionId) {
+    // Pastikan tidak ada loading state yang tersisa dari modal sebelumnya
+    try { Swal.hideLoading(); } catch(_) {}
+    try { Swal.close(); } catch(_) {}
+
+    Swal.fire({
+      title: 'Apakah Anda Siap?',
+      text: 'Tes ini akan dimulai. Pastikan koneksi internet Anda stabil karena tes tidak dapat diulang.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Mulai Tes',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#0d6efd',
+      cancelButtonColor: '#6c757d',
+      allowOutsideClick: true,
+      didOpen: () => {
+        // Matikan indikator loading jika masih tertinggal dari modal sebelumnya
+        try { Swal.hideLoading(); } catch(_) {}
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        window.location.href = `${window.location.origin}/qna?collection_id=${collectionId}`;
+      }
+    });
+  }
+
+  async function fetchTestStatus(collectionId) {
+    if (statusCache.has(collectionId)) return statusCache.get(collectionId);
+    try {
+      const res = await fetch(`${window.location.origin}/api/mst/status/${collectionId}?user_id=${userId}&t=${Date.now()}`);
+      if (!res.ok) {
+        const fallback = { completed: false, unknown: true };
+        statusCache.set(collectionId, fallback);
+        return fallback;
+      }
+      const data = await res.json();
+      const completed = !!(data && data.success && data.mst_status && data.mst_status.test_completed);
+      const value = { completed };
+      statusCache.set(collectionId, value);
+      return value;
+    } catch (err) {
+      console.warn('Gagal ambil status:', err);
+      const fallback = { completed: false, unknown: true };
+      statusCache.set(collectionId, fallback);
+      return fallback;
+    }
+  }
+
+  // Perilaku klik: cek status dulu. Jika sudah selesai, jangan tampilkan kesiapan
+  async function handleTestClick(collectionId) {
+    if (!collectionId) {
+      Swal.fire('Error', 'ID koleksi tidak valid.', 'error');
+      return;
     }
 
-    // Fungsi untuk menampilkan popup hasil jika tes sudah selesai
-    async function showTestResultPopup(collectionId) {
-        try {
-            const response = await fetch(`/api/siswa/results/${collectionId}?user_id=${userId}`);
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            const data = await response.json();
+    // Tampilkan loading saat cek status
+    try {
+      Swal.fire({
+        title: 'Memeriksa Status Tes...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
 
-            const correct = data.correct || 0;
-            const incorrect = data.incorrect || 0;
-            const total = correct + incorrect;
-            const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+      // Fail-safe timeout agar tidak loading terus jika jaringan bermasalah
+      const status = await withTimeout(fetchTestStatus(collectionId), 8000, { completed: false, timeout: true });
+      Swal.close();
 
-            let modalContent = `
-                <div class="result-summary-card mb-4">
-                    <h5 class="text-center mb-3">Ringkasan Hasil Tes</h5>
-                    <div class="d-flex justify-content-around align-items-center flex-wrap gap-3">
-                        <div class="result-stat-item-large correct">
-                            <div class="value">${correct}</div><div class="label">Benar</div>
-                        </div>
-                        <div class="result-stat-item-large incorrect">
-                            <div class="value">${incorrect}</div><div class="label">Salah</div>
-                        </div>
-                        <div class="result-stat-item-large accuracy">
-                            <div class="value">${accuracy}%</div><div class="label">Akurasi</div>
-                        </div>
-                    </div>
-                    <div class="alert alert-success text-center mt-4 mb-0">
-                        <i class="bi bi-award-fill me-2"></i> Anda telah menyelesaikan tes ini!
-                    </div>
-                </div>
-                <p class="text-center">Untuk melihat detail jawaban Anda, klik tombol di bawah.</p>
-            `;
-            
-            Swal.fire({
-                title: 'Hasil Tes',
-                html: modalContent,
-                icon: 'info',
-                confirmButtonText: 'Lihat Detail Hasil',
-                showCancelButton: true,
-                cancelButtonText: 'Tutup',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    window.location.href = `/result?collection_id=${collectionId}`;
-                }
-            });
-        } catch (error) {
-            console.error("Error mengambil hasil tes:", error);
-            Swal.fire('Error', 'Gagal memuat hasil tes: ' + error.message, 'error');
+      if (status && status.completed) {
+      // Jangan tanya kesiapan lagi untuk tes yang sudah selesai
+      Swal.fire({
+        title: 'Tes Telah Selesai',
+        text: 'Anda telah menjawab soal ini.',
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Lanjut Melihat Hasil',
+        cancelButtonText: 'Tutup',
+        confirmButtonColor: '#0d6efd',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          window.location.href = `${window.location.origin}/result?collection_id=${collectionId}`;
         }
+      });
+      } else {
+        // Belum selesai / timeout -> tampilkan konfirmasi kesiapan
+        showReadinessAndStart(collectionId);
+      }
+    } catch (e) {
+      // Pastikan modal loading tertutup jika error tak terduga
+      try { Swal.close(); } catch (_) {}
+      // Tetap lanjut ke konfirmasi agar tidak memblokir pengguna
+      showReadinessAndStart(collectionId);
     }
+  }
+
+  // Memperbarui tanda status pada daftar tes dan menyesuaikan tombol
+  async function updateCollectionStatuses() {
+    const badgeEls = document.querySelectorAll('.status-badge[data-collection-id]');
+    const uniqueIds = [...new Set(Array.from(badgeEls).map(el => parseInt(el.getAttribute('data-collection-id'), 10)).filter(Boolean))];
+
+    await Promise.all(uniqueIds.map(async (id) => {
+      // Fail-safe timeout per item agar UI tidak macet jika satu request bermasalah
+      const status = await withTimeout(fetchTestStatus(id), 8000, { completed: false, timeout: true });
+      // Update badge
+      const badges = document.querySelectorAll(`.status-badge[data-collection-id="${id}"]`);
+      badges.forEach(badge => {
+        if (status.completed) {
+          badge.className = 'badge bg-success status-badge';
+          badge.textContent = 'Sudah Dijawab';
+        } else {
+          badge.className = 'badge bg-secondary status-badge';
+          badge.textContent = 'Belum Dikerjakan';
+        }
+      });
+
+      // Update button perilaku
+      const btns = document.querySelectorAll(`button[data-collection-id="${id}"]`);
+      btns.forEach(btn => {
+        if (status.completed) {
+          btn.className = 'btn btn-sm btn-outline-success';
+          btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Lihat Hasil';
+          btn.onclick = () => { window.location.href = `${window.location.origin}/result?collection_id=${id}`; };
+          btn.setAttribute('title', 'Lihat Hasil');
+        } else {
+          btn.className = 'btn btn-sm btn-primary';
+          btn.innerHTML = '<i class="bi bi-pencil-square"></i> Mulai Soal';
+          btn.onclick = () => handleTestClick(id);
+          btn.setAttribute('title', 'Mulai Soal');
+        }
+      });
+    }));
+  }
+
 
     // Fungsi untuk mengambil dan menampilkan daftar tes
     async function fetchAndDisplayTests() {
         const container = document.getElementById('teachers-container');
         try {
-            const response = await fetch('/api/siswa/collections');
+            // PERBAIKAN: Tambahkan window.location.origin
+            const response = await fetch(`${window.location.origin}/api/siswa/collections`);
             if (!response.ok) throw new Error(`Gagal mengambil data dari server: ${response.status}`);
             
             const result = await response.json();
@@ -488,10 +518,23 @@
                     <div class="test-collection-container">
                       ${collections.length > 0 ? 
                           collections.map(collection => `
-                            <div class="collection-item" onclick="startTest(${collection.id})">
-                              <strong>${collection.name}</strong>
+                            <div class="collection-item mb-3">
+                              <div class="d-flex justify-content-between align-items-center w-100">
+                                <div>
+                                  <strong>${collection.name}</strong>
+                                  ${collection.is_new ? '<span class="badge bg-success ms-2">Baru</span>' : ''}
+                                  <div class="mt-1">
+                                    <span class="badge bg-light text-muted status-badge" data-collection-id="${collection.id}">Memeriksa status...</span>
+                                  </div>
+                                </div>
+                                <div class="btn-group" role="group">
+                                  <button type="button" class="btn btn-sm btn-primary" data-collection-id="${collection.id}" onclick="handleTestClick(${collection.id})" title="Mulai Soal">
+                                    <i class="bi bi-pencil-square"></i> Mulai Soal
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                          `).join('') 
+                            `).join('') 
                           : 
                           '<p class="text-center text-muted my-3">Tidak ada tes tersedia dari guru ini</p>'
                       }
@@ -517,13 +560,15 @@
             return null;
         }).filter(Boolean); // Hapus hasil null
         
-        renderTeachers(filteredTeachers);
+  renderTeachers(filteredTeachers);
+  updateCollectionStatuses();
     }
     
     // Fungsi untuk mengambil statistik
     async function fetchStatistics() {
         try {
-            const response = await fetch(`/get_summary?user_id=${userId}`);
+            // PERBAIKAN: Gunakan variabel JS `userId` dan tambahkan `window.location.origin`
+            const response = await fetch(`${window.location.origin}/get_summary?user_id=${userId}`);
             if (!response.ok) throw new Error(`Error server: ${response.status}`);
             
             const data = await response.json();
@@ -545,6 +590,7 @@
             
             await fetchStatistics();
             await fetchAndDisplayTests();
+            await updateCollectionStatuses();
             
             document.getElementById('statusMessage').innerHTML = '';
         } catch (error) {
@@ -553,6 +599,29 @@
         }
     });
 
+  </script>
+
+  <!-- Footer -->
+  <footer class="mt-5 py-4 border-top" style="background-color: #e9ecef;">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-md-7">
+          <h6 class="mb-1">DIGIDAWS</h6>
+          <small class="text-muted">DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis</small>
+        </div>
+        <div class="col-md-5 text-md-end mt-3 mt-md-0">
+          <small class="text-muted">&copy; <span id="footer-year"></span> DIGIDAWS. All rights reserved.</small>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Set current year in footer
+    (function(){
+      var y = document.getElementById('footer-year');
+      if (y) y.textContent = new Date().getFullYear();
+    })();
   </script>
 </body>
 </html>

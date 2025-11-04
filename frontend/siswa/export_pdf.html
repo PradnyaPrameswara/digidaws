@@ -6,7 +6,7 @@
     <style type="text/css">
         @page {
             size: a4 portrait;
-            margin: 2.54cm;
+            margin: 2.54cm; /* Standard margin */
         }
 
         body {
@@ -18,8 +18,17 @@
             padding: 0;
         }
 
+        /* Single-line spacing (1.0) for student info and summary sections */
+        .student-info-table,
+        .student-info-table *,
+        .summary-table,
+        .summary-table *,
+        .section-title {
+            line-height: 1.0;
+        }
+
         .report-header {
-            background-color: #003366;
+            background-color: #003366; /* Dark blue */
             color: white;
             padding: 20px;
             text-align: center;
@@ -47,14 +56,24 @@
             margin-bottom: 30px;
         }
         .student-info-table td {
-            padding: 4px 5px;
+            padding: 6px 8px;
             vertical-align: top;
+        }
+        /* Center the student info block and its content */
+        .student-info-table > tr > td > table.student-info-table {
+            margin-left: auto;
+            margin-right: auto;
+            width: auto; /* shrink to content so it centers nicely */
+        }
+        .student-info-table > tr > td > table.student-info-table td {
+            text-align: center;
         }
         .info-label {
             width: 120px;
+            font-weight: bold;
         }
         .info-value {
-            font-weight: bold;
+            font-weight: normal;
         }
         .info-right {
             text-align: left;
@@ -68,6 +87,18 @@
             padding-bottom: 6px;
             margin-top: 25px;
             margin-bottom: 15px;
+        }
+
+        .subsection-title {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #003366;
+            background-color: #f0f8ff;
+            padding: 10px 15px;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid #0056b3;
+            border-radius: 0 5px 5px 0;
         }
 
         .summary-table {
@@ -97,63 +128,122 @@
             font-size: 10pt;
             border-radius: 5px;
             margin-top: 5px;
+            text-align: justify;
         }
-        
 
+        /* Compact table for level descriptions (space-efficient) */
+        .compact-desc-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10pt;
+            margin-top: 6px;
+        }
+        .compact-desc-table td {
+            border: 1px solid #d1e9ff;
+            padding: 4px 6px;
+            vertical-align: top;
+        }
+        .compact-desc-table .col-level {
+            width: 36%;
+            white-space: nowrap;
+            font-weight: bold;
+            color: #003366;
+        }
 
+        /* ----- CSS BARU UNTUK HISTORY TABLE (Layout Fixed + Persentase) ----- */
         .history-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9pt;
-            table-layout: fixed;
+            font-size: 10pt; /* (PERUBAHAN) Diubah dari 12pt ke 10pt */
+            table-layout: fixed; /* (PERUBAHAN) Kembali ke 'fixed' untuk kontrol penuh */
             page-break-inside: auto;
-            margin: 10px 0;
-            border: 1.0px solid #cccccc;
+            margin: 10px 0 20px 0;
+            border: 1.0px solid #cccccc; /* Border luar tabel */
+            word-wrap: break-word; /* Wrap teks panjang */
         }
         .history-table tr {
             page-break-inside: avoid;
             page-break-after: auto;
         }
         .history-table td {
-            padding: 6px;
+            padding: 6px; /* Padding sel data */
             border: 1.0px solid #cccccc;
-            vertical-align: top;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            line-height: 1.3;
+            vertical-align: top; /* (PERUBAHAN) Kembali ke 'top' sebagai default */
+            word-wrap: break-word; 
+            overflow-wrap: break-word; 
+            line-height: 1.4;
+            text-align: left; /* Default rata kiri */
+            box-sizing: border-box;
+        }
+        .history-table thead tr {
+            background-color: #ecf0f1;
+            border-bottom: 1.5px solid #b0bec5; /* Garis bawah header */
         }
         .history-table th {
-            background-color: #ecf0f1;
             color: #34495e;
             font-weight: bold;
-            padding: 8px;
-            border: 1.0px solid #cccccc;
+            padding: 8px 5px; /* Padding header */
+            border-left: 1.0px solid #cccccc;
+            border-right: 1.0px solid #cccccc;
+            border-top: 1.0px solid #cccccc;
             text-align: center;
             vertical-align: middle;
-            font-size: 9.5pt;
+            font-size: 10pt; /* (PERUBAHAN) Diubah dari 12pt ke 10pt */
+            border-bottom: none; /* Hapus border bawah individual header */
+            box-sizing: border-box;
+            word-wrap: break-word; /* Wrap header jika terlalu panjang */
         }
-        .history-table .number-cell {
-            text-align: center;
-            vertical-align: middle;
-            font-weight: bold;
-        }
-        .history-table th.number-header {
-            text-align: center;
-        }
+
+        /* (PERUBAHAN) Lebar Kolom Diatur Ulang Menggunakan Persentase */
         
+        .history-table th:nth-child(1), /* Pertanyaan */
+        .history-table td:nth-child(1) {
+            width: 66.2%; /* (PERUBAHAN) Diperlebar lagi */
+            text-align: justify; /* Rata Kiri-Kanan */
+            vertical-align: top; /* Tetap 'top' */
+        }
+        .history-table th:nth-child(2), /* Jawabanmu */
+        .history-table td:nth-child(2) {
+            width: 10.5%; /* (PERUBAHAN) Diperlebar */
+            padding-left: 10px; 
+            padding-right: 10px; 
+            vertical-align: middle; /* (PERUBAHAN) Ditetapkan eksplisit */
+        }
+        .history-table th:nth-child(3), /* Jawaban Benar */
+        .history-table td:nth-child(3) {
+            width: 10.5%; /* (PERUBAHAN) Diperlebar */
+            padding-left: 10px; 
+            padding-right: 10px; 
+            vertical-align: middle; /* (PERUBAHAN) Ditetapkan eksplisit */
+        }
+        .history-table th:nth-child(4), /* Tingkatan */
+        .history-table td:nth-child(4) {
+            width: 12%; /* (PERUBAHAN) Disesuaikan */
+            text-align: center;
+            vertical-align: middle; /* (PERUBAHAN) Ditetapkan eksplisit */
+        }
+        .history-table th:nth-child(5), /* Hasil */
+        .history-table td:nth-child(5) {
+            width: 0.8%; /* (PERUBAHAN) Diperkecil lagi */
+            text-align: center;
+            vertical-align: middle; /* (PERUBAHAN) Ditetapkan eksplisit */
+            padding: 0 1px; /* Kompakkan ruang lebih */
+            line-height: 1.0; /* Lebih padat */
+            white-space: normal; /* Izinkan wrap jika perlu */
+            font-size: 8pt; /* Lebih kecil */
+        }
+        /* ----- AKHIR CSS HISTORY TABLE ----- */
+
+
         .status-correct, .text-correct {
-            color: #198754;
+            color: #198754; /* Green */
             font-weight: bold;
         }
         .status-incorrect, .text-incorrect {
-            color: #dc3545;
+            color: #dc3545; /* Red */
             font-weight: bold;
         }
-        .history-table .status-cell {
-            text-align: center;
-            vertical-align: middle;
-        }
-        
+
         .footer {
             text-align: center;
             font-size: 9pt;
@@ -162,11 +252,11 @@
             padding-top: 15px;
             margin-top: 40px;
         }
-        
+
         .page-break {
             page-break-before: always;
         }
-        
+
         .recommendation-intro {
             background-color: #f8f9fa;
             border-left: 4px solid #003366;
@@ -176,73 +266,70 @@
             line-height: 1.6;
             border-radius: 5px;
         }
-        
+
         .recommendation-table {
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
-            font-size: 9pt;
+            font-size: 11pt;
             page-break-inside: auto;
             table-layout: auto;
+            line-height: 1.5;
         }
-        
+
         .recommendation-table th {
             background-color: #ecf0f1;
             color: #34495e;
-            padding: 8px;
+            padding: 10px;
             text-align: left;
             font-weight: bold;
             border: 1px solid #cccccc;
             vertical-align: middle;
-            font-size: 10pt;
+            font-size: 11pt;
         }
-        
+
         .recommendation-table td {
-            padding: 8px;
+            padding: 10px;
             border: 1px solid #cccccc;
             vertical-align: top;
             line-height: 1.5;
             word-wrap: break-word;
+            font-size: 11pt;
+            text-align: justify;
         }
-        
+
         .recommendation-table tr {
             page-break-inside: avoid;
             page-break-after: auto;
         }
-        
+
         .recommendation-table tbody {
             page-break-inside: auto;
         }
-        
+
         .recommendation-table .rec-number {
             width: 5%;
             text-align: center;
             font-weight: bold;
             background-color: #f8f9fa;
             vertical-align: middle;
-            font-size: 9pt;
+            font-size: 11pt;
         }
-        
+
         .recommendation-table td strong {
             color: #003366;
             font-weight: bold;
             display: inline-block;
             margin-bottom: 5px;
-            font-size: 9.5pt;
+            font-size: 11pt;
         }
-        
-        .recommendation-table td {
-            text-align: justify;
-        }
-        
+
         .recommendation-table td .activity-description {
             color: #444;
-            line-height: 1.6;
+            line-height: 1.5;
             text-align: justify;
         }
-        
 
-        
         .recommendation-outro {
             background-color: #eef7ff;
             border: 1px solid #d1e9ff;
@@ -252,6 +339,213 @@
             line-height: 1.6;
             font-style: italic;
         }
+
+        .ai-recommendation-text {
+            background-color: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 0 8px 8px 0;
+            font-size: 10pt;
+            line-height: 1.7;
+            text-align: justify;
+        }
+
+        .ai-recommendation-text ul,
+        .ai-recommendation-text ol,
+        .ai-recommendation-text li {
+            list-style: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .ai-recommendation-text p {
+            margin: 0 0 15px 0;
+            text-indent: 0;
+        }
+
+        .narrative-text {
+            text-align: justify;
+            margin-bottom: 15px;
+            text-indent: 0;
+        }
+
+        .improvement-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+
+        .improvement-table th {
+            background-color: #ecf0f1;
+            color: #34495e;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #cccccc;
+            font-size: 11pt;
+        }
+
+        .improvement-table td {
+            padding: 10px;
+            border: 1px solid #cccccc;
+            vertical-align: top;
+            text-align: justify;
+            line-height: 1.5;
+            font-size: 11pt;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .improvement-table .number-cell {
+            width: 5%;
+            text-align: center;
+            font-weight: bold;
+            background-color: #f8f9fa;
+            vertical-align: middle;
+            font-size: 11pt;
+        }
+
+        .improvement-table .content-cell {
+            width: 95%;
+        }
+
+        .question-preview {
+            color: #333;
+            font-size: 11pt;
+            font-weight: bold;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .answer-comparison {
+            color: #666;
+            font-size: 11pt;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .analysis-content {
+            margin-bottom: 8px;
+            line-height: 1.5;
+            font-size: 11pt;
+        }
+
+        .explanation-box {
+            color: #2e7d32;
+            background-color: #f1f8f4;
+            padding: 10px;
+            margin: 8px 0;
+            border-left: 3px solid #2e7d32;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+
+        .tip-box {
+            color: #1976d2;
+            background-color: #e3f2fd;
+            padding: 10px;
+            margin: 8px 0;
+            border-left: 3px solid #1976d2;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+
+        .section-d-container {
+            page-break-inside: avoid;
+        }
+
+        /* --- STYLING ALUR TES (DIHAPUS NAMUN STYLE DIBIARKAN JIKA DIPERLUKAN LAGI) --- */
+        .path-container {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        .path-visual-container {
+            display: -webkit-box; /* Flexbox for PDF */
+            -webkit-box-orient: horizontal;
+            -webkit-box-align: center; /* Vertically center items */
+            flex-wrap: wrap; /* Allow wrapping */
+            padding: 10px; /* Padding around the whole container */
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px; /* Rounded container */
+            margin-top: 8px;
+        }
+        .path-step {
+            display: inline-block; /* Use inline-block for wrapping */
+            padding: 8px 14px; /* More padding */
+            border-radius: 20px; /* Pill shape */
+            font-size: 10pt; /* Larger font */
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-weight: 500; /* Slightly bolder */
+            border: 1px solid transparent; /* Start with transparent border */
+            text-align: center;
+            line-height: 1.4;
+            margin: 4px; /* Spacing between pills */
+        }
+        .path-step .outcome-icon {
+            font-weight: normal; /* Icon shouldn't be bold */
+            margin-left: 5px;
+            font-size: 10pt; /* Match font size */
+        }
+        
+        /* --- Coloring the pills --- */
+        .path-step.start {
+            background-color: #6c757d; /* Grey */
+            color: white;
+            font-weight: bold;
+        }
+        .path-step.correct {
+            background-color: #d1e7dd; /* Light green */
+            border-color: #a3cfbb;
+            color: #0f5132; /* Dark green */
+        }
+        .path-step.incorrect {
+            background-color: #f8d7da; /* Light red */
+            border-color: #f1aeae;
+            color: #58151c; /* Dark red */
+        }
+        .path-step.diagnosis {
+            background-color: #003366; /* Dark Blue (match header) */
+            color: white;
+            font-weight: bold;
+            padding: 8px 16px;
+        }
+        .path-step.summary {
+            background-color: #fff3cd; /* Light yellow */
+            border-color: #ffe69c;
+            color: #664d03; /* Dark yellow */
+            font-weight: bold;
+        }
+        .path-step.pending {
+            background-color: #fefefe;
+            border-color: #ced4da;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        /* --- The Connector --- */
+        .path-connector {
+            display: inline-block;
+            color: #adb5bd; /* Lighter grey */
+            font-size: 14pt; /* Bigger arrow */
+            font-weight: bold;
+            margin: 0 4px;
+            vertical-align: middle;
+        }
+
+        /* Hide old styles if they exist */
+        .path-flow, .path-node, .path-arrow {
+            display: none !important;
+        }
+        /* --- AKHIR STYLING ALUR TES --- */
+
+        .stage-summary-table {
+            display: none;
+        }
+
     </style>
 </head>
 <body>
@@ -266,35 +560,120 @@
 
         <table class="student-info-table">
             <tr>
-                <td style="width: 50%;">
+                <td style="width: 100%;">
                     <table class="student-info-table">
                         <tr><td class="info-label">Nama Siswa</td><td>:</td><td class="info-value">{{ student.nama }}</td></tr>
                         <tr><td class="info-label">Kelas</td><td>:</td><td class="info-value">{{ student.kelas }}</td></tr>
-                    </table>
-                </td>
-                <td style="width: 50%;" class="info-right">
-                    <table class="student-info-table">
                         <tr><td class="info-label">Materi Tes</td><td>:</td><td class="info-value">{{ collection.name }}</td></tr>
                         <tr><td class="info-label">Guru Pengampu</td><td>:</td><td class="info-value">{{ collection.guru.nama if collection and collection.guru else 'Nama Guru' }}</td></tr>
                     </table>
-                    </td>
+                </td>
             </tr>
         </table>
-
         <div class="section-title">A. Ringkasan Hasil Tes</div>
         <table class="summary-table">
-            {% set level_descriptions = {
-                1: 'Kesadaran Teknologi: Siswa mampu mengenali dan mengidentifikasi konsep dan istilah dasar.',
-                2: 'Literasi Teknologi: Siswa dapat menjelaskan dan membandingkan konsep-konsep teknologi yang mendasar.',
-                3: 'Kemampuan Dasar: Siswa mampu menerapkan pengetahuan dalam konteks praktis dan sederhana.',
-                4: 'Kemampuan Lanjut: Siswa mampu menganalisis dan memecahkan masalah menggunakan konsep yang lebih kompleks.',
-                5: 'Kreativitas Dasar: Siswa dapat mulai merancang solusi sederhana berdasarkan pemahaman yang dimiliki.',
-                6: 'Kreativitas Menengah: Siswa mampu mengintegrasikan beberapa konsep untuk menciptakan solusi yang lebih praktis dan efektif.',
-                7: 'Kritik Teknologi: Siswa mampu mengevaluasi, mengkritisi, dan merefleksikan penerapan konsep secara mendalam.'
-            } %}
+             {% set level_descriptions = {
+                 1: 'L1 - Awareness: Siswa mulai mengenal konsep dasar dan istilah teknologi.',
+                 2: 'L2 - Literacy: Siswa dapat menggunakan dan menjelaskan alat/fitur dasar secara praktis.',
+                 3: 'L3 - Capability: Siswa mampu menerapkan teknologi untuk menyelesaikan tugas dan memecahkan masalah sederhana.',
+                 4: 'L4 - Creativity: Siswa mampu mengembangkan solusi kreatif dengan menggabungkan beberapa konsep teknologi.',
+                 5: 'L5 - Criticism: Siswa mampu mengevaluasi, membandingkan dan mengkritisi penerapan teknologi secara mendalam.'
+             } %}
+
+             {# --- LOGIKA PENENTUAN LEVEL (v3 - Berdasarkan Capaian Benar Tertinggi) --- #}
+             {% set display_text = '' %}
+             {% set level_for_description = 1 %}
+             {% set mst_state = mst_state if mst_state else {} %}
+             {% set is_test_completed = mst_state.test_completed if mst_state.test_completed is defined else False %}
+             {% set final_diagnosis_str = mst_state.final_diagnosis if mst_state.final_diagnosis else '' %}
+
+             {% macro get_level_from_diagnosis(diagnosis_str) %}
+                 {% set level_num = 1 %}
+                 {% if diagnosis_str == '< L2' %}
+                     {% set level_num = 1 %}
+                 {% elif diagnosis_str and diagnosis_str.startswith('L') %}
+                     {% set num_part = diagnosis_str[1:] %}
+                     {% if num_part.isdigit() %}
+                         {% set level_num = num_part|int %}
+                     {% endif %}
+                 {% endif %}
+                 {{ level_num }}
+             {% endmacro %}
+
+             {# --- PERUBAHAN: Cari stage tertinggi DARI JAWABAN YANG BENAR --- #}
+             {% set max_correct_stage = namespace(value=0) %}
+             {% if answers and answers|length > 0 %}
+                {% for ans in answers %}
+                    {% if ans.is_correct %}
+                        {% set current_stage = ans.stage|int if ans.stage else 0 %}
+                        {% if current_stage > max_correct_stage.value %}
+                            {% set max_correct_stage.value = current_stage %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+             {% endif %}
+             
+             {% if max_correct_stage.value > 0 %}
+                {# Ditemukan jawaban benar, gunakan level tertinggi #}
+                {% set level_for_description = max_correct_stage.value %}
+                {% set diagnosis_level = get_level_from_diagnosis(final_diagnosis_str)|int %}
+                
+                {% if is_test_completed and final_diagnosis_str and diagnosis_level == level_for_description %}
+                    {# Jika diagnosis akhir (misal L4) = capaian benar tertinggi (L4), tampilkan diagnosis #}
+                    {% set display_text = final_diagnosis_str %}
+                {% elif is_test_completed and final_diagnosis_str and diagnosis_level != level_for_description %}
+                    {# Kasus: Diagnosis L3, tapi capaian benar L1. Tampilkan capaian benar. #}
+                    {% set display_text = 'L' ~ level_for_description %}
+                {% else %}
+                    {# Jika tes belum selesai, tampilkan capaian benar #}
+                    {% set display_text = 'L' ~ level_for_description %}
+                {% endif %}
+                
+             {% elif is_test_completed and final_diagnosis_str %}
+                {# Tidak ada jawaban benar, TAPI tes selesai (misal gagal L1 -> L2E -> STOP) #}
+                {% set level_for_description = get_level_from_diagnosis(final_diagnosis_str)|int %}
+                {% set display_text = final_diagnosis_str %}
+             
+             {% elif answers and answers|length > 0 %}
+                 {# Fallback: Tes belum selesai, tidak ada jawaban benar. Tampilkan stage terakhir. #}
+                 {% set last_answer = answers[-1] %}
+                 {% set last_stage = last_answer.stage if last_answer.stage else 1 %}
+                 {% set level_for_description = last_stage|int %}
+                 {% set display_text = 'Tahap ' ~ level_for_description ~ ' (Belum Selesai)' %}
+             
+             {% else %}
+                 {# Fallback: Belum mulai / Gagal L1 dan belum ada jawaban #}
+                 {% set level_for_description = mst_state.current_stage|int if mst_state.current_stage else 1 %}
+                 {% set display_text = 'Tahap 1 (Belum Dimulai)' %}
+             {% endif %}
+             {# --- AKHIR PERBAIKAN (v3) --- #}
+
+             {% if level_for_description < 1 or level_for_description > 5 %}
+                 {% set level_for_description = 1 %}
+             {% endif %}
+             {# --- AKHIR LOGIKA LAMA (v2) --- #}
+
+            <!-- Row removed as requested: Tingkat Kemampuan Tercapai -->
             <tr>
-                <td class="summary-label">Tingkat Kemampuan Tercapai</td>
-                <td class="summary-value">Level {{ result.current_level }}</td>
+                <td class="summary-label">Level Tercapai</td>
+                <td class="summary-value">
+                    {% if answers and answers|length > 0 %}
+                        {% set achieved = namespace(nums=[]) %}
+                        {% for ans in answers %}
+                            {% if ans.is_correct %}
+                                {% set stage_num = ans.stage|int if ans.stage else 0 %}
+                                {% if stage_num > 0 and stage_num not in achieved.nums %}
+                                    {% set _ = achieved.nums.append(stage_num) %}
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if achieved.nums|length > 0 %}
+                            {% for n in achieved.nums|sort %}
+                                L{{ n }}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        {% else %}-{% endif %}
+                    {% else %}-{% endif %}
+                </td>
             </tr>
             <tr>
                 <td class="summary-label">Akurasi Jawaban</td>
@@ -303,316 +682,175 @@
             <tr>
                 <td class="summary-label">Detail Jawaban</td>
                 <td class="summary-value" style="font-size: 11pt;">
-                    <span class="text-correct">Tepat: {{ result.correct }}</span> | 
-                    <span class="text-incorrect">Kurang Tepat: {{ result.incorrect }}</span> | 
+                    <span class="text-correct">Tepat: {{ result.correct }}</span> |
+                    <span class="text-incorrect">Kurang Tepat: {{ result.incorrect }}</span> |
                     Total: {{ total_questions }}
                 </td>
             </tr>
         </table>
         <div class="description-box">
-            <strong>Deskripsi Tingkat Kemampuan:</strong><br>
-            {{ level_descriptions.get(result.current_level, 'Level tidak terdefinisi.') }}
-        </div>
-        
-        <div class="page-break"></div>
-        <div class="page-container">
-            <div class="section-title">B. Analisis Jawaban dan Rekomendasi Pembelajaran</div>
-            
-            <!-- Tabel 1: Analisis Mendalam Hasil Pembelajaran -->
-            <h4 style="color: #007bff; margin: 20px 0 15px 0; font-size: 12pt;">🧠 Analisis Mendalam Hasil Pembelajaran</h4>
-            
-            {% set total_answered = result.correct + result.incorrect %}
-            {% set accuracy_rate = (result.correct / total_answered * 100) if total_answered > 0 else 0 %}
-            
-            <table class="analysis-table" style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 10pt;">
-                <thead>
-                    <tr>
-                        <th style="background-color: #007bff; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 25%;">Aspek Analisis</th>
-                        <th style="background-color: #007bff; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 75%;">Hasil Analisis</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Gambaran Umum Pencapaian</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
-                            Dari {{ total_answered }} soal yang kamu jawab pada materi "{{ collection.name }}", kamu berhasil menjawab dengan tepat sebanyak {{ result.correct }} soal dan {{ result.incorrect }} soal lainnya masih perlu diperbaiki. Ini menunjukkan tingkat penguasaan sebesar {{ "%.1f"|format(accuracy_rate) }}% untuk materi ini.
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Analisis Pencapaian</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
-                            {% if accuracy_rate >= 85 %}
-                            Luar biasa, {{ student.nama.split()[0] }}! Kamu menunjukkan pemahaman yang sangat baik terhadap materi "{{ collection.name }}". Pencapaian {{ "%.1f"|format(accuracy_rate) }}% ini menandakan bahwa kamu sudah menguasai sebagian besar konsep dengan solid. Tahap kemampuan yang kamu capai (Tahap {{ result.current_level }}) menunjukkan bahwa kamu sudah siap untuk mengeksplorasi aspek yang lebih mendalam dan aplikatif dari materi ini.
-                            {% elif accuracy_rate >= 70 %}
-                            Bagus sekali, {{ student.nama.split()[0] }}! Dengan pencapaian {{ "%.1f"|format(accuracy_rate) }}%, kamu sudah memiliki fondasi yang kuat dalam materi "{{ collection.name }}". Tahap {{ result.current_level }} yang kamu capai menunjukkan pemahaman yang baik, namun masih ada ruang untuk pengembangan lebih lanjut. Beberapa konsep mungkin masih perlu diperdalam agar pemahamanmu menjadi lebih komprehensif.
-                            {% elif accuracy_rate >= 50 %}
-                            Kamu sudah menunjukkan pemahaman dasar yang cukup baik pada materi "{{ collection.name }}" dengan pencapaian {{ "%.1f"|format(accuracy_rate) }}%. Tahap {{ result.current_level }} yang kamu capai menunjukkan bahwa kamu sudah memahami konsep-konsep fundamental. Namun, untuk mencapai penguasaan yang lebih optimal, kamu perlu memperkuat beberapa area yang masih lemah dan meningkatkan kemampuan aplikasi konsep dalam berbagai situasi.
-                            {% else %}
-                            Jangan khawatir, {{ student.nama.split()[0] }}! Setiap proses pembelajaran membutuhkan waktu. Pencapaian {{ "%.1f"|format(accuracy_rate) }}% menunjukkan bahwa kamu masih dalam tahap membangun pemahaman terhadap materi "{{ collection.name }}". Tahap {{ result.current_level }} yang kamu capai adalah titik awal yang baik untuk memulai penguatan konsep-konsep dasar. Dengan strategi belajar yang tepat, kamu pasti bisa meningkatkan pemahamanmu secara signifikan.
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% if result.incorrect > 0 %}
-                    <tr>
-                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Area yang Perlu Diperkuat</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
-                            Dari {{ result.incorrect }} jawaban yang belum tepat, ini memberikan petunjuk penting tentang area mana yang perlu mendapat perhatian lebih. Kesalahan-kesalahan ini bukanlah kegagalan, melainkan peluang emas untuk memperdalam pemahaman dan memperkuat konsep-konsep yang masih lemah. Setiap kesalahan memberikan insight berharga tentang cara berpikir dan pendekatan yang perlu disesuaikan dalam mempelajari materi "{{ collection.name }}".
-                        </td>
-                    </tr>
+            <strong>Deskripsi Tingkat Kemampuan:</strong>
+            {# Kumpulkan kembali level yang tercapai (jawaban benar) #}
+            {% set achieved = namespace(nums=[]) %}
+            {% if answers and answers|length > 0 %}
+                {% for ans in answers %}
+                    {% if ans.is_correct %}
+                        {% set stage_num = ans.stage|int if ans.stage else 0 %}
+                        {% if stage_num > 0 and stage_num not in achieved.nums %}
+                            {% set _ = achieved.nums.append(stage_num) %}
+                        {% endif %}
                     {% endif %}
-                    <tr>
-                        <td style="background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Potensi Pengembangan</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
-                            Berdasarkan pola jawaban yang kamu berikan, terlihat bahwa kamu memiliki potensi yang baik untuk terus berkembang dalam materi "{{ collection.name }}". 
-                            {% if result.current_level <= 2 %}
-                            Fokus utama saat ini sebaiknya pada penguatan pemahaman konsep-konsep dasar dan terminologi yang menjadi fondasi untuk pembelajaran selanjutnya.
-                            {% elif result.current_level <= 4 %}
-                            Kamu sudah siap untuk mengembangkan kemampuan aplikasi konsep dalam berbagai konteks dan situasi yang lebih kompleks.
-                            {% else %}
-                            Kamu sudah mencapai tahap yang memungkinkan untuk mengeksplorasi aspek kreatif dan analitis yang lebih mendalam dari materi ini.
-                            {% endif %}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <!-- Tabel 2: Rekomendasi Belajar Berdasarkan Analisis -->
-            {% if result.incorrect > 0 %}
-            <h4 style="color: #f59e0b; margin: 20px 0 15px 0; font-size: 12pt;">📚 Rekomendasi Belajar Berdasarkan Analisis Jawaban</h4>
-            
-            {% set incorrect_percentage = (result.incorrect / (result.correct + result.incorrect) * 100) %}
-            
-            <table class="recommendation-analysis-table" style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 10pt;">
-                <thead>
-                    <tr>
-                        <th style="background-color: #f59e0b; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 25%;">Kategori Rekomendasi</th>
-                        <th style="background-color: #f59e0b; color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #dee2e6; width: 75%;">Strategi Pembelajaran yang Direkomendasikan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="background-color: #fff7ed; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Pola Kesalahan Teridentifikasi</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
-                            Dari analisis mendalam terhadap {{ result.incorrect }} jawaban yang belum tepat, saya menemukan pola pembelajaran yang dapat kita optimalkan untuk meningkatkan pemahamanmu dalam "{{ collection.name }}". 
-                            {% if incorrect_percentage >= 60 %}
-                            Meskipun masih banyak konsep yang perlu diperkuat, ini adalah kesempatan emas untuk membangun fondasi yang kuat dari awal. Fokus utama sebaiknya pada pemahaman konsep dasar secara bertahap dan sistematis.
-                            {% elif incorrect_percentage >= 30 %}
-                            Beberapa area spesifik perlu mendapat perhatian khusus, namun kemajuan yang sudah dicapai menunjukkan potensi yang baik. Kita akan fokus pada penguatan area yang lemah sambil mempertahankan kekuatan yang sudah ada.
-                            {% else %}
-                            Kesalahan yang ada cenderung pada detail-detail tertentu dan kemungkinan besar dapat diperbaiki dengan strategi yang tepat sasaran. Fokus pada fine-tuning pemahaman akan memberikan hasil yang optimal.
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background-color: #fff7ed; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Strategi Pembelajaran Utama</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6;">
-                            {% if incorrect_percentage >= 60 %}
-                            <strong>1. Pembelajaran Bertahap dan Terstruktur:</strong> Mulai dengan memahami satu konsep fundamental setiap hari. Jangan terburu-buru pindah ke konsep berikutnya sebelum benar-benar menguasai yang sedang dipelajari. Buat catatan ringkas dengan contoh konkret untuk setiap konsep.<br><br>
-                            <strong>2. Visualisasi dan Analogi:</strong> Manfaatkan diagram, gambar, atau analogi sederhana untuk memahami konsep abstrak dalam "{{ collection.name }}". Cari video pembelajaran yang menggunakan animasi atau simulasi untuk memperjelas konsep yang sulit.<br><br>
-                            <strong>3. Praktik Berulang dengan Variasi:</strong> Kerjakan soal-soal dasar dengan pola yang sama secara berulang sampai menjadi otomatis, lalu secara bertahap tingkatkan variasi dan kompleksitas. Fokus pada akurasi, bukan kecepatan.
-                            {% elif incorrect_percentage >= 30 %}
-                            <strong>1. Identifikasi dan Perkuat Area Lemah:</strong> Dari pola kesalahan, fokuskan 70% waktu belajar pada konsep-konsep yang masih bermasalah. Buat daftar topik yang sering salah dan pelajari satu per satu secara mendalam dengan contoh beragam.<br><br>
-                            <strong>2. Hubungkan dengan Konsep yang Sudah Dikuasai:</strong> Cari kaitan antara materi yang sudah dipahami dengan yang masih sulit. Buat peta konsep yang menunjukkan hubungan antar topik untuk memperkuat pemahaman holistik.<br><br>
-                            <strong>3. Latihan Terfokus dan Reflektif:</strong> Setelah mengerjakan soal, selalu analisis mengapa jawaban benar atau salah. Buat catatan pola kesalahan dan cara pencegahannya. Diskusikan kesulitan dengan teman atau guru untuk mendapat perspektif berbeda.
-                            {% else %}
-                            <strong>1. Fine-tuning dan Pendalaman:</strong> Fokus pada detail-detail yang menyebabkan kesalahan. Sering kali ini berkaitan dengan ketelitian, pemahaman instruksi soal, atau penerapan rumus/konsep dalam konteks yang sedikit berbeda.<br><br>
-                            <strong>2. Latihan Soal Bertingkat:</strong> Tingkatkan kompleksitas soal secara bertahap. Cari soal-soal yang menggabungkan beberapa konsep sekaligus atau memerlukan analisis yang lebih mendalam untuk mengasah kemampuan berpikir kritis.<br><br>
-                            <strong>3. Eksplorasi dan Inovasi:</strong> Coba pendekatan alternatif dalam menyelesaikan masalah. Kembangkan intuisi dan kemampuan reasoning yang lebih kuat dengan mengeksplorasi berbagai metode penyelesaian untuk satu masalah yang sama.
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background-color: #fff7ed; padding: 12px; border: 1px solid #dee2e6; font-weight: bold; vertical-align: top;">Motivasi & Dukungan</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; vertical-align: top; text-align: justify; line-height: 1.6; background-color: #fef3c7;">
-                            <strong>💪 Motivasi Khusus:</strong> 
-                            {% if incorrect_percentage >= 60 %}
-                            Setiap ahli pernah memulai dari titik yang sama denganmu. Yang membedakan adalah konsistensi dan kesabaran dalam membangun pemahaman step by step. Setiap konsep yang berhasil dikuasai adalah kemenangan kecil yang layak dirayakan!
-                            {% elif incorrect_percentage >= 30 %}
-                            Kamu sudah berada di jalur yang benar! Kesalahan yang ada menunjukkan area spesifik yang perlu diperkuat. Dengan fokus dan strategi yang tepat, kemajuan signifikan sangat mungkin dicapai dalam waktu dekat.
-                            {% else %}
-                            Pencapaianmu sudah sangat baik! Kesalahan kecil yang ada adalah stepping stone untuk mencapai tingkat mastery. Dengan fine-tuning yang tepat, kamu bisa menjadi contoh bagi teman-teman lainnya.
-                            {% endif %}
-                            Ingat, proses pembelajaran yang berkelanjutan lebih berharga daripada hasil sempurna yang instan.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                {% endfor %}
             {% endif %}
 
-        {% set performance_analysis = {
-            'total_questions': result.correct + result.incorrect,
-            'accuracy_percentage': (result.correct / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0,
-            'is_high_performer': ((result.correct / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0) >= 80,
-            'is_struggling': ((result.correct / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0) < 50,
-            'current_stage': 'Stage I' if result.current_level <= 2 else ('Stage II' if result.current_level <= 3 else ('Stage III' if result.current_level <= 4 else 'Stage IV')),
-            'next_focus': {
-                1: 'memahami konsep dasar dan terminologi teknologi',
-                2: 'menguasai literasi teknologi dan hubungan antar konsep',
-                3: 'mengembangkan kemampuan aplikasi praktis teknologi',
-                4: 'meningkatkan kreativitas dalam pemecahan masalah teknologi',
-                5: 'memperkuat kemampuan teknologi dan aplikasi lanjutan',
-                6: 'mengembangkan kemampuan berpikir kritis terhadap teknologi',
-                7: 'mengintegrasikan kreativitas dan kritik teknologi secara mendalam'
-            }
-        } %}
-        
-        <!-- Tabel Rekomendasi Belajar di Rumah telah dihapus sesuai permintaan -->
-        <div style="display: none;">
-            <!-- Konten tabel yang dihapus -->
-                {% if result.current_level == 1 %}
-                <tr>
-                    <td class="rec-number">1</td>
-                    <td><strong>Pelajari Istilah Dasar:</strong> Luangkan 15 menit setiap hari untuk baca dan hafalkan istilah-istilah teknologi dasar. Buat kartu kecil berisi istilah di satu sisi dan artinya di sisi lain.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">2</td>
-                    <td><strong>Tonton Video Edukatif:</strong> Cari video YouTube tentang "{{ collection.name }}" yang dijelaskan dengan bahasa sederhana. Tonton 1-2 video pendek (5-10 menit) setiap hari.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">3</td>
-                    <td><strong>Praktik Identifikasi:</strong> Keliling rumah dan coba identifikasi teknologi apa saja yang ada (handphone, TV, WiFi, dll). Tulis di buku dan cari tahu fungsi dasarnya.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">4</td>
-                    <td><strong>Buat Kamus Mini:</strong> Bikin kamus pribadi berisi 5 kata teknologi baru setiap minggu lengkap dengan contoh penggunaannya.</td>
-                </tr>
-                {% elif result.current_level == 2 %}
-                <tr>
-                    <td class="rec-number">1</td>
-                    <td><strong>Kelompokkan Teknologi:</strong> Buat mind map atau diagram yang mengelompokkan teknologi berdasarkan fungsinya (komunikasi, hiburan, produktivitas, dll).</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">2</td>
-                    <td><strong>Pelajari Hubungan Antar Teknologi:</strong> Pilih 2-3 teknologi yang kamu pakai setiap hari, lalu cari tahu bagaimana mereka saling berhubungan (contoh: handphone + internet + aplikasi).</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">3</td>
-                    <td><strong>Baca Artikel Teknologi:</strong> Baca 1 artikel ringan tentang teknologi setiap hari dari website atau blog teknologi. Catat poin penting yang kamu dapat.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">4</td>
-                    <td><strong>Diskusi dengan Keluarga:</strong> Ajak orang tua atau saudara diskusi tentang teknologi yang mereka gunakan dan bagaimana cara kerjanya.</td>
-                </tr>
-                {% elif result.current_level == 3 %}
-                <tr>
-                    <td class="rec-number">1</td>
-                    <td><strong>Praktik Langsung:</strong> Setiap hari coba gunakan 1 aplikasi atau fitur teknologi yang belum pernah kamu coba. Catat langkah-langkahnya di notes.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">2</td>
-                    <td><strong>Ikuti Tutorial Online:</strong> Cari tutorial step-by-step di YouTube tentang cara menggunakan tools atau aplikasi yang berkaitan dengan "{{ collection.name }}".</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">3</td>
-                    <td><strong>Buat Jadwal Digital:</strong> Gunakan aplikasi kalendar atau reminder untuk mengatur jadwal belajar dan aktivitas harianmu. Rasakan sendiri manfaat teknologi untuk produktivitas.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">4</td>
-                    <td><strong>Simulasi Masalah:</strong> Buat skenario "bagaimana jika" dan coba pecahkan dengan teknologi. Contoh: "Bagaimana jika harus presentasi tapi tidak bisa tatap muka?"</td>
-                </tr>
-                {% elif result.current_level == 4 %}
-                <tr>
-                    <td class="rec-number">1</td>
-                    <td><strong>Modifikasi dan Kustomisasi:</strong> Coba ubah pengaturan aplikasi atau perangkat yang kamu pakai sehari-hari. Eksplorasi fitur-fitur lanjutan yang tersembunyi.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">2</td>
-                    <td><strong>Debug Masalah Sederhana:</strong> Kalau ada masalah dengan teknologi di rumah (WiFi lemot, aplikasi error, dll), coba cari solusinya sendiri dulu sebelum minta tolong.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">3</td>
-                    <td><strong>Belajar Troubleshooting:</strong> Pelajari cara mengatasi masalah umum teknologi melalui forum online seperti Kaskus atau Reddit. Praktikkan di perangkatmu sendiri.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">4</td>
-                    <td><strong>Cari Solusi Alternatif:</strong> Kalau ada masalah, jangan cuma pakai satu cara aja. Coba pikirkan cara lain yang bisa jadi solusi.</td>
-                </tr>
-                {% elif result.current_level == 5 %}
-                <tr>
-                    <td class="rec-number">1</td>
-                    <td><strong>Tantangan yang Lebih Sulit:</strong> Sekarang coba selesaikan masalah yang lebih rumit pakai teknologi ini. Gabungkan beberapa teknologi sekaligus kalau perlu.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">2</td>
-                    <td><strong>Rakit dan Atur:</strong> Belajar cara menggabungkan beberapa bagian teknologi jadi satu sistem yang bisa jalan dengan baik.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">3</td>
-                    <td><strong>Mulai Belajar Menilai:</strong> Coba lihat mana teknologi atau cara yang paling efektif dan efisien untuk masalah tertentu.</td>
-                </tr>
-                {% elif result.current_level == 6 %}
-                <!-- Baris rekomendasi untuk level 6 dihapus -->
-                {% elif result.current_level == 7 %}
-                <tr>
-                    <td class="rec-number">1</td>
-                    <td><strong>Rancang Solusi Inovatif:</strong> Coba bikin ide solusi teknologi baru untuk masalah yang kamu lihat di sekitar. Gambar atau tulis idenya secara detail.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">2</td>
-                    <td><strong>Integrasikan Multi-Konsep:</strong> Gabungkan berbagai konsep teknologi yang udah kamu pelajari untuk menciptakan sesuatu yang lebih canggih dan berguna.</td>
-                </tr>
-                <tr>
-                    <td class="rec-number">3</td>
-                    <td><strong>Optimalisasi dan Inovasi:</strong> Cari cara untuk membuat teknologi yang ada jadi lebih efisien, lebih mudah dipakai, atau lebih ramah lingkungan.</td>
-                </tr>
+            <table class="compact-desc-table">
+                <tbody>
+                {% if achieved.nums|length > 0 %}
+                    {% for n in achieved.nums|sort %}
+                        {% set full = level_descriptions.get(n, 'Level tidak terdefinisi.') %}
+                        {% set parts = full.split(':', 1) %}
+                        <tr>
+                            <td class="col-level">{{ parts[0] }}</td>
+                            <td>{{ parts[1] if parts|length > 1 else '' }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    {% set full = level_descriptions.get(level_for_description, 'Level tidak terdefinisi.') %}
+                    {% set parts = full.split(':', 1) %}
+                    <tr>
+                        <td class="col-level">{{ parts[0] }}</td>
+                        <td>{{ parts[1] if parts|length > 1 else '' }}</td>
+                    </tr>
                 {% endif %}
-                
-                <!-- Rekomendasi umum untuk semua level -->
-                <!-- Baris rekomendasi umum dihapus -->
+                </tbody>
+            </table>
         </div>
-        <!-- Tabel telah dihapus -->
-            <p class="recommendation-outro">
-                {% if performance_analysis.accuracy_percentage >= 80 %}
-                Kerja bagus, {{ student.nama.split()[0] }}! Kamu sudah menguasai {{ performance_analysis.accuracy_percentage|round|int }}% materi ini. Lanjutkan dengan rekomendasi di atas untuk naik ke level yang lebih tinggi. Saya yakin kamu bisa jadi yang terdepan!
-                {% elif performance_analysis.accuracy_percentage >= 60 %}
-                Bagus sekali, {{ student.nama.split()[0] }}! Dengan penguasaan {{ performance_analysis.accuracy_percentage|round|int }}%, kamu tinggal sedikit lagi untuk mahir. Ikuti rekomendasi di atas secara konsisten, pasti kamu bisa naik level!
-                {% endif %}
-            </p>
-        </div>
-        
-        {% if answers and answers|length > 0 %}
+
         <div class="page-break"></div>
-        <div class="page-container">
-            <div class="section-title">C. Rincian Jawaban Siswa</div>
+
+        <div class="section-title">B. Riwayat Jawaban Siswa</div>
+        <div class="history-container">
             <table class="history-table">
                 <thead>
                     <tr>
-                        <th class="number-header" style="width: 4%; text-align: center;">No</th>
-                        <th style="width: 30%; text-align: center;">Pertanyaan</th>
-                        <th style="width: 15%; text-align: center;">Jawaban<br>Siswa</th>
-                        <th style="width: 15%; text-align: center;">Jawaban<br>Benar</th>
-                        <th style="width: 28%; text-align: center;">Alasan Jawaban<br>Benar</th>
-                        <th class="status-cell" style="width: 8%; text-align: center;">Status</th>
+                        <th>Pertanyaan</th>
+                        <th>Jawabanmu</th>
+                        <th>Jawaban Benar</th>
+                        <th>Tingkatan</th>
+                        <th>✓</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for answer in answers %}
-                    <tr>
-                        <td class="number-cell">{{ loop.index }}</td>
-                        <td>{{ answer.question }}</td>
-                        <td>{{ answer.user_answer }}</td>
-                        <td>{{ answer.correct_answer }}</td>
-                        <td style="text-align: justify; font-size: 9pt; line-height: 1.4;">
-                            {{ answer.explanation if answer.explanation else 'Penjelasan tidak tersedia' }}
-                        </td>
-                        <td class="status-cell {% if answer.is_correct %}status-correct{% else %}status-incorrect{% endif %}">
-                            {{ 'Tepat' if answer.is_correct else 'Kurang Tepat' }}
-                        </td>
-                    </tr>
-                    {% endfor %}
+                    {% if answers and answers|length > 0 %}
+                        {% for ans in answers %}
+                        <tr>
+                            <td>{{ ans.question }}</td>
+                            <td>{{ ans.user_answer }}</td>
+                            <td>{{ ans.correct_answer }}</td>
+                             {% set stage_num = ans.stage if ans.stage else 0 %}
+                             {% set difficulty = ans.difficulty if ans.difficulty else 'N/A' %}
+                             {% set tingkatan_text = 'L' ~ stage_num ~ ' ' ~ difficulty if stage_num > 0 else 'N/A' %}
+                            <td>{{ tingkatan_text }}</td>
+                            <td>{% if ans.is_correct %}<span class="text-correct">✓</span>{% else %}<span class="text-incorrect">✗</span>{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="5" style="text-align:center; color:#6c757d;">Riwayat jawaban tidak tersedia.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
-            <div class="footer">
-                <p>Laporan ini dibuat secara otomatis pada {{ now().strftime('%d %B %Y, %H:%M:%S') }}</p>
-            </div>
         </div>
-        {% endif %}
-        
-        {% if not answers or answers|length == 0 %}
+
+        <div class="section-d-container">
+            
+            <div class="section-title">C. Analisis Jawaban</div>
+            
+            {% set total_answered = result.correct + result.incorrect %}
+            {% set accuracy_rate = (result.correct / total_answered * 100) if total_answered > 0 else 0 %}
+            {% set incorrect_percentage = (result.incorrect / (result.correct + result.incorrect) * 100) if (result.correct + result.incorrect) > 0 else 0 %}
+
+            {% if result.incorrect > 0 %}
+            <div style="margin-top: 25px;">
+                
+                <table class="improvement-table">
+                    <thead>
+                        <tr>
+                            <th class="number-header" style="width: 5%; text-align: center;">No</th>
+                            <th style="width: 95%; text-align: left;">Catatan Guru untuk Perbaikan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set wrong_count = namespace(value=0) %}
+                        {% for answer in answers %}
+                            {% if not answer.is_correct %}
+                            {% set wrong_count.value = wrong_count.value + 1 %}
+                            <tr>
+                                <td class="number-cell">{{ wrong_count.value }}</td>
+                                <td class="content-cell">
+                                    <div class="question-preview">
+                                        <strong>Pertanyaan:</strong> {{ answer.question }}
+                                    </div>
+                                    <div class="answer-comparison">
+                                        <strong>Jawabanmu:</strong> {{ answer.user_answer }} |
+                                        <strong>Jawaban Benar:</strong> {{ answer.correct_answer }}
+                                    </div>
+                                    <div class="analysis-content">
+                                        {% set ans_stage = answer.stage if answer.stage else 0 %}
+                                        {% set ans_level_num = 0 %}
+                                        {% if ans_stage > 0 %}
+                                            {% set ans_level_num = ans_stage %}
+                                        {% endif %}
+
+                                        {% if ans_level_num == 1 %}
+                                        Kesalahan di Level 1 (Awareness): Konsep dasar atau istilah mungkin belum sepenuhnya dipahami. Perlu penguatan definisi dan contoh paling fundamental.
+                                        {% elif ans_level_num == 2 %}
+                                        Kesalahan di Level 2 (Literacy): Pemahaman dasar sudah ada, tetapi penerapan praktis atau penjelasan cara kerja masih perlu diasah. Latih menggunakan alat/fitur dasar.
+                                        {% elif ans_level_num == 3 %}
+                                        Kesalahan di Level 3 (Capability): Penerapan untuk tugas sederhana perlu ditingkatkan. Fokus pada langkah-langkah penyelesaian masalah praktis menggunakan teknologi.
+                                        {% elif ans_level_num == 4 %}
+                                        Kesalahan di Level 4 (Creativity): Menunjukkan tantangan dalam menggunakan teknologi secara inovatif atau menggabungkan konsep. Latih problem solving yang lebih terbuka.
+                                        {% elif ans_level_num == 5 %}
+                                        Kesalahan di Level 5 (Criticism): Kemampuan evaluasi dan analisis mendalam perlu ditingkatkan. Latih membandingkan solusi, mengidentifikasi kelebihan/kekurangan, dan memberi justifikasi.
+                                        {% else %}
+                                        Tingkatan tidak tercatat. Fokus pada pengulangan materi dan tanyakan guru jika ada bagian yang membingungkan.
+                                        {% endif %}
+                                    </div>
+
+                                    {% if answer.explanation %}
+                                    <div class="explanation-box">
+                                        <strong>📖 Penjelasan:</strong> {{ answer.explanation }}
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="tip-box">
+                                        <strong>💡 Tips Belajar:</strong>
+                                        {% if answer.personalized_tip %}
+                                            {{ answer.personalized_tip }}
+                                        {% else %}
+                                            Ulangi pembahasan topik ini sampai benar-benar paham, lalu coba variasi soal serupa untuk memastikan penguasaan konsep.
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="margin-top: 25px;">
+                <div class="description-box" style="text-align: center; padding: 20px; background-color: #f0fdf4; border-color: #10b981;">
+                    <strong>🎉 Luar Biasa! 🎉</strong><br>
+                    Semua jawaban Anda sudah benar. Tidak ada rekomendasi perbaikan yang diperlukan untuk tes ini.
+                    <br>Pertahankan pemahaman Anda!
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
         <div class="footer">
             <p>Laporan ini dibuat secara otomatis pada {{ now().strftime('%d %B %Y, %H:%M:%S') }}</p>
         </div>
-        {% endif %}
     </div>
 </body>
 </html>

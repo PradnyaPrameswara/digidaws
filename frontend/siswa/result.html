@@ -53,6 +53,17 @@
     .summary-card .card-header {
       background: rgba(0,0,0,0.1); /* Slightly transparent background for header */
     }
+    /* Ensure nested cards/text inside blue summary have solid dark text (not inheriting white) */
+    .summary-card .card,
+    .summary-card .card .card-body,
+    .summary-card .stat-card {
+      color: #212529; /* Bootstrap body color */
+    }
+    .summary-card .stat-explanation,
+    .summary-card .chart-explanation,
+    .summary-card label {
+      color: #212529; /* readable on white inner card */
+    }
     .benar { color: #198754; font-weight: bold; } /* Green for tepat */
     .salah { color: #dc3545; font-weight: bold; } /* Red for kurang tepat */
 
@@ -312,6 +323,42 @@
     display: block;
     }
 
+    /* Level Node Styling for MST */
+    .level-node {
+      background: #f8f9fa;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      padding: 8px;
+      margin: 4px 2px;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      min-width: 60px;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .level-label {
+      font-weight: bold;
+      font-size: 12px;
+      color: #495057;
+    }
+
+    .level-name {
+      font-size: 9px;
+      color: #6c757d;
+      margin: 2px 0;
+    }
+
+    .difficulty {
+      font-size: 8px;
+      color: #17a2b8;
+      font-weight: 500;
+    }
+
     /* Modern Breadcrumb Styling */
     .modern-breadcrumb {
       background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
@@ -323,7 +370,7 @@
       position: relative;
       overflow: hidden;
     }
-    
+
     .modern-breadcrumb::before {
       content: '';
       position: absolute;
@@ -408,12 +455,12 @@
       .modern-breadcrumb {
         padding: 12px 20px;
       }
-      
+
       .breadcrumb-link span,
       .modern-breadcrumb .breadcrumb-item.active span {
         display: none;
       }
-      
+
       .breadcrumb-link,
       .modern-breadcrumb .breadcrumb-item.active {
         padding: 8px 10px;
@@ -458,17 +505,17 @@
 
     .page-title i {
       font-size: 2.2rem;
-      animation: pulse 2s infinite;
+      /* animation: pulse 2s infinite; */ /* Hapus animasi pulse */
     }
 
-    @keyframes pulse {
+    /* @keyframes pulse {
       0%, 100% {
         transform: scale(1);
       }
       50% {
         transform: scale(1.05);
       }
-    }
+    } */ /* Komentari atau hapus animasi pulse jika tidak diinginkan */
 
     .page-subtitle {
       font-size: 1.1rem;
@@ -494,11 +541,11 @@
         font-size: 2rem;
         text-align: center;
       }
-      
+
       .page-title i {
         font-size: 1.8rem;
       }
-      
+
       .page-subtitle {
         font-size: 1rem;
       }
@@ -510,7 +557,7 @@
         flex-direction: column;
         gap: 10px;
       }
-      
+
       .page-subtitle {
         font-size: 0.9rem;
         padding: 0 15px;
@@ -627,10 +674,266 @@
       border-color: #0dcaf0 !important;
       box-shadow: 0 0 20px rgba(13, 202, 240, 0.2);
     }
+
+     /* MST Path Visualization */
+      .mst-path-container {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+      }
+      .path-title {
+        font-weight: 600;
+        color: #0d6efd;
+        font-size: 1.1rem;
+      }
+
+      /* Linear Path Display with Visual Nodes */
+     .linear-path-container {
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        margin-top: 1rem;
+      }
+
+     .path-nodes-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 1rem 0;
+      }
+
+      .path-node {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+      }
+
+     .node-circle {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+        border: 3px solid;
+        background: white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        z-index: 2;
+      }
+
+      .node-circle:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      }
+
+      .node-circle.correct {
+        border-color: #198754;
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+      }
+
+      .node-circle.incorrect {
+        border-color: #dc3545;
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c2c7 100%);
+        color: #721c24;
+      }
+
+      .node-circle.final {
+        border-color: #0d6efd;
+        background: linear-gradient(135deg, #cfe2ff 0%, #9ec5fe 100%);
+        color: #084298;
+        font-weight: 700;
+      }
+       /* Style for the currently active/latest node */
+      .node-circle.current {
+        border-color: #ffc107;
+        background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+        color: #856404;
+      }
+       /* --- PERBAIKAN: Style untuk node yang datanya tidak lengkap --- */
+      .node-circle.unknown {
+        border-color: #6c757d;
+        background: #f8f9fa;
+        color: #495057;
+      }
+
+
+      .node-label {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-align: center;
+      }
+
+      .node-result {
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-top: 0.25rem;
+      }
+
+      .node-result.correct {
+        color: #198754;
+      }
+
+      .node-result.incorrect {
+        color: #dc3545;
+      }
+
+      .path-arrow {
+        display: flex;
+        align-items: center;
+        color: #6c757d;
+        font-size: 1.5rem;
+        padding: 0 0.5rem;
+        z-index: 1;
+      }
+
+      /* .path-arrow i {} */ /* Hapus ruleset kosong */
+
+       /* Colors adjusted for 5 levels */
+      .diagnosis-badge {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-top: 1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+      .diagnosis-badge.level-1 { /* For < L2 or L1 */
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        color: #495057;
+        border: 2px solid #adb5bd;
+      }
+      .diagnosis-badge.level-2 { /* Literacy */
+        background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+        color: #856404;
+        border: 2px solid #ffc107;
+      }
+      .diagnosis-badge.level-3 { /* Capability */
+        background: linear-gradient(135deg, #cfe2ff 0%, #9ec5fe 100%);
+        color: #084298;
+        border: 2px solid #0d6efd;
+      }
+      .diagnosis-badge.level-4 { /* Creativity */
+        background: linear-gradient(135deg, #d1ecf1 0%, #b8daff 100%);
+        color: #004085;
+        border: 2px solid #0dcaf0;
+      }
+      .diagnosis-badge.level-5 { /* Criticism */
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+        border: 2px solid #198754;
+      }
+
+
+      .path-summary {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 8px;
+        border-left: 4px solid #0d6efd;
+      }
+
+      .path-summary-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .path-summary-item:last-child {
+        border-bottom: none;
+      }
+
+      .path-summary-label {
+        font-weight: 600;
+        color: #495057;
+      }
+
+      .path-summary-value {
+        color: #212529;
+      }
+
+      /* Additional path styling */
+      #linear-path-display .path-segment {
+        font-weight: normal;
+        color: #495057;
+      }
+
+      #linear-path-display .diagnosis-segment,
+      #linear-path-display .bs-segment {
+        margin-left: 0.75em;
+        margin-right: 0.75em;
+        font-weight: bold;
+      }
+
+      #linear-path-display .diagnosis-segment {
+            color: #198754; /* Green for diagnosis */
+       }
+       #linear-path-display .bs-segment {
+            color: #dc3545; /* Red for B/S count */
+       }
+       #linear-path-display .arrow { /* Styling for the arrow */
+           color: #6c757d; /* Grey arrow */
+           margin: 0 0.3em;
+           font-weight: normal;
+       }
+
+      /* --- Footer --- */
+      .site-footer {
+        background: #ffffff;
+        border-top: 1px solid #e9ecef;
+        color: #6c757d;
+      }
+      .site-footer a {
+        color: #0d6efd;
+      }
+      .site-footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* --- Tiles for Achieved Taxonomy Levels --- */
+      .level-tile {
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-left: 5px solid #adb5bd; /* default, overridden per-level */
+        border-radius: 12px;
+        padding: 12px 14px;
+        height: 100%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: all 0.25s ease;
+      }
+      .level-tile:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+      }
+      .level-tile .level-title {
+        font-weight: 600;
+        color: #212529;
+      }
+      .level-tile .level-desc {
+        color: #6c757d;
+        font-size: 0.925rem;
+        line-height: 1.5;
+      }
+      /* Accent colors per level (left border) */
+      .level-tile.l1 { border-left-color: #6c757d; }
+      .level-tile.l2 { border-left-color: #ffc107; }
+      .level-tile.l3 { border-left-color: #0d6efd; }
+      .level-tile.l4 { border-left-color: #0dcaf0; }
+      .level-tile.l5 { border-left-color: #198754; }
   </style>
 </head>
 <body>
-  <!-- Navigation Bar -->
   <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
     <div class="container">
   <a class="navbar-brand" href="/DashboardSiswa" title="DIGIDAWS = DIagnostik cerdas Guru untuk Identifikasi Deteksi Awal kemampuan siswa dan Wawasan Sistematis">DIGIDAWS</a>
@@ -652,7 +955,6 @@
     </div>
   </nav>
 
-  <!-- Loading overlay -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner-border text-primary" role="status">
       <span class="visually-hidden">Loading...</span>
@@ -660,7 +962,6 @@
   </div>
 
   <div class="container mt-4">
-    <!-- Modern Breadcrumb navigation -->
     <nav aria-label="breadcrumb" class="mb-4">
       <ol class="breadcrumb modern-breadcrumb">
         <li class="breadcrumb-item">
@@ -683,8 +984,7 @@
       </h1>
       <p class="page-subtitle text-muted">Ringkasan lengkap hasil tes diagnostik Anda</p>
     </div>
-    
-    <!-- Error container (hidden by default) -->
+
     <div class="error-container" id="errorContainer" style="display: none;">
       <h5><i class="bi bi-exclamation-triangle me-2"></i>Terjadi Masalah dengan Data</h5>
       <p id="errorMessage">Terdapat ketidaksesuaian data pada hasil tes Anda.</p>
@@ -692,383 +992,7 @@
         <i class="bi bi-arrow-clockwise me-2"></i>Perbaiki Data
       </button>
     </div>
-    
-    <!-- MST Path Visualization -->
-    <div class="card mb-4">
-      <div class="card-header bg-white">
-        <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Alur Progres Tes MST (Multistage Adaptive Test)</h5>
-      </div>
-      <div class="card-body">
-        <!-- MST Horizontal Diagram -->
-        <div class="mst-diagram-container mb-4">
-          <div class="mst-flow">
-            <!-- Stage I -->
-            <div class="mst-stage" id="mst-stage-1">
-              <div class="stage-header">Stage I</div>
-              <div class="level-node" id="level-node-1">1</div>
-            </div>
-            
-            <!-- Transition Line 1 -->
-            <div class="transition-line"></div>
-            
-            <!-- Stage II -->
-            <div class="mst-stage" id="mst-stage-2">
-              <div class="stage-header">Stage II</div>
-              <div class="level-node" id="level-node-2">2</div>
-            </div>
-            
-            <!-- Transition Line 2 -->
-            <div class="transition-line"></div>
-            
-            <!-- Stage III -->
-            <div class="mst-stage-split">
-              <div class="mst-stage upper-path" id="mst-stage-3-upper">
-                <div class="stage-header">Stage III</div>
-                <div class="level-node" id="level-node-4">4</div>
-              </div>
-              <div class="mst-stage lower-path" id="mst-stage-3-lower">
-                <div class="stage-header">Stage III</div>
-                <div class="level-node" id="level-node-3">3</div>
-              </div>
-            </div>
-            
-            <!-- Transition Line 3 -->
-            <div class="transition-line"></div>
-            
-            <!-- Stage IV -->
-            <div class="mst-stage" id="mst-stage-4">
-              <div class="stage-header">Stage IV</div>
-              <div class="final-levels">
-                <div class="level-node" id="level-node-7">7</div>
-                <div class="level-node" id="level-node-6">6</div>
-                <div class="level-node" id="level-node-5">5</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Explanation -->
-        <div class="mst-explanation">
-          <p><i class="bi bi-info-circle me-2"></i><strong class="text-dark">Level Terakhir yang Dicapai: <span id="current-level-text">{{ current_level }}</span></strong></p>
-          
-          <!-- Student Achievement Analysis -->
-          <div class="achievement-analysis mb-4">
-            <h6 class="text-success mb-3"><i class="bi bi-trophy me-2"></i>Analisis Pencapaian Anda</h6>
-            <div class="narrative-description" id="narrative-description">
-              <!-- Deskripsi naratif akan diisi oleh JavaScript -->
-            </div>
-          </div>
-          
 
-        </div>
-      </div>
-    </div>
-    
-    <!-- CSS untuk MST Diagram -->
-    <style>
-      .mst-diagram-container {
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: 20px;
-        border: 1px solid rgba(0,0,0,0.1);
-        overflow-x: auto;
-        width: 100%;
-        box-sizing: border-box;
-      }
-      
-      .mst-flow {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        gap: 12px;
-        flex-wrap: nowrap;
-        min-height: 100px;
-      }
-      
-      .mst-stage {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 16px 12px;
-        text-align: center;
-        border: 2px solid #dee2e6;
-        min-width: 90px;
-        max-width: 140px;
-        transition: all 0.3s ease;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      
-      .mst-stage.passed {
-        background: #d1e7dd;
-        border-color: #198754;
-        box-shadow: 0 3px 8px rgba(25,135,84,0.2);
-      }
-      
-      .transition-line {
-        width: 30px;
-        height: 3px;
-        background: #dee2e6;
-        position: relative;
-        flex-shrink: 0;
-        border-radius: 2px;
-      }
-      
-      .transition-line::after {
-        content: '';
-        position: absolute;
-        right: -4px;
-        top: -2px;
-        width: 0;
-        height: 0;
-        border-left: 6px solid #dee2e6;
-        border-top: 3px solid transparent;
-        border-bottom: 3px solid transparent;
-      }
-      
-      .stage-header {
-        font-size: 1rem;
-        font-weight: 700;
-        color: #495057;
-        margin-bottom: 10px;
-        text-align: center;
-        letter-spacing: 0.5px;
-      }
-      
-      .mst-stage.passed .stage-header {
-        color: #198754;
-        font-weight: 800;
-      }
-      
-      .level-node {
-        width: 40px;
-        height: 40px;
-        line-height: 40px;
-        background: #6c757d;
-        color: white;
-        border-radius: 50%;
-        font-weight: 700;
-        margin: 0 auto;
-        font-size: 1.1rem;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      }
-      
-      .mst-stage-split {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      
-      .upper-path {
-        transform: translateY(-4px);
-      }
-      
-      .lower-path {
-        transform: translateY(4px);
-      }
-      
-      .final-levels {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        align-items: center;
-      }
-      
-      .final-levels .level-node {
-        width: 36px;
-        height: 36px;
-        line-height: 36px;
-        font-size: 1rem;
-        margin: 2px auto;
-      }
-      
-      .mst-explanation {
-        background: rgba(13, 110, 253, 0.05);
-        border-radius: 10px;
-        padding: 20px;
-        border-left: 4px solid #0d6efd;
-      }
-      
-      .achievement-analysis {
-        background: linear-gradient(135deg, rgba(25, 135, 84, 0.05) 0%, rgba(13, 110, 253, 0.05) 100%);
-        border-radius: 10px;
-        padding: 18px;
-        border: 1px solid rgba(25, 135, 84, 0.2);
-      }
-      
-      .narrative-description {
-        background: #fff;
-        border-radius: 8px;
-        padding: 20px;
-        border: 1px solid rgba(0,0,0,0.1);
-        line-height: 1.6;
-        text-align: justify;
-      }
-      
-      .narrative-description p {
-        margin-bottom: 15px;
-        color: #495057;
-      }
-      
-      .mst-description {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 15px;
-        border: 1px solid rgba(0,0,0,0.1);
-      }
-      
-      .flow-description ol.list-styled {
-        padding-left: 20px;
-        margin-bottom: 15px;
-      }
-      
-      .flow-description ol.list-styled li {
-        margin-bottom: 8px;
-        line-height: 1.5;
-      }
-      
-      .sub-list {
-        margin-top: 5px;
-        padding-left: 15px;
-      }
-      
-      .sub-list li {
-        margin-bottom: 3px;
-        font-size: 0.9rem;
-      }
-      
-      .advantages .advantage-item {
-        text-align: center;
-        padding: 10px;
-        background: #fff;
-        border-radius: 6px;
-        border: 1px solid rgba(0,0,0,0.1);
-        height: 100%;
-      }
-      
-      .advantages .advantage-item i {
-        font-size: 1.2rem;
-        margin-bottom: 5px;
-        display: block;
-      }
-      
-      .stage-legend {
-        margin-top: 15px;
-        padding-top: 15px;
-        border-top: 1px solid rgba(0,0,0,0.1);
-      }
-      
-      .stage-explanation {
-        text-align: center;
-        padding: 10px 8px;
-        border-radius: 8px;
-        font-size: 0.8rem;
-        border: 1px solid rgba(0,0,0,0.1);
-        transition: all 0.2s ease;
-      }
-      
-      .stage-explanation:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      
-      .stage-1-bg { background-color: rgba(25, 135, 84, 0.1); }
-      .stage-2-bg { background-color: rgba(13, 110, 253, 0.1); }
-      .stage-3-bg { background-color: rgba(253, 126, 20, 0.1); }
-      .stage-4-bg { background-color: rgba(111, 66, 193, 0.1); }
-      
-      /* Responsive Design */
-      @media (max-width: 768px) {
-        .mst-diagram-container {
-          padding: 15px;
-          overflow-x: auto;
-        }
-        
-        .mst-flow {
-          gap: 8px;
-          min-width: 450px;
-          min-height: 85px;
-        }
-        
-        .mst-stage {
-          min-width: 75px;
-          max-width: 115px;
-          padding: 12px 8px;
-        }
-        
-        .transition-line {
-          width: 25px;
-        }
-        
-        .level-node {
-          width: 34px;
-          height: 34px;
-          line-height: 34px;
-          font-size: 1rem;
-        }
-        
-        .stage-header {
-          font-size: 0.9rem;
-        }
-        
-        .final-levels .level-node {
-          width: 30px;
-          height: 30px;
-          line-height: 30px;
-          font-size: 0.9rem;
-        }
-      }
-      
-      @media (max-width: 576px) {
-        .mst-diagram-container {
-          padding: 12px;
-        }
-        
-        .mst-flow {
-          min-width: 380px;
-          gap: 6px;
-          min-height: 75px;
-        }
-        
-        .mst-stage {
-          min-width: 65px;
-          max-width: 95px;
-          padding: 10px 6px;
-        }
-        
-        .transition-line {
-          width: 20px;
-        }
-        
-        .level-node {
-          width: 30px;
-          height: 30px;
-          line-height: 30px;
-          font-size: 0.9rem;
-        }
-        
-        .stage-header {
-          font-size: 0.8rem;
-        }
-        
-        .final-levels .level-node {
-          width: 26px;
-          height: 26px;
-          line-height: 26px;
-          font-size: 0.8rem;
-        }
-      }
-    </style>
-    
-    <!-- Card untuk ringkasan hasil -->
     <div class="card summary-card mb-4">
       <div class="card-header">
         <h3><i class="bi bi-clipboard-data me-2"></i>Ringkasan Hasil</h3>
@@ -1078,7 +1002,7 @@
           <div class="col-md-4">
             <div class="stat-card mb-3 clickable" onclick="showAnswersModal('correct')">
               <div class="stat-label">Jawaban Tepat</div>
-              <div class="stat-value benar" id="correct-value">{{ correct }}</div>
+              <div class="stat-value benar" id="correct-value">0</div>
               <div class="small">Soal dijawab dengan tepat</div>
               <div class="stat-explanation"><i class="bi bi-hand-index-thumb"></i> Klik untuk melihat detail jawaban tepat</div>
             </div>
@@ -1086,7 +1010,7 @@
           <div class="col-md-4">
             <div class="stat-card mb-3 clickable" onclick="showAnswersModal('incorrect')">
               <div class="stat-label">Jawaban Kurang Tepat</div>
-              <div class="stat-value salah" id="incorrect-value">{{ incorrect }}</div>
+              <div class="stat-value salah" id="incorrect-value">0</div>
               <div class="small">Soal dijawab kurang tepat</div>
               <div class="stat-explanation"><i class="bi bi-hand-index-thumb"></i> Klik untuk melihat detail jawaban kurang tepat</div>
             </div>
@@ -1094,32 +1018,31 @@
           <div class="col-md-4">
             <div class="stat-card mb-3">
               <div class="stat-label">Akurasi</div>
-              <div class="stat-value text-primary" id="accuracy-value">{{ accuracy }}%</div>
+              <div class="stat-value text-primary" id="accuracy-value">0%</div>
               <div class="small">Tingkat ketepatan jawaban</div>
               <div class="stat-explanation">Persentase jawaban tepat dari total soal</div>
             </div>
           </div>
         </div>
-        
+
         <div class="row mt-3">
           <div class="col-md-7">
             <div class="card h-100">
               <div class="card-body">
-                <p>
-                  <strong class="text-dark">Level Terakhir yang Dicapai:</strong> 
-                  <span class="badge bg-light text-dark border border-primary current-level-badge-style" 
-                        id="current-level-badge">{{ current_level }}</span>
+                <p class="mt-2">
+                  <strong class="text-dark">Level Benar Tercapai:</strong>
+                  <span id="achieved-levels-container" class="text-dark">-</span>
                 </p>
-                <!-- Progress bar with explanation -->
+                
                 <div class="progress-container">
-                  <label><strong>Performa Jawaban:</strong></label>
+                  <label class="text-dark"><strong>Performa Jawaban:</strong></label>
                   <div class="progress">
-                    <div id="correct-progress" class="progress-bar" role="progressbar" 
-                        style="background-color: #198754;" aria-valuemin="0" aria-valuemax="100">
+                    <div id="correct-progress" class="progress-bar" role="progressbar"
+                        style="background-color: #198754; width: 0%;" aria-valuemin="0" aria-valuemax="100">
                       <span id="correct-percent">0%</span>
                     </div>
-                    <div id="incorrect-progress" class="progress-bar" role="progressbar" 
-                        style="background-color: #dc3545;" aria-valuemin="0" aria-valuemax="100">
+                    <div id="incorrect-progress" class="progress-bar" role="progressbar"
+                        style="background-color: #dc3545; width: 0%;" aria-valuemin="0" aria-valuemax="100">
                       <span id="incorrect-percent">0%</span>
                     </div>
                   </div>
@@ -1127,18 +1050,16 @@
                     <i class="bi bi-info-circle me-1"></i> Diagram di atas menunjukkan perbandingan jawaban tepat (<span style="color: #198754; font-weight: bold;">hijau</span>) dan kurang tepat (<span style="color: #dc3545; font-weight: bold;">merah</span>) dari semua soal yang telah Anda kerjakan.
                   </div>
                 </div>
-                
-                <!-- Badges for additional information -->
+
                 <div class="mt-4">
                   <p><strong>Statistik Lanjutan:</strong></p>
                   <div class="d-flex flex-wrap gap-2">
-                    <span class="badge bg-info" id="total-questions">Total Soal: {{ correct + incorrect }}</span>
-                    <span class="badge bg-secondary" id="collection-name">Koleksi: {{ collection_name if collection_name else 'N/A' }}</span>
-                    
+                    <span class="badge bg-info" id="total-questions">Total Soal: 0</span>
+                    <span class="badge bg-secondary" id="collection-name">Koleksi: N/A</span>
+
                   </div>
                 </div>
-                
-                <!-- Action buttons -->
+
                 <div class="mt-4">
                   <a href="/DashboardSiswa" class="btn btn-outline-primary">
                     <i class="bi bi-grid btn-icon"></i>Kembali ke Dashboard
@@ -1146,7 +1067,7 @@
                   <button id="exportPdfBtn" class="btn btn-danger">
                     <i class="bi bi-file-pdf btn-icon"></i>Export ke PDF
                   </button>
-                </div>
+                  </div>
               </div>
             </div>
           </div>
@@ -1165,15 +1086,13 @@
         </div>
       </div>
     </div>
-    
-    <!-- Analisis Pencapaian -->
+
     <div class="card mb-4">
       <div class="card-header bg-white">
         <h3><i class="bi bi-trophy me-2"></i>Analisis Pencapaian Anda</h3>
       </div>
       <div class="card-body">
         <div id="achievement-analysis-container">
-          <!-- Achievement analysis akan diisi secara dinamis -->
           <div class="text-center">
             <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Memuat analisis pencapaian...</span>
@@ -1183,25 +1102,9 @@
         </div>
       </div>
     </div>
-    
-    <!-- Rekomendasi -->
-    <div class="card mb-5">
-      <div class="card-header bg-white">
-        <h3><i class="bi bi-lightbulb me-2"></i>Bantuan Belajar untuk Anda</h3>
-      </div>
-      <div class="card-body">
-        <div class="alert alert-primary">
-          <h5><i class="bi bi-mortarboard me-2"></i>Saran Pembelajaran</h5>
-          <p>Berdasarkan hasil tes diagnostik Anda, berikut bantuan belajar yang sesuai dengan kemampuan Anda:</p>
-          <ul id="recommendation-list">
-            <li>Sedang memuat bantuan belajar...</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Modal untuk menampilkan jawaban -->
+    </div>
+
   <div class="modal fade" id="answersModal" tabindex="-1" aria-labelledby="answersModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
@@ -1229,7 +1132,10 @@
   <script>
     // Directly inject values from Flask backend for robustness
     const userId = parseInt("{{ current_user.id }}") || null;
-    const collectionId = parseInt("{{ collection_id }}") || null;
+    // Extract collection_id from URL query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const collectionId = parseInt(urlParams.get('collection_id')) || null;
+
 
     // Log for debugging
     console.log("Parsed userId:", userId);
@@ -1240,19 +1146,94 @@
     let questionLevelMap = {}; // Map untuk menyimpan ID soal -> level
     let collectionQuestions = []; // Array untuk menyimpan data lengkap soal dari koleksi
     let collectionInfo = {}; // Object untuk menyimpan informasi koleksi
+    let testDataGlobal = {}; // Global variable to store the main test result data
     
+    // Definisikan taxonomyNames di scope global
+    const taxonomyNames = {
+        1: 'Awareness',
+        2: 'Literacy',
+        3: 'Capability',
+        4: 'Creativity',
+        5: 'Criticism'
+    };
+
+    // Helper function untuk fetch dengan autentikasi
+    function getAuthHeaders() {
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      return headers;
+    }
+
+    async function authenticatedFetch(url, options = {}) {
+      const headers = {
+        ...getAuthHeaders(),
+        ...(options.headers || {})
+      };
+      return fetch(url, { ...options, headers });
+    }
+
+    // Helper function to extract level number from state name (MST 5-stage system)
+    function getLevelFromState(stateName) {
+      if (!stateName) return 1;
+
+      // Map state names to levels (MST 5-stage system)
+      const stateToLevel = {
+        'Awareness': 1, 'L1M': 1, 'L1H': 1, 'L1E': 1,
+        'Literacy': 2, 'L2M': 2, 'L2H': 2, 'L2E': 2,
+        'Capability': 3, 'L3M': 3, 'L3H': 3, 'L3E': 3,
+        'Creativity': 4, 'L4M': 4, 'L4H': 4, 'L4E': 4,
+        'Criticism': 5, 'L5M': 5, 'L5H': 5, 'L5E': 5,
+        // Include full state names if they appear in logs
+        'L1 AwarenessM': 1,
+        'L2 LiteracyH': 2, 'L2 LiteracyE': 2,
+        'L3 CapabilityH': 3, 'L3 CapabilityM': 3,
+        'L4 CreativityH': 4, 'L4 CreativityM': 4, 'L4 CreativityE': 4,
+        'L5 CriticismH': 5, 'L5 CriticismM': 5, 'L5 CriticismE': 5,
+        // Handle diagnosis strings
+        'L5': 5, 'L4': 4, 'L3': 3, '< L2': 1
+      };
+
+      // Direct lookup first
+      if (stateToLevel.hasOwnProperty(stateName)) {
+        return stateToLevel[stateName];
+      }
+
+      // Try matching parts
+      for (const key in stateToLevel) {
+          // Be more specific to avoid partial matches like 'L1' matching 'L1 AwarenessM' incorrectly
+          if (stateName === key || stateName.startsWith(key + ' ') || stateName.endsWith(' ' + key)) {
+             return stateToLevel[key];
+          }
+      }
+
+
+      // Fallback: extract number from state name like L1, L2, etc.
+      const match = stateName.match(/^L(\d+)$/); // Match exactly L followed by number(s)
+      if (match) {
+          const levelNum = parseInt(match[1]);
+          return Math.max(1, Math.min(5, levelNum)); // Ensure level is between 1 and 5
+      }
+
+      // Final fallback if nothing matches
+      console.warn(`Could not determine level from stateName: '${stateName}'. Defaulting to 1.`);
+      return 1;
+    }
+
     // Setup chart and visualizations
     document.addEventListener('DOMContentLoaded', function() {
       // Aktifkan tombol ekspor PDF secara independen (tidak menunggu inisialisasi data)
       setupExportButtons();
-      
+
       // Inisialisasi
       initResultPage().catch(error => {
         console.error("Terjadi kesalahan saat inisialisasi halaman:", error);
         showError("Terjadi kesalahan saat memuat data hasil. Tombol export tetap dapat digunakan.");
         showLoading(false);
       });
-      
+
       // Setup refresh button
       const refreshButton = document.getElementById('refreshDataButton');
       if (refreshButton) {
@@ -1261,7 +1242,7 @@
         });
       }
     });
-    
+
     // Fungsi untuk mengambil informasi koleksi
     async function fetchCollectionInfo() {
       if (!collectionId) {
@@ -1270,191 +1251,83 @@
       }
 
       try {
-        const response = await fetch(`/api/collections/${collectionId}`);
+        // Coba endpoint siswa terlebih dahulu
+        const response = await authenticatedFetch(`/api/collections/${collectionId}/details`); // Gunakan endpoint details
+
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.data) {
-            collectionInfo = data.data;
+          if (data.success && data.collection) {
+            collectionInfo = data.collection;
             console.log("Informasi koleksi berhasil dimuat:", collectionInfo);
+            // Juga simpan info guru jika ada
+            if (data.guru) {
+                collectionInfo.guru_name = data.guru.nama;
+            }
+          } else {
+            console.warn("Data koleksi tidak lengkap:", data);
           }
+        } else {
+            console.warn("Gagal mengambil info koleksi (siswa), status:", response.status);
+             // Fallback: coba endpoint /api/collections/<id> jika ada (mungkin butuh autentikasi guru)
+            try {
+                const fallbackResponse = await authenticatedFetch(`/api/collections/${collectionId}`);
+                if (fallbackResponse.ok) {
+                    const fallbackData = await fallbackResponse.json();
+                    if (fallbackData.success && fallbackData.collection) {
+                        collectionInfo = fallbackData.collection;
+                         console.log("Informasi koleksi (fallback) berhasil dimuat:", collectionInfo);
+                    }
+                }
+            } catch (fallbackError) {
+                 console.warn("Fallback fetchCollectionInfo juga gagal:", fallbackError);
+            }
         }
       } catch (error) {
         console.warn("Gagal mengambil informasi koleksi:", error);
       }
     }
 
-    // Fungsi untuk mengambil data soal dan level dari server
-    async function fetchQuestionData() {
-      // Only fetch if userId is valid
-      if (userId === null || collectionId === null) {
-        console.error("fetchQuestionData: userId atau collectionId tidak valid. Tidak dapat mengambil data soal.");
-        return;
-      }
 
-      try {
-        console.log("Mengambil data soal dari database...");
-        // Ambil informasi koleksi terlebih dahulu
-        await fetchCollectionInfo();
-        let successful = false;
-        
-        // Coba menggunakan endpoint koleksi terlebih dahulu
-        try {
-          const response = await fetch(`/api/collections/${collectionId}/questions`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            processQuestionData(data);
-            successful = true;
-            console.log("Berhasil mengambil data soal dari /api/collections/${collectionId}/questions");
-            return;
-          } else {
-            console.warn(`Endpoint /api/collections/${collectionId}/questions tidak tersedia (${response.status}). Mencoba endpoint alternatif...`);
-          }
-        } catch (err) {
-          console.warn("Gagal mengakses endpoint collection questions:", err.message);
-        }
-        
-        // Jika endpoint pertama gagal, coba dengan endpoint generic
-        if (!successful) {
-          try {
-            const response = await fetch(`/api/get_questions`);
-            
-            if (response.ok) {
-              const data = await response.json();
-              processQuestionData(data);
-              successful = true;
-              console.log("Berhasil mengambil data soal dari /api/get_questions");
-              return;
-            } else {
-              console.warn(`Endpoint /api/get_questions tidak tersedia (${response.status}).`);
-            }
-          } catch (err) {
-            console.warn("Gagal mengakses endpoint get_questions:", err.message);
-          }
-        }
-
-        // Jika kedua endpoint gagal, coba dengan endpoint collection detail
-        if (!successful) {
-          try {
-            const response = await fetch(`/api/collections/${collectionId}`);
-            
-            if (response.ok) {
-              const data = await response.json();
-              if (data.questions && Array.isArray(data.questions)) {
-                processQuestionData(data.questions);
-                successful = true;
-                console.log("Berhasil mengambil data soal dari /api/collections/${collectionId}");
-                return;
-              } else {
-                console.warn("Data questions tidak ditemukan dalam response /api/collections/${collectionId}");
-              }
-            } else {
-              console.warn(`Endpoint /api/collections/${collectionId} tidak tersedia (${response.status}).`);
-            }
-          } catch (err) {
-            console.warn("Gagal mengakses endpoint collection detail:", err.message);
-          }
-        }
-        
-        // Jika semua endpoint gagal, beri pesan error
-        if (!successful) {
-          throw new Error("Tidak dapat mengambil data soal dari semua endpoint yang tersedia");
-        }
-      } catch (error) {
-        console.error("Error mengambil data soal:", error);
-        // Tetap lanjutkan eksekusi program meskipun gagal mengambil data soal
-      }
-    }
-    
-    // Fungsi untuk memproses data soal dari berbagai format API response
-    function processQuestionData(data) {
-      try {
-        // Handle both API response formats
-        if (data.success && Array.isArray(data.data)) {
-          // Format /api/get_questions
-          collectionQuestions = data.data;
-          data.data.forEach(question => {
-            questionLevelMap[question.id] = question.level;
-          });
-          console.log("Data soal lengkap berhasil dimuat", collectionQuestions);
-          console.log("Peta soal ke level berhasil dibuat", questionLevelMap);
-        } else if (Array.isArray(data)) {
-          // Format /api/collections/${collectionId}/questions
-          collectionQuestions = data;
-          data.forEach(question => {
-            questionLevelMap[question.id] = question.level;
-          });
-          console.log("Data soal lengkap berhasil dimuat", collectionQuestions);
-          console.log("Peta soal ke level berhasil dibuat", questionLevelMap);
-        } else {
-          console.warn("Gagal membuat peta soal ke level, format data tidak dikenali:", data);
-        }
-      } catch (error) {
-        console.error("Error memproses data soal:", error);
-      }
-    }
-    
     async function initResultPage() {
       try {
-        // Tampilkan loading overlay
         showLoading(true);
 
-        // Check if IDs are valid before proceeding with fetches
         if (userId === null || collectionId === null) {
             showError("ID pengguna atau koleksi tidak tersedia. Pastikan Anda login dan mengakses halaman ini dengan benar.");
             showLoading(false);
-            // Tetap setup tombol export (mereka akan menampilkan pesan error jika parameter tidak valid)
             setupExportButtons();
-            return; // Stop initialization if IDs are invalid
+            return;
         }
+
+        await fixStatisticsInconsistency();
+        await fetchCollectionInfo(); // Try to fetch collection info (handle failure gracefully)
         
-        // Cek dan perbaiki inkonsistensi data (jika ada)
+        // **PERBAIKAN**: Panggil fetchAndCacheAnswerHistory() SEBELUM fetchTestResultData()
+        // agar allAnswers tersedia saat fetchTestResultData() membutuhkannya untuk fallback
+        await fetchAndCacheAnswerHistory(); 
+
         try {
-          await fixStatisticsInconsistency();
-        } catch (err) {
-          console.warn("Gagal memperbaiki inkonsistensi data:", err.message);
-          // Lanjutkan meskipun gagal
-        }
-        
-        // Ambil riwayat jawaban terlebih dahulu (untuk memastikan data tersedia untuk export)
-        try {
-          await fetchAndCacheAnswerHistory();
-          console.log("Riwayat jawaban berhasil di-cache untuk keperluan export");
-        } catch (err) {
-          console.warn("Gagal mengambil riwayat jawaban:", err.message);
-          // Lanjutkan meskipun gagal
-        }
-        
-        // Ambil data hasil tes
-        let testData;
-        try {
-          testData = await fetchTestResultData();
-          // Render visualisasi dan statistik
-          renderResultPage(testData);
+          testDataGlobal = await fetchTestResultData(); // Store in global variable
+          
+          // **PERBAIKAN**: Panggil renderResultPage setelah SEMUA data (termasuk allAnswers) siap
+          renderResultPage(testDataGlobal); 
         } catch (err) {
           console.error("Gagal mengambil data hasil tes:", err.message);
-          showError("Gagal mengambil data hasil tes. Tombol export tetap dapat digunakan meskipun data visual tidak dapat ditampilkan.");
-          
-          // Tetap sembunyikan loading meskipun gagal mendapatkan data visualisasi
+          showError("Gagal mengambil data hasil tes. Tombol export tetap dapat digunakan.");
           showLoading(false);
-          
-          // Pastikan tombol export tetap diaktifkan meskipun data visual gagal diambil
           setupExportButtons();
           return;
         }
-        
-        // Sembunyikan loading overlay
+
         showLoading(false);
       } catch (error) {
         console.error("Error initializing result page:", error);
         showLoading(false);
         showError("Terjadi kesalahan saat memuat hasil tes. Tombol export tetap dapat digunakan.");
-        
-        // Pastikan tombol export tetap diaktifkan meskipun ada error
         setupExportButtons();
       }
     }
-    
+
     // Fungsi untuk menampilkan/menyembunyikan loading overlay
     function showLoading(show) {
       const loadingOverlay = document.getElementById('loadingOverlay');
@@ -1462,1377 +1335,881 @@
         loadingOverlay.style.display = show ? 'flex' : 'none';
       }
     }
-    
+
     // Fungsi untuk menampilkan pesan error
     function showError(message) {
       const errorContainer = document.getElementById('errorContainer');
       const errorMessage = document.getElementById('errorMessage');
-      
+
       if (errorContainer && errorMessage) {
         errorMessage.textContent = message;
         errorContainer.style.display = 'block';
       } else {
-        // Fallback if elements don't exist
-        alert(message);
+        // Fallback alert jika container tidak ditemukan
+        Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: message,
+        });
       }
     }
-    
+
     // Fungsi untuk memperbaiki inkonsistensi data statistik
     async function fixStatisticsInconsistency() {
-      // Only proceed if IDs are valid
       if (userId === null || collectionId === null) {
-        console.error("fixStatisticsInconsistency: userId or collectionId is null. Cannot proceed.");
+        console.error("fixStatisticsInconsistency: userId or collectionId is null.");
         return false;
       }
-
       try {
-        console.log(`Memeriksa konsistensi data untuk koleksi: ${collectionId}`);
-        
-        // Panggil endpoint khusus untuk menyegarkan data jawaban
-        const response = await fetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error memeriksa data: ${errorText}`);
-          return false;
-        }
-        
+        const response = await authenticatedFetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}`);
+        if (!response.ok) return false;
         const result = await response.json();
-        console.log("Hasil pemeriksaan data:", result);
-        
-        // Jika ada perubahan, tandai ada masalah data
-        if (result.changes) {
-          hasDataError = true;
-          const oldCorrect = result.changes.old_correct || 0;
-          const newCorrect = result.changes.new_correct || 0;
-          const oldIncorrect = result.changes.old_incorrect || 0;
-          const newIncorrect = result.changes.new_incorrect || 0;
-          
-          // Tampilkan pesan error jika ada perbedaan data
-          if (oldCorrect !== newCorrect || oldIncorrect !== newIncorrect) {
-            showError(`Terdapat perbedaan data. Data awal: Benar=${oldCorrect}, Salah=${oldIncorrect}. Data terkoreksi: Benar=${newCorrect}, Salah=${newIncorrect}.`);
-          }
+        if (result.success && result.changes && (result.changes.old_correct !== result.changes.new_correct || result.changes.old_incorrect !== result.changes.new_incorrect)) {
+            // Tampilkan pesan perbaikan data jika ada perubahan signifikan
+            Swal.fire({
+                icon: 'info',
+                title: 'Data Diperbarui',
+                html: `Statistik jawaban Anda telah disinkronkan.<br>
+                       Sebelumnya: Benar ${result.changes.old_correct}, Salah ${result.changes.old_incorrect}<br>
+                       Sekarang: Benar ${result.changes.new_correct}, Salah ${result.changes.new_incorrect}`,
+                timer: 4000,
+                timerProgressBar: true
+            });
+        } else if (result.success) {
+            console.log("Statistik jawaban sudah konsisten.");
         }
-        
         return result.success || false;
       } catch (error) {
-        console.error("Error memperbaiki inkonsistensi:", error);
+        console.error("Error saat memperbaiki statistik:", error);
         return false;
-      }
+       }
     }
-    
+
     // Fungsi untuk memaksa refresh data
     async function forceRefreshData() {
-      // Only proceed if IDs are valid
       if (userId === null || collectionId === null) {
-        console.error("forceRefreshData: userId or collectionId is null. Cannot proceed.");
-        showError("ID pengguna atau koleksi tidak tersedia. Tidak dapat memperbaiki data.");
-        return;
+        showError("ID pengguna atau koleksi tidak tersedia."); return;
       }
-
       try {
         showLoading(true);
-        
-        const response = await fetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}&force=true`);
-        
-        if (!response.ok) {
-          throw new Error(`Error server: ${response.status}`);
-        }
-        
+        const response = await authenticatedFetch(`/api/siswa/refresh_answers/${collectionId}?user_id=${userId}&force=true`);
+        if (!response.ok) throw new Error(`Error: ${response.status}`);
         const result = await response.json();
-        
         if (result.success) {
-          // Reload halaman untuk menampilkan data yang sudah diperbaiki
-          window.location.reload();
-        } else {
-          throw new Error(result.message || "Gagal memperbaiki data");
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Data telah diperbarui. Memuat ulang halaman...',
+                timer: 2000,
+                timerProgressBar: true,
+                didClose: () => {
+                    window.location.reload();
+                }
+            });
         }
+        else throw new Error(result.message || "Gagal memperbarui data");
       } catch (error) {
-        console.error("Error refreshing data:", error);
-        showLoading(false);
-        showError(`Gagal memperbaiki data: ${error.message}`);
+        showLoading(false); showError(`Gagal memperbarui data: ${error.message}`);
       }
     }
-    
+
     // Fungsi untuk mengambil data hasil tes
     async function fetchTestResultData() {
-      // Only proceed if IDs are valid
-      if (userId === null || collectionId === null) {
-        console.error("fetchTestResultData: userId or collectionId is null. Cannot fetch test data.");
-        throw new Error("ID pengguna atau koleksi tidak tersedia.");
-      }
-
+      if (userId === null || collectionId === null) throw new Error("ID pengguna atau koleksi tidak tersedia.");
       try {
-        // Tambahkan timestamp untuk menghindari cache
         const timestamp = new Date().getTime();
-        const url = `/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`;
-        
-        const response = await fetch(url);
+        const url = `/api/mst/status/${collectionId}?user_id=${userId}&t=${timestamp}`; // Endpoint status MST
+        const response = await authenticatedFetch(url);
         
         if (!response.ok) {
-          throw new Error(`Error server: ${response.status}`);
+            const errorData = await response.json().catch(() => ({})); 
+             throw new Error(`Gagal mengambil hasil: ${errorData.message || response.status}`);
         }
         
         const data = await response.json();
-        console.log("Data hasil tes:", data);
-        
-        if (!data.success && data.message) {
-          throw new Error(data.message);
-        }
-        
-        return data;
-      } catch (error) {
-        console.error("Error fetching test data:", error);
-        throw error;
-      }
-    }
-    
-    // Fungsi untuk mengambil data siswa_answers langsung dari database
-    async function fetchSiswaAnswers() {
-      // Only proceed if IDs are valid
-      if (userId === null || collectionId === null) {
-        console.error("fetchSiswaAnswers: userId or collectionId is null. Cannot fetch student answers.");
-        return null;
-      }
+        if (!data.success && data.message) throw new Error(data.message);
+        console.log("Data hasil tes (fetchTestResultData - from /api/mst/status):", data); 
 
+        // **PERBAIKAN**: Gunakan allAnswers (yang sudah di-fetch oleh initResultPage) untuk B/S
+        let correctCount = 0;
+        let incorrectCount = 0;
+
+        if (allAnswers && allAnswers.length > 0) {
+             correctCount = allAnswers.filter(a => a.is_correct).length;
+             incorrectCount = allAnswers.length - correctCount;
+             console.log("Using B/S from allAnswers:", correctCount, incorrectCount);
+        } else {
+             // Fallback jika allAnswers gagal di-fetch (seharusnya tidak terjadi)
+             correctCount = data.mst_status?.questions_correct ?? 0;
+             incorrectCount = (data.mst_status?.questions_answered ?? 0) - correctCount;
+             console.warn("Fallback B/S from mst_status:", correctCount, incorrectCount);
+        }
+        // **AKHIR PERBAIKAN**
+
+        const compatibleData = {
+            success: data.success,
+            correct: correctCount, // Gunakan hasil hitungan dari allAnswers
+            incorrect: incorrectCount, // Gunakan hasil hitungan dari allAnswers
+            current_level: data.mst_status?.stage || 1, // Gunakan stage dari mst_status
+            collection_name: collectionInfo?.name, 
+            mst_state: data.mst_status, // Simpan data mst_status
+            answers: allAnswers // Sertakan answers yang sudah di-cache
+        };
+        
+        console.log("Compatible data structure for render:", compatibleData);
+        return compatibleData;
+      } catch (error) {
+         console.error("fetchTestResultData error:", error);
+         throw error;
+       }
+    }
+
+    // Fungsi untuk mengambil data siswa_answers langsung dari database (FALLBACK)
+    async function fetchSiswaAnswers() {
+      if (userId === null || collectionId === null) return null;
       try {
-        // Fetch data siswa_answers langsung dari database
         const timestamp = new Date().getTime();
         const url = `/api/siswa_answers?user_id=${userId}&collection_id=${collectionId}&t=${timestamp}`;
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Error server: ${response.status}`);
-        }
-        
+        const response = await authenticatedFetch(url);
+        if (!response.ok) throw new Error(`Error fetching siswa_answers: ${response.status}`);
         const data = await response.json();
+        console.log("Fetched siswa_answers directly:", data);
         return data.siswa_answers || [];
       } catch (error) {
-        console.error("Error fetching siswa_answers:", error);
+        console.warn("Failed to fetch siswa_answers directly:", error);
         return null;
-      }
+       }
     }
-    
+
     // Fungsi untuk mengambil dan menyimpan riwayat jawaban (tanpa menampilkannya)
     async function fetchAndCacheAnswerHistory() {
-      // Only proceed if IDs are valid
       if (userId === null || collectionId === null) {
-        console.error("fetchAndCacheAnswerHistory: userId or collectionId is null. Cannot fetch answer history.");
-        return;
+          console.warn("fetchAndCacheAnswerHistory: userId or collectionId is null.");
+          allAnswers = []; // Pastikan reset jika ID tidak valid
+          return;
       }
-
       try {
-        // Hanya ambil data, tapi tidak perlu menampilkan
         const timestamp = new Date().getTime();
         const url = `/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`;
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          throw new Error(`Error server: ${response.status}`);
-        }
-        
+        const response = await authenticatedFetch(url);
+        if (!response.ok) throw new Error(`Error fetching answer history: ${response.status}`);
         const data = await response.json();
-        console.log("Riwayat jawaban disimpan:", data.answers);
-        
-        // Simpan semua jawaban untuk digunakan nanti
-        allAnswers = data.answers || [];
-        
-        // Tambahkan informasi level ke jawaban jika tidak ada
-        try {
-          await enrichAnswersWithLevels(allAnswers);
-        } catch (levelError) {
-          console.error("Error saat menambahkan informasi level ke jawaban:", levelError);
-          console.warn("Melanjutkan dengan data yang ada meskipun terjadi error pada enrichAnswersWithLevels");
+        if (data.success && Array.isArray(data.answers)) {
+            allAnswers = data.answers; // Cache the answers from the correct endpoint
+            console.log("Jawaban di-cache:", allAnswers.length);
+            // Enrich levels immediately after caching
+            await enrichAnswersWithLevels(allAnswers);
+        } else {
+            console.warn("Gagal mendapatkan riwayat jawaban dari API:", data.message || "Struktur data tidak sesuai");
+            allAnswers = []; // Reset jika gagal
         }
-        
-        // Update level path setelah data jawaban tersedia
-        const currentLevelElement = document.getElementById('current-level-text');
-        if (currentLevelElement) {
-          const currentLevel = parseInt(currentLevelElement.textContent) || 1;
-          updateLevelPath(currentLevel);
-        }
-        
       } catch (error) {
-        console.error("Error fetching answer history:", error);
-        // Tetap lanjutkan eksekusi program meskipun gagal mengambil riwayat jawaban
+           console.error("Error caching history:", error);
+           allAnswers = []; // Reset on error
       }
     }
-    
-    // Fungsi untuk memperkaya data jawaban dengan informasi level
+
+    // Fungsi untuk memperkaya data jawaban dengan informasi level (Stage dan Difficulty)
     async function enrichAnswersWithLevels(answers) {
       if (!answers || answers.length === 0) return;
-      
+      console.log("Attempting to enrich answers with level info...");
       try {
-        let levelFound = false;
-        
-        // Periksa terlebih dahulu apakah jawaban sudah memiliki informasi level
-        const allAnswersHaveLevel = answers.every(answer => answer.level !== undefined && answer.level !== null);
-        if (allAnswersHaveLevel) {
-          console.log("Semua jawaban sudah memiliki informasi level");
-          return; // Semua jawaban sudah memiliki level, tidak perlu melakukan apa-apa lagi
-        }
-        
-        // Cek jika data level sudah tersimpan dalam questionLevelMap
-        if (Object.keys(questionLevelMap).length > 0) {
-          levelFound = true;
-          console.log("Menggunakan data level yang sudah tersimpan di questionLevelMap");
-        }
-        // Jika questionLevelMap belum ada, coba ambil data soal dulu
-        else {
-          try {
-            await fetchQuestionData();
-            if (Object.keys(questionLevelMap).length > 0) {
-              levelFound = true;
-              console.log("Level berhasil diambil dari endpoint collections/questions");
-            }
-          } catch (err) {
-            console.warn("Gagal mengambil data soal:", err.message);
-          }
-        }
-        
-        // Jika masih belum ada, coba ambil data siswa_answers langsung dari database
-        if (!levelFound) {
-          try {
-            const siswaAnswers = await fetchSiswaAnswers();
-            if (siswaAnswers && siswaAnswers.length > 0) {
-              siswaAnswers.forEach(answer => {
-                if (answer.level && answer.question_id) {
-                  questionLevelMap[answer.question_id] = answer.level;
-                  levelFound = true;
-                }
+          // Cek apakah data level (stage/difficulty) sudah ada
+          const needsEnrichment = answers.some(answer =>
+              answer.stage === undefined || answer.stage === null ||
+              answer.difficulty === undefined || answer.difficulty === null
+          );
+
+          if (!needsEnrichment) {
+              console.log("Level/Stage information already present in fetched answers.");
+              // Pastikan level_name terisi jika stage ada
+              answers.forEach(answer => {
+                  if (answer.stage && !answer.level_name) {
+                      answer.level_name = `L${answer.stage}`;
+                  }
+                  if(!answer.level && answer.stage) {
+                      answer.level = taxonomyNames[answer.stage] || `Level ${answer.stage}`;
+                  }
               });
-              if (levelFound) {
-                console.log("Level berhasil diambil dari endpoint siswa_answers");
+              return;
+          }
+
+          console.warn("Some answers lack stage/difficulty info, attempting fallback enrichment...");
+
+          // Fallback: Coba fetch siswa_answers langsung
+          const siswaAnswers = await fetchSiswaAnswers();
+          const levelMapFromSiswaAnswers = {};
+          if (siswaAnswers) {
+              siswaAnswers.forEach(sa => {
+                  if (sa.question_id) {
+                      levelMapFromSiswaAnswers[sa.question_id] = {
+                          stage: sa.stage || null, 
+                          difficulty: sa.difficulty || null,
+                          levelName: sa.level || null 
+                      };
+                  }
+              });
+          }
+
+          let updatedCount = 0;
+          answers.forEach(answer => {
+              const needsStage = answer.stage === undefined || answer.stage === null;
+              const needsDifficulty = answer.difficulty === undefined || answer.difficulty === null;
+              const needsLevelName = answer.level === undefined || answer.level === null;
+
+              if ((needsStage || needsDifficulty || needsLevelName) && answer.question_id) {
+                  const fallbackData = levelMapFromSiswaAnswers[answer.question_id];
+                  if (fallbackData) {
+                      let updated = false;
+                      if (needsStage && fallbackData.stage) {
+                          answer.stage = fallbackData.stage;
+                          if (!answer.level_name) answer.level_name = `L${fallbackData.stage}`;
+                          updated = true;
+                      }
+                      if (needsDifficulty && fallbackData.difficulty) {
+                          answer.difficulty = fallbackData.difficulty;
+                          updated = true;
+                      }
+                      if (needsLevelName && fallbackData.levelName) {
+                          answer.level = fallbackData.levelName;
+                           updated = true;
+                      } else if (needsLevelName && answer.stage) {
+                          answer.level = taxonomyNames[answer.stage] || `Level ${answer.stage}`;
+                           updated = true;
+                      }
+                      if(updated) updatedCount++;
+
+                  } else {
+                      if (needsStage) answer.stage = 1; 
+                      if (needsDifficulty) answer.difficulty = 'Medium';
+                      if (needsLevelName) answer.level = taxonomyNames[answer.stage || 1];
+                      console.log(`Final fallback Stage/Difficulty/Level for QID: ${answer.question_id}`);
+                  }
+              } else if (answer.stage && !answer.level_name) {
+                  answer.level_name = `L${answer.stage}`;
+              } else if (answer.stage && !answer.level) {
+                   answer.level = taxonomyNames[answer.stage] || `Level ${answer.stage}`;
               }
-            }
-          } catch (err) {
-            console.warn("Gagal mengambil data jawaban siswa:", err.message);
-            // Lanjutkan meskipun gagal
-          }
-        }
-        
-        // Tambahkan informasi level ke jawaban
-        let updatedCount = 0;
-        answers.forEach(answer => {
-          // Jika jawaban belum memiliki level tapi ada di questionLevelMap
-          if ((!answer.level || answer.level === undefined) && answer.question_id && questionLevelMap[answer.question_id]) {
-            answer.level = questionLevelMap[answer.question_id];
-            updatedCount++;
-          } 
-          // Fallback: gunakan level default jika masih tidak ada
-          else if (!answer.level || answer.level === undefined) {
-            answer.level = answer.level || 3; // Default level 3 jika tidak ada informasi
-            console.log(`Menggunakan level default (3) untuk pertanyaan ID: ${answer.question_id || 'unknown'}`);
-          }
-        });
-        
-        // Log hasil update
-        if (updatedCount > 0) {
-          console.log(`Berhasil menambahkan level ke ${updatedCount} jawaban`);
-        }
-        
-        // Fallback: Jika masih tidak ada data level, lanjutkan dengan data yang ada
-        if (!levelFound) {
-          console.warn("Tidak dapat mengambil data level lengkap, beberapa jawaban mungkin menggunakan level default");
-        }
-      } catch (error) {
-        console.error("Error enriching answers with levels:", error);
-        // Pastikan fungsi tidak gagal total, tangkap error dan lanjutkan eksekusi
-      }
+          });
+          if (updatedCount > 0) console.log(`Fallback Stage/Difficulty/Level added to ${updatedCount} jawaban.`);
+
+      } catch (error) { console.error("Error during fallback stage/difficulty enrichment:", error); }
     }
-    
+
+
+
     // Fungsi untuk menampilkan modal jawaban
     function showAnswersModal(type) {
-      // Set judul modal
       const modalTitle = document.getElementById('answersModalLabel');
       modalTitle.textContent = type === 'correct' ? 'Jawaban Tepat' : 'Jawaban Kurang Tepat';
-      
-      // Tampilkan loading
       const modalBody = document.getElementById('answersModalBody');
-      modalBody.innerHTML = `
-        <div class="text-center">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <p class="mt-2">Memuat data jawaban...</p>
-        </div>
-      `;
-      
-      // Tampilkan modal
+      modalBody.innerHTML = `<div class="text-center"><div class="spinner-border"></div><p>Memuat...</p></div>`;
       const answersModal = new bootstrap.Modal(document.getElementById('answersModal'));
       answersModal.show();
-      
-      // Filter jawaban berdasarkan tipe (benar/salah)
-      if (allAnswers.length > 0) {
-        // Jika data jawaban sudah tersedia, gunakan data yang ada
-        renderFilteredAnswers(type);
-      } else {
-        // Jika belum, ambil data jawaban dari API
-        fetchAndRenderFilteredAnswers(type);
-      }
+      renderFilteredAnswers(type);
     }
-    
-    // Fungsi untuk mengambil dan menampilkan jawaban yang difilter
-    async function fetchAndRenderFilteredAnswers(type) {
-      // Only proceed if IDs are valid
-      if (userId === null || collectionId === null) {
-        console.error("fetchAndRenderFilteredAnswers: userId or collectionId is null. Cannot fetch and render answers.");
-        const modalBody = document.getElementById('answersModalBody');
-        modalBody.innerHTML = `
-          <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle me-2"></i>ID pengguna atau koleksi tidak tersedia. Tidak dapat memuat jawaban.
-          </div>
-        `;
-        return;
+
+   // Fungsi untuk menampilkan jawaban yang difilter
+    function renderFilteredAnswers(type) {
+      const modalBody = document.getElementById('answersModalBody');
+      const isCorrectType = type === 'correct';
+
+       if (!allAnswers || allAnswers.length === 0) {
+           console.warn("renderFilteredAnswers: allAnswers kosong.");
+           modalBody.innerHTML = `<div class="alert alert-warning">Data jawaban belum tersedia.</div>`;
+           return;
+       }
+
+      const filteredAnswers = allAnswers.filter(answer => answer.is_correct === isCorrectType);
+
+      if (filteredAnswers.length === 0) {
+        modalBody.innerHTML = `<div class="alert alert-info">Tidak ada jawaban ${isCorrectType ? 'tepat' : 'kurang tepat'} yang ditemukan.</div>`; return;
       }
 
-      try {
-        const timestamp = new Date().getTime();
-        const url = `/api/siswa/results/${collectionId}?user_id=${userId}&t=${timestamp}`;
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          throw new Error(`Error server: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log("Detail struktur data jawaban:", data);
-        
-        if (data.answers && data.answers.length > 0) {
-          console.log("Contoh objek jawaban pertama:", data.answers[0]);
-        } else {
-          console.log("Tidak ada jawaban dalam data");
-        }
-        
-        // Simpan semua jawaban untuk digunakan nanti
-        allAnswers = data.answers || [];
-        
-        // Tambahkan informasi level ke jawaban jika tidak ada
-        await enrichAnswersWithLevels(allAnswers);
-        
-        // Render jawaban yang difilter
-        renderFilteredAnswers(type);
-        
-      } catch (error) {
-        console.error("Error fetching answers:", error);
-        const modalBody = document.getElementById('answersModalBody');
-        modalBody.innerHTML = `
-          <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle me-2"></i>Gagal memuat data jawaban: ${error.message}
-          </div>
-        `;
-      }
-    }
-    
-   // Fungsi untuk menampilkan jawaban yang difilter (dengan jawaban tepat untuk jawaban kurang tepat)
-function renderFilteredAnswers(type) {
-  const modalBody = document.getElementById('answersModalBody');
-  
-  // Filter jawaban berdasarkan tipe
-  const isCorrect = type === 'correct';
-  const filteredAnswers = allAnswers.filter(answer => answer.is_correct === isCorrect);
-  
-  if (filteredAnswers.length === 0) {
-    modalBody.innerHTML = `
-      <div class="alert alert-info">
-        <i class="bi bi-info-circle me-2"></i>Tidak ada jawaban ${isCorrect ? 'tepat' : 'kurang tepat'} yang tersedia.
-      </div>
-    `;
-    return;
-  }
-  
-  // Render jawaban
-  let answersHTML = '';
-  
-  filteredAnswers.forEach((answer, index) => {
-    // Cek apakah ada jawaban tepat yang tersedia (untuk jawaban kurang tepat)
-    const correctAnswer = answer.jawaban_benar || answer.correct_answer || '';
-    
-    answersHTML += `
-      <div class="card answer-card mb-3 ${isCorrect ? 'correct' : 'incorrect'}">
-        <div class="card-body">
-          <h5 class="card-title">Pertanyaan:</h5>
-          <p class="answer-question">${answer.question || 'Tidak tersedia'}</p>
-          
-          <h5 class="card-title mt-3">Jawaban Anda:</h5>
-          <div class="answer-response ${isCorrect ? 'bg-success text-white' : 'bg-danger text-white'}">
-            ${answer.user_answer || 'Tidak tersedia'}
-          </div>
-          
-          ${!isCorrect && correctAnswer ? `
-            <h5 class="card-title mt-3">Jawaban Tepat:</h5>
-            <div class="answer-response bg-info text-white">
-              ${correctAnswer}
-            </div>
-          ` : ''}
-          
-          ${answer.explanation ? `
-            <div class="mt-3">
-              <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="collapse" data-bs-target="#modalExplanation${index}">
-                <i class="bi bi-lightbulb me-1"></i>Lihat Penjelasan
-              </button>
-              <div class="collapse mt-2" id="modalExplanation${index}">
-                <div class="explanation-text">
-                  ${answer.explanation}
-                </div>
+      let answersHTML = '';
+      filteredAnswers.forEach((answer, index) => {
+        const correctAnswer = answer.correct_answer || '';
+        const userAns = answer.user_answer || 'Tidak terjawab';
+        const explanation = answer.explanation || '';
+        const tip = answer.personalized_tip || ''; 
+
+        // **PERBAIKAN**: Gunakan data stage & difficulty dari 'answer'
+        const stageInfo = answer.stage ? `Tahap ${answer.stage}` : '';
+        const diffInfo = answer.difficulty ? `(${answer.difficulty})` : '';
+        const levelInfo = stageInfo || diffInfo ? `<span class="badge bg-secondary ms-2">${stageInfo} ${diffInfo}</span>` : '';
+
+
+        answersHTML += `
+          <div class="card answer-card mb-3 ${isCorrectType ? 'correct' : 'incorrect'}">
+            <div class="card-body">
+              <h5 class="card-title mb-2 d-flex justify-content-between align-items-center">
+                <span>Pertanyaan ${index + 1}:</span>
+                ${levelInfo}
+              </h5>
+              <p class="answer-question mb-3">${escapeHtml(answer.question || 'Pertanyaan tidak tersedia')}</p>
+
+              <div class="row mb-2">
+                 <div class="col-md-6">
+                    <h6 class="card-subtitle mb-2 text-muted">Jawaban Anda:</h6>
+                    <div class="answer-response ${isCorrectType ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'}">${escapeHtml(userAns)}</div>
+                 </div>
+                 ${!isCorrectType && correctAnswer ? `
+                 <div class="col-md-6">
+                    <h6 class="card-subtitle mb-2 text-muted">Jawaban Tepat:</h6>
+                    <div class="answer-response bg-info-subtle text-info-emphasis">${escapeHtml(correctAnswer)}</div>
+                 </div>` : ''}
               </div>
+
+              ${explanation || tip ? `
+              <div class="mt-3">
+                 <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="collapse" data-bs-target="#modalInfo${index}">
+                    <i class="bi bi-info-circle"></i> Lihat Info Tambahan
+                 </button>
+                 <div class="collapse mt-2" id="modalInfo${index}">
+                    ${explanation ? `<div class="explanation-text mb-2"><strong>Penjelasan:</strong> ${escapeHtml(explanation)}</div>` : ''}
+                    ${tip ? `<div class="alert alert-primary small p-2"><strong>Tips:</strong> ${escapeHtml(tip)}</div>` : ''}
+                 </div>
+              </div>` : ''}
             </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  });
-  
-  modalBody.innerHTML = answersHTML;
-}
-    
+          </div>`;
+      });
+      modalBody.innerHTML = answersHTML;
+    }
+
     // Fungsi untuk merender halaman hasil
-    function renderResultPage(data) {
-      const ctx = document.getElementById('resultChart').getContext('2d');
-      
-      // Ambil data dari response API
+    function renderResultPage(data) { 
+      console.log("Rendering result page with data:", data); 
       const correctValue = parseInt(data.correct || 0);
       const incorrectValue = parseInt(data.incorrect || 0);
       const totalValue = correctValue + incorrectValue;
-      const currentLevel = parseInt(data.current_level || 1);
+
+      // --- PERBAIKAN PENENTUAN LEVEL (SESUAI PERMINTAAN PENGGUNA) ---
+      // Cari level (stage) TERTINGGI dari jawaban yang BENAR
+      let finalDiagnosisLevel = 1; // Default L1
+      let finalDiagnosisText = "Tahap 1";
+      const mstState = data.mst_state || {}; 
+
+      if (allAnswers && allAnswers.length > 0) {
+          // Filter jawaban yang benar
+          const correctAnswers = allAnswers.filter(a => a.is_correct === true);
+          
+          let maxStage = 0;
+          if (correctAnswers.length > 0) {
+              // Cari stage tertinggi dari jawaban yang benar
+              correctAnswers.forEach(answer => {
+                  const stage = parseInt(answer.stage || getLevelFromState(answer.state_name || answer.state || 'L1') || 0);
+                  if (stage > maxStage) {
+                      maxStage = stage;
+                  }
+              });
+          }
+
+          if (maxStage > 0) {
+              finalDiagnosisLevel = maxStage;
+              // Tampilkan diagnosis (e.g., "L4", "L5") jika tes selesai DAN
+              // diagnosisnya cocok dengan level tertinggi yang dicapai
+              if (mstState.test_completed && mstState.final_diagnosis) {
+                  const diagnosisLevel = getLevelFromState(mstState.final_diagnosis);
+                  if (diagnosisLevel === finalDiagnosisLevel) {
+                        finalDiagnosisText = mstState.final_diagnosis; // e.g., "L5"
+                  } else {
+                        // Kasus: Siswa lolos L4, gagal L5. Diagnosis="L4". maxStage=4. Cocok.
+                        // Kasus: Siswa lolos L1, gagal L2, L3, L4. Diagnosis="L3". maxStage=1. Tidak cocok.
+                        // Ikuti permintaan user: Tampilkan capaian tertinggi yang BENAR.
+                        finalDiagnosisText = `L${finalDiagnosisLevel}`;
+                  }
+              } else {
+                  // Jika tes belum selesai, tampilkan level tertinggi yang dicapai
+                  finalDiagnosisText = `L${finalDiagnosisLevel}`;
+              }
+              console.log("Level from MAX CORRECT answer:", finalDiagnosisLevel, `(${finalDiagnosisText})`);
+          } else {
+              // Tidak ada jawaban benar sama sekali
+              finalDiagnosisLevel = 1;
+              finalDiagnosisText = (mstState.test_completed && mstState.final_diagnosis) ? mstState.final_diagnosis : "Tahap 1"; // Tampilkan diagnosis jika ada (misal < L2)
+              console.log("No correct answers found. Defaulting to L1/Diagnosis:", finalDiagnosisLevel, `(${finalDiagnosisText})`);
+          }
+          
+      } else if (mstState.test_completed && mstState.final_diagnosis) {
+          // Fallback jika allAnswers kosong (misal siswa gagal di L1 dan belum ada jawaban)
+          finalDiagnosisLevel = getLevelFromState(mstState.final_diagnosis);
+          finalDiagnosisText = mstState.final_diagnosis;
+          console.log("No answers, using final_diagnosis:", finalDiagnosisLevel, `(${finalDiagnosisText})`);
+      }
       
-      // Hitung akurasi
+      // Pastikan level antara 1-5
+      finalDiagnosisLevel = Math.max(1, Math.min(5, finalDiagnosisLevel));
+      // Jika diagnosis < L2, levelnya tetap 1
+      if (finalDiagnosisText === "< L2") {
+          finalDiagnosisLevel = 1;
+      }
+      
+      console.log("=== FINAL DETERMINED LEVEL FOR DISPLAY (Correct-Only Logic):", finalDiagnosisLevel, `(${finalDiagnosisText}) ===`);
+      // --- AKHIR PERBAIKAN ---
+
+
       const accuracyValue = totalValue > 0 ? Math.round((correctValue / totalValue) * 100) : 0;
+
+      safeSetText('correct-value', correctValue);
+      safeSetText('incorrect-value', incorrectValue);
+      safeSetText('accuracy-value', accuracyValue + '%');
+      safeSetText('total-questions', `Total Soal Dijawab: ${totalValue}`);
+
+      // Map level ke nama Taksonomi Teknologi
+      const taxonomyColors = {
+        1: ['bg-light', 'text-dark', 'border', 'border-secondary'], // Abu-abu muda untuk Awareness
+        2: ['bg-warning-subtle', 'text-warning-emphasis'], // Kuning muda untuk Literacy
+        3: ['bg-primary-subtle', 'text-primary-emphasis'],   // Biru muda untuk Capability
+        4: ['bg-info-subtle', 'text-info-emphasis'],     // Cyan muda untuk Creativity
+        5: ['bg-success-subtle', 'text-success-emphasis']    // Hijau muda untuk Criticism
+      };
       
-      // Update nilai statistik
-      document.getElementById('correct-value').textContent = correctValue;
-      document.getElementById('incorrect-value').textContent = incorrectValue;
-      document.getElementById('accuracy-value').textContent = accuracyValue + '%';
-      document.getElementById('total-questions').textContent = `Total Soal: ${totalValue}`;
-      document.getElementById('current-level-badge').textContent = currentLevel;
-      document.getElementById('current-level-text').textContent = currentLevel;
-      
-      // Hitung persentase untuk progress bar
+      const badgeText = finalDiagnosisText; // Gunakan teks yang sudah ditentukan
+      const taxonomyName = taxonomyNames[finalDiagnosisLevel] || `Level ${finalDiagnosisLevel}`;
+
+  // Tampilkan daftar semua level yang memiliki jawaban benar sebagai badge berwarna
+  renderAchievedLevelsBadges();
+  // (Detail nama & deskripsi per level di bagian atas dihapus; detail lengkap tersedia di Analisis Pencapaian Anda)
+
+      // (Bagian badge diagnosis tunggal dihapus sesuai permintaan)
+
+      // Update nama koleksi
+      const collectionName = collectionInfo.name || data.collection_name || 'N/A';
+      safeSetText('collection-name', `Koleksi: ${collectionName}`);
+
+
       const correctPercent = totalValue > 0 ? Math.round((correctValue / totalValue) * 100) : 0;
       const incorrectPercent = totalValue > 0 ? 100 - correctPercent : 0;
-      
-      // Update progress bar dengan animasi halus
-      const correctProgressBar = document.getElementById('correct-progress');
-      const incorrectProgressBar = document.getElementById('incorrect-progress');
-      
-      // Set width awal ke 0 untuk animasi
-      correctProgressBar.style.width = '0%';
-      incorrectProgressBar.style.width = '0%';
-      
-      // Animasi ke nilai target setelah delay singkat
-      setTimeout(() => {
-        correctProgressBar.style.width = correctPercent + '%';
-        incorrectProgressBar.style.width = incorrectPercent + '%';
-      }, 300);
-      
-      document.getElementById('correct-percent').textContent = correctPercent + '%';
-      document.getElementById('incorrect-percent').textContent = incorrectPercent + '%';
-      
-      // Konfigurasi dan render chart
-      const resultChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['Tepat', 'Kurang Tepat'],
-          datasets: [{
-            data: [correctValue, incorrectValue],
-            backgroundColor: ['#198754', '#dc3545'],
-            borderColor: ['#198754', '#dc3545'],
-            borderWidth: 1,
-            hoverOffset: 15
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                font: {
-                  size: 14
-                },
-                padding: 15
-              }
+
+      safeUpdateProgressBar('correct-progress', correctPercent);
+      safeUpdateProgressBar('incorrect-progress', incorrectPercent);
+      safeSetText('correct-percent', correctPercent + '%');
+      safeSetText('incorrect-percent', incorrectPercent + '%');
+
+      const chartElement = document.getElementById('resultChart');
+      if (chartElement) {
+        const ctx = chartElement.getContext('2d');
+        if (window.resultChartInstance) window.resultChartInstance.destroy(); 
+        window.resultChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Tepat', 'Kurang Tepat'],
+                datasets: [{
+                    data: [correctValue, incorrectValue],
+                    backgroundColor: ['#198754', '#dc3545'], 
+                    borderColor: ['#ffffff', '#ffffff'], 
+                    borderWidth: 2,
+                    hoverOffset: 15
+                 }]
             },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const value = context.raw || 0;
-                  const percentage = Math.round((value / totalValue) * 100) || 0;
-                  return `${label}: ${value} (${percentage}%)`;
-                }
-              }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { font: { size: 14 }, padding: 15 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw || 0;
+                                const percentage = totalValue > 0 ? Math.round((value / totalValue) * 100) : 0;
+                                return `${context.label || ''}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    },
+                     title: { display: false } 
+                },
+                cutout: '65%', 
+                animation: { animateScale: true, animateRotate: true, duration: 1000 }
             }
-          },
-          cutout: '65%',
-          animation: {
-            animateScale: true,
-            animateRotate: true,
-            duration: 1000
-          }
-        }
-      });
-      
-      // Generate personalized recommendations
-      generateRecommendations(correctValue, incorrectValue, currentLevel);
-      
-      // Perbarui visualisasi MST stages setelah data siap
-      // Gunakan setTimeout untuk memastikan allAnswers sudah terisi
-      setTimeout(() => {
-        updateMSTStages(currentLevel);
-        generateAchievementAnalysis(currentLevel);
-        generateStudentFriendlyAnalysis(correctValue, incorrectValue, currentLevel);
-      }, 100);
-    }
-    
-    // Update MST stages visualization - hanya level yang dilalui yang hijau
-    function updateMSTStages(currentLevel) {
-      // Dapatkan level yang dilalui siswa dari riwayat jawaban
-      const passedLevels = getPassedLevelsFromAnswers();
-      
-      console.log("Passed levels:", passedLevels);
-      console.log("Current level:", currentLevel);
-      
-      // Reset semua level nodes ke state default (abu-abu)
-      const allLevelNodes = ['level-node-1', 'level-node-2', 'level-node-3', 'level-node-4', 'level-node-5', 'level-node-6', 'level-node-7'];
-      allLevelNodes.forEach(nodeId => {
-        const levelNode = document.getElementById(nodeId);
-        if (levelNode) {
-          levelNode.style.background = '#6c757d'; // Abu-abu default
-          levelNode.style.color = 'white';
-        }
-      });
-      
-      // Reset semua stage ke state default
-      const allStages = ['mst-stage-1', 'mst-stage-2', 'mst-stage-3-upper', 'mst-stage-3-lower', 'mst-stage-4'];
-      allStages.forEach(stageId => {
-        const stageElement = document.getElementById(stageId);
-        if (stageElement) {
-          stageElement.classList.remove('passed');
-        }
-      });
-      
-      // Warnai hijau hanya level yang benar-benar dilalui siswa
-      passedLevels.forEach(level => {
-        const levelNode = document.getElementById(`level-node-${level}`);
-        if (levelNode) {
-          levelNode.style.background = '#198754'; // Hijau untuk level yang dilalui
-          levelNode.style.color = 'white';
-        }
-        
-        // Warnai stage yang sesuai jika ada level yang dilalui di dalamnya
-        if (level === 1) {
-          const stage1 = document.getElementById('mst-stage-1');
-          if (stage1) stage1.classList.add('passed');
-        }
-        
-        if (level === 2) {
-          const stage2 = document.getElementById('mst-stage-2');
-          if (stage2) stage2.classList.add('passed');
-        }
-        
-        if (level === 3) {
-          const stage3Lower = document.getElementById('mst-stage-3-lower');
-          if (stage3Lower) stage3Lower.classList.add('passed');
-        }
-        
-        if (level === 4) {
-          const stage3Upper = document.getElementById('mst-stage-3-upper');
-          if (stage3Upper) stage3Upper.classList.add('passed');
-        }
-        
-        if ([5, 6, 7].includes(level)) {
-          const stage4 = document.getElementById('mst-stage-4');
-          if (stage4) stage4.classList.add('passed');
-        }
-      });
-    }
-    
-    // Fungsi untuk mendapatkan level yang dilalui siswa dari riwayat jawaban
-    function getPassedLevelsFromAnswers() {
-      const passedLevels = new Set();
-      
-      // Jika ada data jawaban, ekstrak level dari jawaban
-      if (allAnswers && allAnswers.length > 0) {
-        allAnswers.forEach(answer => {
-          if (answer.level && answer.level >= 1 && answer.level <= 7) {
-            passedLevels.add(answer.level);
-          }
         });
-      }
-      
-      // Jika tidak ada data jawaban atau set kosong, fallback ke logic lama
-      if (passedLevels.size === 0) {
-        console.warn("Tidak ada data level dari jawaban, menggunakan fallback logic");
-        // Fallback: asumsikan siswa melewati level 1 sampai current level
-        for (let i = 1; i <= parseInt(document.getElementById('current-level-text').textContent) || 1; i++) {
-          passedLevels.add(i);
-        }
-      }
-      
-      // Konversi Set ke Array dan sort
-      return Array.from(passedLevels).sort((a, b) => a - b);
+      } else { console.warn("Elemen chart 'resultChart' tidak ditemukan."); }
+
+      // Hasilkan analisis pencapaian setelah data utama dirender
+      setTimeout(() => {
+        generateAchievementAnalysis(finalDiagnosisLevel); // Gunakan level diagnosis akhir
+      }, 100); 
     }
-    
+
+   // --- renderMSTPath FUNCTION DIHAPUS ---
+   /* function renderMSTPath(mstState) { ... } */
+
+
+
+    // Fungsi untuk mendapatkan level yang dilalui siswa dari riwayat jawaban - sistem 5 stage
+    function getPassedLevelsFromAnswers() {
+      const passedSteps = []; // Store { stage, difficulty, is_correct }
+      if (allAnswers && allAnswers.length > 0) {
+         allAnswers.forEach(answer => {
+             // Prioritize stage and difficulty from the answer object itself
+             const stageNum = answer.stage || getLevelFromState(answer.level_name || answer.state);
+             const difficulty = answer.difficulty || 'Medium'; // Default if missing
+             const stageName = `L${stageNum}`;
+
+             if (stageNum >= 1 && stageNum <= 5) {
+                 passedSteps.push({
+                     stage: stageName,
+                     difficulty: difficulty,
+                     is_correct: answer.is_correct
+                 });
+             }
+         });
+      }
+      // Add a default starting step if none found
+      if (passedSteps.length === 0) {
+         console.warn("No valid steps found in answers, adding default start.");
+         passedSteps.push({ stage: 'L1', difficulty: 'Medium', is_correct: undefined }); // is_correct undefined for start
+      }
+      console.log("Passed Steps from Answers:", passedSteps);
+      return passedSteps;
+    }
+
     // Fungsi untuk menampilkan analisis pencapaian siswa dengan narasi deskriptif
     function generateAchievementAnalysis(currentLevel) {
-      const detailedAnalysis = getDetailedAnswerAnalysis();
-      const narrativeContainer = document.getElementById('narrative-description');
-      
-      if (!narrativeContainer) return;
-      
-      // Generate narrative description only
-      generateNarrativeDescription(detailedAnalysis, currentLevel, narrativeContainer);
-    }
-    
-    // Fungsi untuk mendapatkan analisis jawaban yang detail dengan informasi koleksi
-    function getDetailedAnswerAnalysis() {
-      const analysis = {
-        correctLevels: [],
-        incorrectLevels: [],
-        totalQuestions: 0,
-        correctAnswers: 0,
-        accuracyRate: 0,
-        levelPerformance: {},
-        topicPerformance: {},
-        collectionFocus: '',
-        subjectAreas: [],
-        difficultyDistribution: {},
-        strengthAreas: [],
-        challengeAreas: [],
-        learningPattern: '',
-        cognitiveProfile: ''
-      };
-      
-      if (!allAnswers || allAnswers.length === 0) {
-        return analysis;
-      }
+       const container = document.getElementById('achievement-analysis-container');
+       if (!container) { console.warn("Achievement analysis container not found."); return; }
 
-      // Analisis informasi koleksi
-      if (collectionInfo.name) {
-        analysis.collectionFocus = collectionInfo.name;
-      }
-      if (collectionInfo.description) {
-        analysis.collectionDescription = collectionInfo.description;
-      }
-      
-      // Analisis per level dan topic
-      allAnswers.forEach(answer => {
-        const level = answer.level;
-        const isCorrect = answer.is_correct;
-        const questionId = answer.question_id;
-        
-        analysis.totalQuestions++;
-        if (isCorrect) {
-          analysis.correctAnswers++;
-          if (!analysis.correctLevels.includes(level)) {
-            analysis.correctLevels.push(level);
-          }
-        } else {
-          if (!analysis.incorrectLevels.includes(level)) {
-            analysis.incorrectLevels.push(level);
-          }
-        }
-        
-        // Tracking per level
-        if (!analysis.levelPerformance[level]) {
-          analysis.levelPerformance[level] = { correct: 0, total: 0, topics: [], questions: [] };
-        }
-        analysis.levelPerformance[level].total++;
-        if (isCorrect) {
-          analysis.levelPerformance[level].correct++;
-        }
-        
-        // Cari data soal yang lengkap dari collectionQuestions
-        const questionData = collectionQuestions.find(q => q.id === questionId);
-        if (questionData) {
-          // Collect topics for analysis
-          if (questionData.topic && !analysis.levelPerformance[level].topics.includes(questionData.topic)) {
-            analysis.levelPerformance[level].topics.push(questionData.topic);
-          }
-          
-          // Analisis per topik
-          const topic = questionData.topic || 'Umum';
-          if (!analysis.topicPerformance[topic]) {
-            analysis.topicPerformance[topic] = { correct: 0, total: 0, levels: [] };
-          }
-          analysis.topicPerformance[topic].total++;
-          if (isCorrect) {
-            analysis.topicPerformance[topic].correct++;
-          }
-          if (!analysis.topicPerformance[topic].levels.includes(level)) {
-            analysis.topicPerformance[topic].levels.push(level);
-          }
-          
-          // Collect subject areas
-          if (questionData.subject && !analysis.subjectAreas.includes(questionData.subject)) {
-            analysis.subjectAreas.push(questionData.subject);
-          }
-          
-          analysis.levelPerformance[level].questions.push({
-            id: questionId,
-            topic: questionData.topic,
-            difficulty: questionData.difficulty,
-            isCorrect: isCorrect
-          });
-        }
-      });
-      
-      analysis.accuracyRate = analysis.totalQuestions > 0 ? 
-        (analysis.correctAnswers / analysis.totalQuestions * 100).toFixed(1) : 0;
-      
-      // Sort levels
-      analysis.correctLevels.sort((a, b) => a - b);
-      analysis.incorrectLevels.sort((a, b) => a - b);
-      
-      // Simple learning pattern analysis
-      const correctLevels = analysis.correctLevels;
-      const incorrectLevels = analysis.incorrectLevels;
-      
-      if (correctLevels.some(l => l >= 4) && incorrectLevels.some(l => l <= 2)) {
-        analysis.learningPattern = 'advanced_with_gaps';
-      } else if (correctLevels.length > 0 && incorrectLevels.length > 0 && 
-          Math.abs(Math.max(...correctLevels) - Math.min(...incorrectLevels)) > 2) {
-        analysis.learningPattern = 'inconsistent_performance';
-      } else if (correctLevels.length >= 3 && correctLevels.every((level, index) => 
-          index === 0 || level >= correctLevels[index - 1])) {
-        analysis.learningPattern = 'progressive_improvement';
-      } else {
-        analysis.learningPattern = 'developing';
-      }
-      
-      return analysis;
-    }
-    
-    // Fungsi untuk membuat deskripsi naratif yang sederhana dan deskriptif dengan konteks koleksi
-    function generateNarrativeDescription(analysis, currentLevel, container) {
-      let narrative = '';
-      
-      const correctLevels = analysis.correctLevels;
-      const incorrectLevels = analysis.incorrectLevels;
-      const accuracyRate = parseFloat(analysis.accuracyRate);
-      const pathString = correctLevels.join('-');
-      
-      // Opening paragraph dengan konteks singkat
-      if (analysis.collectionFocus) {
-        narrative += `<p>Dalam tes diagnostik "<strong>${analysis.collectionFocus}</strong>", Anda telah menjalani penilaian bertingkat yang disesuaikan dengan kemampuan individual. Melalui jalur diagnostik ini, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
-      } else {
-        narrative += `<p>Melalui tes diagnostik bertingkat yang adaptif, Anda berhasil mencapai level tertinggi ${currentLevel}. `;
-      }
-      
-      if (correctLevels.length > 0) {
-        narrative += `Anda berhasil menguasai level ${correctLevels.join(', ')}, menunjukkan kemampuan yang baik di area-area tersebut. `;
-      }
-      
-      if (accuracyRate > 0) {
-        narrative += `Secara keseluruhan, tingkat akurasi Anda mencapai ${accuracyRate}% dari seluruh soal yang dijawab.`;
-      }
-      narrative += `</p>`;
-      
-      // Topic and subject analysis
-      if (Object.keys(analysis.topicPerformance).length > 0) {
-        narrative += `<p>Analisis berdasarkan area konten menunjukkan variasi kemampuan Anda di berbagai topik. `;
-        
-        const strongTopics = [];
-        const challengingTopics = [];
-        
-        Object.entries(analysis.topicPerformance).forEach(([topic, performance]) => {
-          const accuracy = (performance.correct / performance.total * 100);
-          if (accuracy >= 70) {
-            strongTopics.push(topic);
-          } else if (accuracy < 50) {
-            challengingTopics.push(topic);
-          }
-        });
-        
-        if (strongTopics.length > 0) {
-          narrative += `Anda menunjukkan penguasaan yang baik pada topik ${strongTopics.join(', ')}. `;
-        }
-        
-        if (challengingTopics.length > 0) {
-          narrative += `Sementara itu, topik ${challengingTopics.join(', ')} memberikan tantangan yang lebih besar dan menjadi area potensial untuk pengembangan lebih lanjut. `;
-        }
-        
-        narrative += `Pola ini memberikan insight yang berharga tentang profil kekuatan akademik Anda yang spesifik pada area konten yang diujikan.`;
-        narrative += `</p>`;
-      }
-      
-      // Performance pattern analysis singkat
-      if (correctLevels.length > 0 && incorrectLevels.length > 0) {
-        narrative += `<p>Pola pencapaian Anda menunjukkan: `;
-        
-        // Advanced with gaps pattern
-        if (correctLevels.some(l => l >= 4) && incorrectLevels.some(l => l <= 2)) {
-          narrative += `kemampuan berpikir tingkat tinggi yang kuat, namun perlu penguatan di konsep fundamental untuk konsistensi optimal.`;
-        }
-        // Inconsistent performance
-        else if (Math.abs(Math.max(...correctLevels) - Math.min(...incorrectLevels)) > 2) {
-          narrative += `performa bervariasi dengan keunggulan di level ${Math.max(...correctLevels)} namun tantangan di level ${Math.min(...incorrectLevels)}, menunjukkan kekuatan spesifik yang dapat dikembangkan.`;
-        }
-        // Progressive improvement
-        else if (correctLevels.every((level, index) => index === 0 || level >= correctLevels[index - 1])) {
-          narrative += `progression sistematis dan terstruktur, menunjukkan proses pembelajaran yang sehat dan metodis.`;
-        }
-        // Mixed performance
-        else {
-          narrative += `profil kemampuan beragam dengan kekuatan dan area pengembangan tersebar, memberikan roadmap jelas untuk pembelajaran lanjut.`;
-        }
-        narrative += `</p>`;
-      }
-      
-      // Learning insights singkat
-      narrative += `<p>Berdasarkan hasil diagnostik pada "${analysis.collectionFocus || 'materi ini'}", `;
-      
-      if (correctLevels.includes(1) && correctLevels.includes(2)) {
-        narrative += `kemampuan fundamental Anda sudah solid untuk eksplorasi yang lebih advanced. `;
-      }
-      
-      if (correctLevels.some(l => l >= 5)) {
-        narrative += `Pencapaian di level tinggi menunjukkan kemampuan berpikir kritis yang excellent. `;
-      }
-      
-      if (incorrectLevels.length > 0) {
-        narrative += `Area tantangan di level ${incorrectLevels.join(' dan ')} menjadi fokus pembelajaran selanjutnya.`;
-      } else {
-        narrative += `profil pembelajaran Anda menunjukkan konsistensi yang baik di semua level.`;
-      }
-      narrative += `</p>`;
-      
-      // Saran pengembangan singkat
-      if (currentLevel < 7) {
-        narrative += `<p><strong>Langkah Selanjutnya:</strong> `;
-        
-        if (analysis.learningPattern === 'advanced_with_gaps') {
-          narrative += `Hubungkan konsep tinggi dengan fondasi dasar untuk pemahaman yang konsisten.`;
-        } else if (analysis.learningPattern === 'inconsistent_performance') {
-          narrative += `Identifikasi pola keberhasilan Anda dan terapkan ke area lain untuk konsistensi.`;
-        } else {
-          narrative += `Lanjutkan pembelajaran bertahap dengan penguatan sistematis sesuai kurikulum.`;
-        }
-        narrative += `</p>`;
-      }
-      
-      container.innerHTML = narrative;
-    }
-    
+       // Generate the detailed analysis based on cached answers
+       const detailedAnalysis = getDetailedAnswerAnalysis();
 
-    
+       // Generate the narrative HTML using the analysis data and the final determined level
+       const analysisHTML = generateStudentFriendlyAnalysisHTML(detailedAnalysis, currentLevel);
+       container.innerHTML = analysisHTML;
 
-    
-    // Function to export results to Excel
-function exportToExcel() {
-  try {
-    // Validasi parameter
-    if (!userId || !collectionId) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Export Gagal',
-        text: 'Parameter user atau koleksi tidak valid.',
-        confirmButtonText: 'OK'
-      });
-      return;
-    }
-    
-    showLoading(true);
-    
-    // Cek apakah ada data jawaban
-    if (allAnswers.length === 0) {
-      console.warn("Tidak ada data jawaban saat melakukan export Excel. Mencoba reload data terlebih dahulu...");
-      
-      // Coba ambil data jawaban secara singkat
-      fetchAndCacheAnswerHistory()
-        .catch(err => {
-          console.warn("Gagal mengambil data jawaban:", err.message);
-          console.warn("Melanjutkan export Excel meskipun tidak ada data jawaban lengkap");
-        })
-        .finally(() => {
-          // Lanjutkan proses export Excel
-          performExcelExport();
-        });
-    } else {
-      // Langsung export jika data sudah ada
-      performExcelExport();
-    }
-    
-  } catch (error) {
-    console.error("Error exporting to Excel:", error);
-    showLoading(false);
-    
-    // Show error notification
-    Swal.fire({
-      icon: 'error',
-      title: 'Export Gagal',
-      text: 'Terjadi kesalahan saat mengexport data ke Excel: ' + error.message,
-      confirmButtonText: 'OK'
-    });
-  }
-}
-
-// Fungsi untuk melakukan export Excel setelah persiapan data
-function performExcelExport() {
-  try {
-    // Construct the URL with parameters
-    const exportUrl = `/api/export_result_excel?user_id=${userId}&collection_id=${collectionId}`;
-    
-    // Tambahkan timestamp untuk menghindari cache
-    const timestampedUrl = `${exportUrl}&t=${new Date().getTime()}`;
-    
-    // Create a hidden link element
-    const link = document.createElement('a');
-    link.href = timestampedUrl;
-    link.style.display = 'none';
-    
-    // Append to body and trigger click
-    document.body.appendChild(link);
-    link.click();
-    
-    // Clean up
-    setTimeout(() => {
-      document.body.removeChild(link);
-      showLoading(false);
-    }, 2000);
-    
-  } catch (error) {
-    console.error("Error performing Excel export:", error);
-    showLoading(false);
-    
-    // Show error notification
-    Swal.fire({
-      icon: 'error',
-      title: 'Export Gagal',
-      text: 'Terjadi kesalahan saat mengexport data ke Excel: ' + error.message,
-      confirmButtonText: 'OK'
-    });
-  }
-}
-
-// Event listener sudah ditangani di fungsi setupExportButtons()
-    // Generate personalized recommendations dengan bahasa yang ramah siswa
-    function generateRecommendations(correct, incorrect, currentLevel) {
-      const recommendationList = document.getElementById('recommendation-list');
-      if (!recommendationList) return;
-      
-      const recommendations = [];
-      const total = correct + incorrect;
-      const accuracy = total > 0 ? (correct / total) * 100 : 0;
-      
-      // Clear existing recommendations
-      recommendationList.innerHTML = '';
-      
-      // Add recommendations based on performance dengan bahasa yang ramah
-      if (accuracy < 50) {
-        recommendations.push({
-          icon: '📚',
-          text: 'Mulai dengan memperkuat konsep dasar. Jangan terburu-buru, belajar pelan tapi pasti!',
-          type: 'primary'
-        });
-        recommendations.push({
-          icon: '🤝', 
-          text: 'Jangan malu untuk bertanya pada guru atau teman. Mereka pasti senang membantu!',
-          type: 'info'
-        });
-        recommendations.push({
-          icon: '🎯',
-          text: 'Coba gunakan cara belajar yang kamu suka: video, gambar, atau praktek langsung',
-          type: 'success'
-        });
-        recommendations.push({
-          icon: '⏰',
-          text: 'Buat jadwal belajar rutin 15-30 menit setiap hari. Konsistensi adalah kunci!',
-          type: 'warning'
-        });
-      } else if (accuracy < 75) {
-        recommendations.push({
-          icon: '🚀',
-          text: 'Kamu sudah di jalur yang tepat! Tingkatkan dengan banyak latihan soal variasi',
-          type: 'success'
-        });
-        recommendations.push({
-          icon: '🔍',
-          text: 'Review jawaban yang salah dan pahami mengapa jawaban itu kurang tepat',
-          type: 'info'
-        });
-        recommendations.push({
-          icon: '📝',
-          text: 'Buat catatan kecil untuk konsep-konsep yang masih membingungkan',
-          type: 'primary'
-        });
-        recommendations.push({
-          icon: '👥',
-          text: 'Diskusi dengan teman sekelas bisa membantu melihat sudut pandang yang berbeda',
-          type: 'secondary'
-        });
-      } else {
-        recommendations.push({
-          icon: '🌟',
-          text: 'Luar biasa! Kamu sudah menguasai dengan baik. Saatnya eksplorasi yang lebih menantang!',
-          type: 'success'
-        });
-        recommendations.push({
-          icon: '🎓',
-          text: 'Coba materi pengayaan atau ikuti olimpiade untuk mengasah kemampuan lebih jauh',
-          type: 'primary'
-        });
-        recommendations.push({
-          icon: '🤗',
-          text: 'Berbagi ilmu dengan mengajari teman yang masih kesulitan. Teaching is learning!',
-          type: 'info'
-        });
-        recommendations.push({
-          icon: '📖',
-          text: 'Eksplorasi topik-topik terkait yang mungkin menarik minatmu',
-          type: 'warning'
-        });
-      }
-      
-      // Add level-specific recommendations
-      if (currentLevel < 5) {
-        recommendations.push({
-          icon: '🎯',
-          text: `Tantang diri untuk mencapai level yang lebih tinggi! Sekarang kamu di level ${currentLevel}, masih ada peluang naik!`,
-          type: 'primary'
-        });
-      } else if (currentLevel >= 5) {
-        recommendations.push({
-          icon: '👑',
-          text: 'Amazing! Kamu sudah mencapai level tinggi. Coba koleksi soal lain untuk tantangan baru!',
-          type: 'success'
-        });
-      }
-      
-      // Add motivational recommendation
-      recommendations.push({
-        icon: '💪',
-        text: 'Yang terpenting: jangan pernah berhenti belajar dan selalu percaya pada kemampuanmu!',
-        type: 'danger'
-      });
-      
-      // Add recommendations to the list dengan styling yang menarik
-      recommendations.forEach(rec => {
-        const li = document.createElement('li');
-        li.className = 'mb-2';
-        li.innerHTML = `
-          <div class="d-flex align-items-start">
-            <span class="me-2 fs-5">${rec.icon}</span>
-            <span class="flex-grow-1">${rec.text}</span>
-            <span class="badge bg-${rec.type} ms-2" style="font-size: 0.6em;">Tips</span>
-          </div>
-        `;
-        recommendationList.appendChild(li);
-      });
+       // Animate progress bars after inserting HTML
+       setTimeout(() => {
+            container.querySelectorAll('.progress-bar').forEach(bar => {
+                const width = bar.getAttribute('data-progress-width');
+                if (width) {
+                    bar.style.width = width;
+                }
+            });
+       }, 100); // Small delay to ensure elements are in DOM
     }
 
-    // Fungsi untuk menghasilkan analisis pencapaian yang ramah siswa
-    function generateStudentFriendlyAnalysis(correct, incorrect, currentLevel) {
-      const container = document.getElementById('achievement-analysis-container');
-      if (!container) return;
-      
-      const total = correct + incorrect;
-      const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-      
-      let analysisHTML = '';
-      
-      // Bagian 1: Pencapaian Level
-      analysisHTML += `
-        <div class="row mb-4">
+    // --- NEW FUNCTION: Generate HTML for Student-Friendly Analysis ---
+    function generateStudentFriendlyAnalysisHTML(analysis, currentLevel) {
+        const correct = analysis.correctAnswers;
+        const incorrect = analysis.totalQuestions - analysis.correctAnswers;
+        const accuracy = parseFloat(analysis.accuracyRate);
+
+  // Bagian: Taksonomi Teknologi Tercapai (hanya level dengan jawaban benar)
+        let analysisHTML = `<div class="row mb-4">
           <div class="col-12">
             <div class="card border-primary">
-              <div class="card-body text-center">
-                <h4 class="text-primary mb-3"><i class="bi bi-award me-2"></i>Pencapaian Level Anda</h4>
-                <div class="level-achievement-display mb-3">
-                  <span class="badge bg-primary fs-4 px-4 py-2">Level ${currentLevel}</span>
-                </div>
-                <p class="lead">
-                  ${getLevelAchievementMessage(currentLevel)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      // Bagian 2: Analisis Performa
-      analysisHTML += `
-        <div class="row mb-4">
-          <div class="col-md-6">
-            <div class="card border-success h-100">
               <div class="card-body">
-                <h5 style="color: #198754;"><i class="bi bi-check-circle me-2"></i>Kekuatan Anda</h5>
-                <div class="mb-3">
-                  <div class="d-flex align-items-center">
-                    <span class="badge me-2" style="background-color: #198754;">${correct}</span>
-                    <span>Jawaban Tepat</span>
-                  </div>
-                  <div class="progress mt-2" style="height: 8px;">
-                    <div class="progress-bar" style="background-color: #198754; --progress-width: ${accuracy}%; width: 0%;"></div>
-                  </div>
-                </div>
-                <div class="strength-analysis">
-                  ${getStrengthAnalysis(accuracy, correct, currentLevel)}
-                </div>
+                <h4 class="text-primary mb-3 text-center"><i class="bi bi-award me-2"></i>Taksonomi Teknologi Tercapai</h4>
+                
+                <div class="mt-3">${buildLevelsSummaryHTML(analysis)}</div>
               </div>
             </div>
           </div>
-          <div class="col-md-6">
-            <div class="card border-warning h-100">
-              <div class="card-body">
-                <h5 style="color: #dc3545;"><i class="bi bi-exclamation-triangle me-2"></i>Area Pengembangan</h5>
-                <div class="mb-3">
-                  <div class="d-flex align-items-center">
-                    <span class="badge me-2" style="background-color: #dc3545;">${incorrect}</span>
-                    <span>Jawaban Kurang Tepat</span>
-                  </div>
-                  <div class="progress mt-2" style="height: 8px;">
-                    <div class="progress-bar" style="background-color: #dc3545; --progress-width: ${100 - accuracy}%; width: 0%;"></div>
-                  </div>
-                </div>
-                <div class="improvement-analysis">
-                  ${getImprovementAnalysis(accuracy, incorrect, currentLevel)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      // Bagian 3: Motivasi dan Langkah Selanjutnya
-      analysisHTML += `
-        <div class="row">
-          <div class="col-12">
-            <div class="card border-info">
-              <div class="card-body">
-                <h5 class="text-info"><i class="bi bi-rocket me-2"></i>Langkah Selanjutnya</h5>
-                <div class="next-steps">
-                  ${getNextStepsMessage(accuracy, currentLevel, correct, incorrect)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      container.innerHTML = analysisHTML;
-      
-      // Trigger progress bar animations after DOM update
-      setTimeout(() => {
-        const progressBars = container.querySelectorAll('.progress-bar');
-        progressBars.forEach(bar => {
-          const targetWidth = bar.style.getPropertyValue('--progress-width');
-          bar.style.width = targetWidth;
-        });
-      }, 100);
+        </div>`; // Display level message + ringkasan semua level
+
+        // Bagian: Kekuatan
+        analysisHTML += `<div class="row mb-4"><div class="col-md-6"><div class="card border-success h-100"><div class="card-body"><h5 style="color: #198754;"><i class="bi bi-check-circle me-2"></i>Kekuatan Anda</h5><div class="mb-3"><div class="d-flex align-items-center"><span class="badge me-2" style="background-color:#198754;">${correct}</span><span>Tepat (${accuracy.toFixed(1)}%)</span></div><div class="progress mt-2" style="height:8px;"><div class="progress-bar" style="background-color:#198754;" data-progress-width="${accuracy}%"></div></div></div><div class="strength-analysis">${getStrengthAnalysis(accuracy, correct, currentLevel)}</div></div></div></div>`; // Strength Analysis
+
+        // Bagian: Area Pengembangan
+        analysisHTML += `<div class="col-md-6"><div class="card border-warning h-100"><div class="card-body"><h5 style="color:#dc3545;"><i class="bi bi-exclamation-triangle me-2"></i>Area Pengembangan</h5><div class="mb-3"><div class="d-flex align-items-center"><span class="badge me-2" style="background-color:#dc3545;">${incorrect}</span><span>Kurang Tepat (${(100-accuracy).toFixed(1)}%)</span></div><div class="progress mt-2" style="height:8px;"><div class="progress-bar" style="background-color:#dc3545;" data-progress-width="${100 - accuracy}%"></div></div></div><div class="improvement-analysis">${getImprovementAnalysis(accuracy, incorrect, currentLevel)}</div></div></div></div></div>`; // Improvement Analysis
+
+        // Bagian: Langkah Selanjutnya
+        analysisHTML += `<div class="row"><div class="col-12"><div class="card border-info"><div class="card-body"><h5 class="text-info"><i class="bi bi-rocket me-2"></i>Langkah Selanjutnya</h5><div class="next-steps">${getNextStepsMessage(accuracy, currentLevel, correct, incorrect)}</div></div></div></div></div>`; // Next Steps
+
+        return analysisHTML;
     }
 
-    // Fungsi untuk mendapatkan pesan pencapaian level dengan fokus struktur materi
+  // Bangun ringkasan level yang TERCAPAI (memiliki jawaban benar) (per level: badge, deskripsi, dan badge kesulitan)
+    function buildLevelsSummaryHTML(analysis) {
+        const perf = analysis.levelPerformance || {};
+    // Ambil hanya level yang memiliki minimal 1 jawaban benar
+    const levels = Object.keys(perf)
+      .map(n => parseInt(n))
+      .filter(n => n>=1 && n<=5 && perf[n] && (perf[n].correct || 0) > 0)
+      .sort((a,b)=>a-b);
+        if (levels.length === 0) return '<div class="text-muted text-center">Data level belum tersedia.</div>';
+
+        const badgeClasses = {
+            1: ['bg-light','text-dark','border','border-secondary'],
+            2: ['bg-warning-subtle','text-warning-emphasis'],
+            3: ['bg-primary-subtle','text-primary-emphasis'],
+            4: ['bg-info-subtle','text-info-emphasis'],
+            5: ['bg-success-subtle','text-success-emphasis']
+        };
+
+        // Helper: pilih kesulitan (prioritas tertinggi) berdasarkan jawaban benar; jika tidak ada benar, gunakan yang dicoba
+        function pickLevelDifficulty(level) {
+            const q = (perf[level] && perf[level].questions) ? perf[level].questions : [];
+            if (!q || q.length === 0) return null;
+            const order = { 'easy': 1, 'medium': 2, 'hard': 3 };
+            // Normalisasi
+            const norm = (d) => (typeof d === 'string') ? d.trim().toLowerCase() : '';
+            // Cari tertinggi di yang benar
+            let bestCorrect = null;
+            q.forEach(item => {
+                const d = norm(item.difficulty);
+                if (item.isCorrect || item.is_correct) {
+                    if (!bestCorrect || (order[d] || 0) > (order[norm(bestCorrect)] || 0)) bestCorrect = d;
+                }
+            });
+            if (bestCorrect) return bestCorrect;
+            // Jika tidak ada yang benar, ambil tertinggi dari yang dicoba
+            let bestTried = null;
+            q.forEach(item => {
+                const d = norm(item.difficulty);
+                if (!bestTried || (order[d] || 0) > (order[norm(bestTried)] || 0)) bestTried = d;
+            });
+            return bestTried;
+        }
+
+        const taxonomyDescriptions = {
+            1: 'Mulai mengenali konsep dasar teknologi.',
+            2: 'Mampu menjelaskan fungsi dasar dan cara kerja.',
+            3: 'Mampu menggunakan teknologi untuk tugas rutin.',
+            4: 'Mampu merancang solusi sederhana menggunakan teknologi.',
+            5: 'Mampu mengevaluasi dampak dan efektivitas teknologi.'
+        };
+
+        const diffBadge = (d) => {
+            if (!d) return '';
+            const map = {
+                'easy': ['bg-success-subtle','text-success-emphasis','Easy'],
+                'medium': ['bg-warning-subtle','text-warning-emphasis','Medium'],
+                'hard': ['bg-danger-subtle','text-danger-emphasis','Hard']
+            };
+            const conf = map[d] || ['bg-secondary','text-light', d];
+            const cls = ['badge','rounded-pill','px-3','py-2', ...conf.slice(0,2)].join(' ');
+            const label = conf[2] || d;
+            return `<span class="${cls}">${label}</span>`;
+        };
+
+        const tiles = levels.map(level => {
+            const badgeCls = ['badge','rounded-pill','px-3','py-2', ...(badgeClasses[level] || ['bg-light','text-dark'])].join(' ');
+            const title = `L${level} - ${taxonomyNames[level] || 'Level ' + level}`;
+            const desc = taxonomyDescriptions[level] || '';
+            const diff = pickLevelDifficulty(level); // easy/medium/hard
+            const diffHtml = diffBadge(diff);
+            return `
+              <div class="col-12 col-sm-6 col-lg-4">
+                <div class="level-tile l${level}">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center">
+                      <span class="${badgeCls}">L${level}</span>
+                      <div class="level-title ms-2">${escapeHtml(title)}</div>
+                    </div>
+                    ${diffHtml ? `<div class="small">${diffHtml}</div>` : ''}
+                  </div>
+                  <div class="level-desc">${escapeHtml(desc)}</div>
+                </div>
+              </div>`;
+        }).join('');
+
+        return `<div class="row g-3">${tiles}</div>`;
+    }
+
+
+    // Fungsi untuk mendapatkan analisis jawaban yang detail
+    function getDetailedAnswerAnalysis() {
+      const analysis = { correctLevels:[], incorrectLevels:[], totalQuestions:0, correctAnswers:0, accuracyRate:0, levelPerformance:{}, topicPerformance:{}, collectionFocus:'', subjectAreas:[], difficultyDistribution:{}, strengthAreas:[], challengeAreas:[], learningPattern:'', cognitiveProfile:'' };
+      if (!allAnswers || allAnswers.length === 0) {
+           console.warn("getDetailedAnswerAnalysis: No answers available.");
+           return analysis;
+      }
+
+      // Use collectionInfo if available
+      analysis.collectionFocus = collectionInfo.name || '';
+      analysis.collectionDescription = collectionInfo.description || '';
+
+      allAnswers.forEach(answer => {
+        // --- GET LEVEL (STAGE) NUMBER ---
+        let levelNum = 1; // Default
+        if (answer.stage) {
+            levelNum = parseInt(answer.stage);
+        } else if (answer.level_name || answer.state) {
+            levelNum = getLevelFromState(answer.level_name || answer.state);
+        }
+        levelNum = Math.max(1, Math.min(5, levelNum)); // Ensure 1-5
+        // --- END GET LEVEL ---
+
+        const isCorrect = answer.is_correct;
+        const questionId = answer.question_id;
+
+        analysis.totalQuestions++;
+        if(isCorrect){ analysis.correctAnswers++; if(!analysis.correctLevels.includes(levelNum)) analysis.correctLevels.push(levelNum); }
+        else { if(!analysis.incorrectLevels.includes(levelNum)) analysis.incorrectLevels.push(levelNum); }
+
+        // Level Performance
+        if(!analysis.levelPerformance[levelNum]) analysis.levelPerformance[levelNum] = {correct:0, total:0, questions:[], topics:[]}; // Initialize topics array
+        analysis.levelPerformance[levelNum].total++;
+        if(isCorrect) analysis.levelPerformance[levelNum].correct++;
+        analysis.levelPerformance[levelNum].questions.push({ id: questionId, difficulty: answer.difficulty, isCorrect: isCorrect });
+
+
+        // Topic/Subject analysis - Rely on potential data from backend
+        const topic = answer.topic || 'Umum'; // Assume 'topic' might be in answer object
+        if (topic !== 'Umum' && !analysis.levelPerformance[levelNum].topics.includes(topic)) {
+             analysis.levelPerformance[levelNum].topics.push(topic);
+        }
+        if(!analysis.topicPerformance[topic]) analysis.topicPerformance[topic] = {correct:0, total:0, levels:[]};
+        analysis.topicPerformance[topic].total++;
+        if(isCorrect) analysis.topicPerformance[topic].correct++;
+        if(!analysis.topicPerformance[topic].levels.includes(levelNum)) analysis.topicPerformance[topic].levels.push(levelNum);
+
+        const subject = answer.subject;
+        if (subject && !analysis.subjectAreas.includes(subject)) {
+             analysis.subjectAreas.push(subject);
+        }
+
+        // Difficulty Distribution
+        const difficulty = answer.difficulty || 'Medium';
+        if (!analysis.difficultyDistribution[difficulty]) analysis.difficultyDistribution[difficulty] = {correct:0, total:0};
+        analysis.difficultyDistribution[difficulty].total++;
+        if(isCorrect) analysis.difficultyDistribution[difficulty].correct++;
+
+      });
+
+      analysis.accuracyRate = analysis.totalQuestions > 0 ? (analysis.correctAnswers / analysis.totalQuestions * 100).toFixed(1) : 0;
+      analysis.correctLevels.sort((a, b) => a - b); analysis.incorrectLevels.sort((a, b) => a - b);
+
+      // Strength/Challenge Areas based on level performance
+       Object.entries(analysis.levelPerformance).forEach(([level, perf]) => {
+           const accuracy = perf.total > 0 ? (perf.correct / perf.total * 100) : 0;
+           if (accuracy >= 75) analysis.strengthAreas.push(`Level ${level}`);
+           else if (accuracy < 50) analysis.challengeAreas.push(`Level ${level}`);
+       });
+
+
+      // Learning pattern analysis (simplified)
+      const correctLevels = analysis.correctLevels; const incorrectLevels = analysis.incorrectLevels;
+      if (correctLevels.some(l => l >= 4) && incorrectLevels.some(l => l <= 2)) analysis.learningPattern = 'Kesenjangan antara Dasar & Lanjutan';
+      else if (correctLevels.length > 0 && incorrectLevels.length > 0 && Math.abs(Math.max(...correctLevels) - Math.min(...incorrectLevels)) >= 2) analysis.learningPattern = 'Performa Tidak Konsisten';
+      else if (correctLevels.length >= 3 && correctLevels.every((l, i) => i === 0 || l >= correctLevels[i - 1])) analysis.learningPattern = 'Peningkatan Progresif';
+      else if (incorrectLevels.length > 0 && correctLevels.length === 0) analysis.learningPattern = 'Fokus Penguatan Dasar';
+      else analysis.learningPattern = 'Tahap Pengembangan';
+
+      console.log("Detailed Analysis Result:", analysis);
+      return analysis;
+    }
+
+
+    // Fungsi untuk membuat deskripsi naratif (sudah tidak digunakan, digantikan oleh generateStudentFriendlyAnalysisHTML)
+    function generateNarrativeDescription(analysis, currentLevel, container) {
+       console.warn("generateNarrativeDescription is deprecated. Use generateStudentFriendlyAnalysisHTML instead.");
+       if (container) container.innerHTML = "<p><i>Analisis naratif sedang dalam pengembangan.</i></p>"; // Placeholder
+    }
+
+
+
+
+    // Function to export results to Excel (Dihapus)
+    // function exportToExcel() { ... }
+    // function performExcelExport() { ... }
+
+    // Generate personalized recommendations dengan bahasa yang ramah siswa (Dihapus)
+    // function generateRecommendations(correct, incorrect, currentLevel) { ... }
+
+
+    // Fungsi untuk menghasilkan analisis pencapaian yang ramah siswa (PANGGIL HTML GENERATOR)
+    function generateStudentFriendlyAnalysis(correct, incorrect, currentLevel) {
+        const container = document.getElementById('achievement-analysis-container');
+        if (!container) return;
+
+        // Get detailed analysis first
+        const analysisData = getDetailedAnswerAnalysis();
+
+        // Generate the HTML based on analysisData and currentLevel
+        const analysisHTML = generateStudentFriendlyAnalysisHTML(analysisData, currentLevel);
+        container.innerHTML = analysisHTML;
+
+        // Animate progress bars after inserting HTML
+        setTimeout(() => {
+            container.querySelectorAll('.progress-bar').forEach(bar => {
+                const width = bar.getAttribute('data-progress-width');
+                if (width) {
+                    bar.style.width = width;
+                }
+            });
+        }, 100);
+    }
+
+
+    // *** MODIFIKASI DIMULAI DI SINI ***
+
+    // Fungsi untuk mendapatkan pesan pencapaian level - SESUAI MST 5 Stage Technology Assessment
     function getLevelAchievementMessage(level) {
-      const messages = {
-        1: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Kamu telah menguasai dasar-dasar materi pada tingkat pemahaman dan hafalan. Fondasi pengetahuanmu sudah mulai terbangun! 📚</span>`,
-        2: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Excellent! Kamu berhasil menerapkan konsep dasar dalam situasi sederhana. Kemampuan aplikasimu berkembang baik! 🎯</span>`,
-        3: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Impressive! Kamu mampu menganalisis informasi dan memecahkan masalah tingkat menengah. Berpikir kritismu semakin tajam! 🔍</span>`,
-        4: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Outstanding! Kamu berhasil menguasai analisis mendalam dan evaluasi konsep. Kemampuan sintesis dan pemecahan masalah kompleks terasah! 💡</span>`,
-        5: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Remarkable! Kamu mencapai kemampuan evaluasi tinggi dan dapat membuat keputusan berdasar kriteria yang tepat! ⚡</span>`,
-        6: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Exceptional! Kamu telah menguasai kemampuan sintesis dan kreasi. Dapat menghubungkan berbagai konsep menjadi solusi inovatif! 🌟</span>`,
-        7: `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">MASTERFUL! Pencapaian tertinggi dalam hierarki pembelajaran! Kamu mampu menciptakan, merancang, dan menghasilkan karya original! 👑</span>`
-      };
-      return messages[level] || `<span style="font-family: 'Inter', 'Segoe UI', Arial, sans-serif; font-weight: 600; color: #2d3748; line-height: 1.6;">Selamat atas pencapaianmu dalam struktur pembelajaran bertingkat! 🎉</span>`;
+        const messages = {
+          1: `<span style="font-family:'Inter',sans-serif;font-weight:600;color:#2d3748;line-height:1.6;"><strong>L1 - Awareness</strong><br>Mulai mengenali konsep dasar teknologi.</span>`,
+          2: `<span style="font-family:'Inter',sans-serif;font-weight:600;color:#2d3748;line-height:1.6;"><strong>L2 - Literacy</strong><br>Mampu menjelaskan fungsi dasar dan cara kerja.</span>`,
+          3: `<span style="font-family:'Inter',sans-serif;font-weight:600;color:#2d3748;line-height:1.6;"><strong>L3 - Capability</strong><br>Mampu menggunakan teknologi untuk tugas rutin.</span>`,
+          4: `<span style="font-family:'Inter',sans-serif;font-weight:600;color:#2d3748;line-height:1.6;"><strong>L4 - Creativity</strong><br>Mampu merancang solusi sederhana menggunakan teknologi.</span>`,
+          5: `<span style="font-family:'Inter',sans-serif;font-weight:600;color:#2d3748;line-height:1.6;"><strong>L5 - Criticism</strong><br>Mampu mengevaluasi dampak dan efektivitas teknologi.</span>`
+        };
+        // Pastikan level antara 1 dan 5
+        const validLevel = Math.max(1, Math.min(5, level));
+        return messages[validLevel] || `<span style="font-family:'Inter',sans-serif;font-weight:600;color:#2d3748;line-height:1.6;">Selamat atas pencapaianmu! 🎉</span>`;
     }
 
-    // Fungsi untuk analisis kekuatan berdasar struktur materi
+    // Fungsi untuk analisis kekuatan berdasar MST 5 Stage Technology Assessment
     function getStrengthAnalysis(accuracy, correct, level) {
-      if (accuracy >= 80) {
-        return `
-          <p class="mb-2" style="color: #198754;"><strong>🎯 Penguasaan Materi Excellent!</strong></p>
-          <p>Dengan ${accuracy}% ketepatan, kamu menunjukkan penguasaan struktural yang kuat:</p>
-          <ul class="small">
-            <li><strong>Pemahaman Konseptual:</strong> Materi dasar sudah dikuasai dengan solid</li>
-            <li><strong>Aplikasi Pengetahuan:</strong> Mampu menerapkan konsep pada berbagai konteks</li>
-            <li><strong>Analisis & Sintesis:</strong> Berpikir tingkat tinggi sudah berkembang baik</li>
-            <li><strong>Transfer Learning:</strong> Dapat menghubungkan antar konsep dengan tepat</li>
-          </ul>
-        `;
-      } else if (accuracy >= 60) {
-        return `
-          <p class="mb-2" style="color: #198754;"><strong>👍 Fondasi Materi Solid!</strong></p>
-          <p>Dengan ${accuracy}% ketepatan, kamu menunjukkan penguasaan yang baik pada:</p>
-          <ul class="small">
-            <li><strong>Konsep Fundamental:</strong> Dasar-dasar materi sudah terpahami</li>
-            <li><strong>Penerapan Sederhana:</strong> Mampu menggunakan rumus dan prosedur standar</li>
-            <li><strong>Pemecahan Masalah:</strong> Bisa menyelesaikan soal dengan pola familiar</li>
-            <li><strong>Koneksi Konsep:</strong> Mulai bisa menghubungkan antar topik</li>
-          </ul>
-        `;
-      } else {
-        return `
-          <p class="mb-2" style="color: #198754;"><strong>💪 Pondasi Awal Terbangun!</strong></p>
-          <p>Dari ${correct} jawaban benar, kamu menunjukkan kemajuan pada:</p>
-          <ul class="small">
-            <li><strong>Pengenalan Konsep:</strong> Mulai familiar dengan terminologi dan definisi</li>
-            <li><strong>Hafalan Dasar:</strong> Ingatan untuk fakta-fakta penting sudah mulai terbentuk</li>
-            <li><strong>Pemahaman Literal:</strong> Bisa memahami informasi langsung dari teks</li>
-            <li><strong>Potensi Berkembang:</strong> Foundation untuk pembelajaran lanjut sudah ada</li>
-          </ul>
-        `;
-      }
+        const levelNames = {
+          1: 'Awareness',
+          2: 'Literacy',
+          3: 'Capability',
+          4: 'Creativity',
+          5: 'Criticism'
+        };
+        // Pastikan level antara 1 dan 5
+        const validLevel = Math.max(1, Math.min(5, level));
+        const levelName = levelNames[validLevel] || `Level ${validLevel}`;
+
+        if (accuracy >= 80) return `<p class="mb-2" style="color:#198754;"><strong>🎯 Penguasaan Baik!</strong></p><p>${accuracy.toFixed(1)}% tepat di ${levelName}:</p><ul class="small ps-3"><li>Konsep dasar solid</li><li>Penerapan praktis efektif</li><li>Analisis mulai terbentuk</li></ul>`;
+        if (accuracy >= 60) return `<p class="mb-2" style="color:#198754;"><strong>👍 Berkembang!</strong></p><p>${accuracy.toFixed(1)}% tepat di ${levelName}:</p><ul class="small ps-3"><li>Pemahaman konsep cukup</li><li>Mulai bisa menerapkan</li><li>Pola pikir logis</li></ul>`;
+        return `<p class="mb-2" style="color:#198754;"><strong>💪 Fondasi Terbangun!</strong></p><p>${correct} benar di ${levelName}:</p><ul class="small ps-3"><li>Mengenal istilah penting</li><li>Paham fungsi dasar</li><li>Potensi besar untuk berkembang</li></ul>`;
     }
 
-    // Fungsi untuk analisis area pengembangan berdasar struktur materi
+    // Fungsi untuk analisis area pengembangan berdasar MST 5 Stage Technology Assessment
     function getImprovementAnalysis(accuracy, incorrect, level) {
-      if (incorrect === 0) {
-        return `
-          <p class="mb-2" style="color: #dc3545;"><strong>🌟 Mastery Sempurna!</strong></p>
-          <p>Tidak ada kesalahan dalam struktur materi ini! Peluang pengembangan lanjut:</p>
-          <ul class="small">
-            <li><strong>Eksplorasi Mendalam:</strong> Pelajari aspek advanced dari topik yang sama</li>
-            <li><strong>Transfer Knowledge:</strong> Terapkan konsep ini ke bidang lain</li>
-            <li><strong>Peer Teaching:</strong> Bantu teman memahami struktur materi ini</li>
-            <li><strong>Higher Order Thinking:</strong> Coba soal-soal olimpiade atau kompetisi</li>
-          </ul>
-        `;
-      } else if (accuracy >= 70) {
-        return `
-          <p class="mb-2" style="color: #dc3545;"><strong>📈 Hampir Tuntas!</strong></p>
-          <p>${incorrect} area dalam struktur materi perlu diperkuat. Target pengembangan:</p>
-          <ul class="small">
-            <li><strong>Detail Procedural:</strong> Teliti lagi langkah-langkah penyelesaian</li>
-            <li><strong>Koneksi Konsep:</strong> Perkuat hubungan antar topik dalam materi</li>
-            <li><strong>Aplikasi Kontekstual:</strong> Latih penerapan dalam situasi berbeda</li>
-            <li><strong>Metacognition:</strong> Evaluasi strategi belajar yang digunakan</li>
-          </ul>
-        `;
-      } else {
-        return `
-          <p class="mb-2" style="color: #dc3545;"><strong>🚀 Struktur Learning Gap!</strong></p>
-          <p>${incorrect} area dalam hierarki materi perlu penguatan systematik:</p>
-          <ul class="small">
-            <li><strong>Prerequisite Skills:</strong> Pastikan konsep prasyarat sudah dikuasai</li>
-            <li><strong>Scaffolding Learning:</strong> Belajar bertahap dari level sederhana</li>
-            <li><strong>Conceptual Framework:</strong> Bangun kerangka berpikir yang terstruktur</li>
-            <li><strong>Practice & Reflection:</strong> Latihan terbimbing dengan feedback</li>
-          </ul>
-        `;
-      }
+        const levelNames = {
+          1: 'Awareness',
+          2: 'Literacy',
+          3: 'Capability',
+          4: 'Creativity',
+          5: 'Criticism'
+        };
+        // Pastikan level antara 1 dan 5
+        const validLevel = Math.max(1, Math.min(5, level));
+        const levelName = levelNames[validLevel] || `Level ${validLevel}`;
+
+        if (incorrect === 0) return `<p class="mb-2" style="color:#dc3545;"><strong>🌟 Luar Biasa!</strong></p><p>Tidak ada kesalahan di ${levelName}! Peluang lanjut:</p><ul class="small ps-3"><li>Eksplorasi topik lanjutan</li><li>Proyek mandiri</li><li>Evaluasi teknologi baru</li></ul>`;
+        if (accuracy >= 70) return `<p class="mb-2" style="color:#dc3545;"><strong>📈 Sedikit Lagi!</strong></p><p>${incorrect} area di ${levelName} perlu diperkuat:</p><ul class="small ps-3"><li>Aplikasi lebih kompleks</li><li>Pemecahan masalah variatif</li><li>Analisis kritis</li></ul>`;
+        return `<p class="mb-2" style="color:#dc3545;"><strong>🚀 Perlu Penguatan!</strong></p><p>${incorrect} area di ${levelName} perlu penguatan:</p><ul class="small ps-3"><li>Review konsep dasar</li><li>Latihan penerapan langsung</li><li>Diskusi cara kerja</li></ul>`;
     }
 
-    // Fungsi untuk pesan langkah selanjutnya
+    // Fungsi untuk pesan langkah selanjutnya - MST 5 Stage Technology Assessment
     function getNextStepsMessage(accuracy, level, correct, incorrect) {
-      let message = '';
-      
-      if (accuracy >= 85) {
-        message = `
-          <div class="alert alert-success border-0 mb-3">
-            <h6><i class="bi bi-trophy-fill me-2"></i>Prestasi Luar Biasa!</h6>
-            <p class="mb-2">Kamu sudah menguasai materi ini dengan sangat baik! Saatnya melangkah ke tantangan berikutnya:</p>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="card bg-light border-0">
-                <div class="card-body p-3">
-                  <h6 class="text-success">💡 Eksplorasi Lebih Dalam</h6>
-                  <ul class="small mb-0">
-                    <li>Cari materi pengayaan atau olimpiade</li>
-                    <li>Baca buku atau artikel terkait</li>
-                    <li>Ikuti kompetisi atau lomba</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="card bg-light border-0">
-                <div class="card-body p-3">
-                  <h6 class="text-primary">🤝 Bantu Sesama</h6>
-                  <ul class="small mb-0">
-                    <li>Ajari teman yang kesulitan</li>
-                    <li>Buat catatan untuk dibagi</li>
-                    <li>Jadi tutor sebaya</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      } else if (accuracy >= 60) {
-        message = `
-          <div class="alert alert-info border-0 mb-3">
-            <h6><i class="bi bi-graph-up-arrow me-2"></i>Kamu Di Jalur yang Tepat!</h6>
-            <p class="mb-2">Performamu sudah cukup baik, tapi masih ada ruang untuk berkembang. Yuk tingkatkan lagi:</p>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="card bg-light border-0">
-                <div class="card-body p-3">
-                  <h6 class="text-info">📚 Perkuat Pemahaman</h6>
-                  <ul class="small mb-0">
-                    <li>Review materi yang masih lemah</li>
-                    <li>Buat ringkasan atau mind map</li>
-                    <li>Diskusi dengan teman atau guru</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="card bg-light border-0">
-                <div class="card-body p-3">
-                  <h6 class="text-warning">🎯 Latihan Terarah</h6>
-                  <ul class="small mb-0">
-                    <li>Fokus pada tipe soal yang salah</li>
-                    <li>Cari contoh soal serupa</li>
-                    <li>Latihan rutin sedikit demi sedikit</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      } else {
-        message = `
-          <div class="alert alert-warning border-0 mb-3">
-            <h6><i class="bi bi-heart-fill me-2"></i>Jangan Menyerah, Kamu Pasti Bisa!</h6>
-            <p class="mb-2">Setiap orang punya kecepatan belajar yang berbeda. Yang penting adalah terus berusaha. Mari kita buat rencana belajar yang fun:</p>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="card bg-light border-0">
-                <div class="card-body p-3">
-                  <h6 class="text-success">🌱 Mulai dari Dasar</h6>
-                  <ul class="small mb-0">
-                    <li>Pahami konsep dasar dulu</li>
-                    <li>Belajar pelan-pelan tapi konsisten</li>
-                    <li>Gunakan cara belajar yang kamu suka</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="card bg-light border-0">
-                <div class="card-body p-3">
-                  <h6 class="text-danger">❤️ Cari Dukungan</h6>
-                  <ul class="small mb-0">
-                    <li>Minta bantuan guru atau teman</li>
-                    <li>Gabung grup belajar</li>
-                    <li>Jangan malu bertanya</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-      
-      // Tambahkan motivasi penutup
-      message += `
-        <div class="mt-4 p-3 bg-gradient" style="background: linear-gradient(45deg, #e3f2fd, #f3e5f5); border-radius: 10px;">
-          <div class="text-center">
-            <h6 class="text-dark mb-2">💪 Ingat Selalu:</h6>
-            <p class="mb-0 text-dark"><em>"Setiap jawaban yang salah adalah langkah menuju jawaban yang benar. Terus belajar, terus berkembang, dan percaya pada kemampuanmu!"</em></p>
-          </div>
-        </div>
-      `;
-      
-      return message;
+        const levelNames = {
+          1: 'Awareness',
+          2: 'Literacy',
+          3: 'Capability',
+          4: 'Creativity',
+          5: 'Criticism'
+        };
+        // Pastikan level antara 1 dan 5
+        const validLevel = Math.max(1, Math.min(5, level));
+        const levelName = levelNames[validLevel] || `Level ${validLevel}`;
+        let message = '';
+
+        if (accuracy >= 85) message = `<div class="alert alert-success border-0 mb-3"><h6><i class="bi bi-trophy-fill me-2"></i>Penguasaan Tinggi!</h6><p class="mb-2">Level ${levelName} dikuasai! Tantangan berikutnya:</p></div><div class="row"><div class="col-md-6"><div class="card bg-light border-0 mb-2"><div class="card-body p-3"><h6 class="text-success">💡 Eksplorasi Lanjutan</h6><ul class="small mb-0 ps-3"><li>Cari kasus penggunaan baru</li><li>Bandingkan teknologi serupa</li><li>Buat proyek inovatif</li></ul></div></div></div><div class="col-md-6"><div class="card bg-light border-0 mb-2"><div class="card-body p-3"><h6 class="text-primary">🤝 Berbagi Pengetahuan</h6><ul class="small mb-0 ps-3"><li>Ajari teman</li><li>Buat tutorial singkat</li><li>Presentasi konsep</li></ul></div></div></div></div>`;
+        else if (accuracy >= 60) message = `<div class="alert alert-info border-0 mb-3"><h6><i class="bi bi-graph-up-arrow me-2"></i>Perkembangan Baik!</h6><p class="mb-2">Level ${levelName} sudah cukup baik, tingkatkan:</p></div><div class="row"><div class="col-md-6"><div class="card bg-light border-0 mb-2"><div class="card-body p-3"><h6 class="text-info">📚 Perdalam Pemahaman</h6><ul class="small mb-0 ps-3"><li>Hubungkan antar konsep</li><li>Analisis contoh kompleks</li><li>Cari sumber belajar lain</li></ul></div></div></div><div class="col-md-6"><div class="card bg-light border-0 mb-2"><div class="card-body p-3"><h6 class="text-warning">🎯 Latihan Terfokus</h6><ul class="small mb-0 ps-3"><li>Kerjakan soal variatif</li><li>Coba simulasi/praktik</li><li>Identifikasi pola kesalahan</li></ul></div></div></div></div>`;
+        else message = `<div class="alert alert-warning border-0 mb-3"><h6><i class="bi bi-tools me-2"></i>Perkuat Fondasi!</h6><p class="mb-2">Mari fokus pada dasar-dasar Level ${levelName}:</p></div><div class="row"><div class="col-md-6"><div class="card bg-light border-0 mb-2"><div class="card-body p-3"><h6 class="text-success">🌱 Review Konsep</h6><ul class="small mb-0 ps-3"><li>Ulangi definisi & istilah</li><li>Buat rangkuman visual</li><li>Jelaskan dengan kata sendiri</li></ul></div></div></div><div class="col-md-6"><div class="card bg-light border-0 mb-2"><div class="card-body p-3"><h6 class="text-danger">❤️ Minta Bantuan</h6><ul class="small mb-0 ps-3"><li>Tanya guru/teman</li><li>Cari video penjelasan</li><li>Jangan menyerah!</li></ul></div></div></div></div>`;
+
+        // Pesan tambahan tentang alur MST 5 Stage
+        message += `<div class="mt-4 p-3 bg-gradient" style="background:linear-gradient(45deg,#e8f5e8,#e3f2fd);border-radius:10px;"><div class="text-center"><h6 class="text-dark mb-2">Perjalanan MST 5 Tahap Anda:</h6><p class="mb-0 text-dark"><em>"Awareness → Literacy → Capability → Creativity → Criticism. Setiap tahap adalah pencapaian! Terus kembangkan kemampuan berpikir teknologimu!"</em></p></div></div>`;
+        return message;
     }
+
+    // *** AKHIR MODIFIKASI ***
 
     // Fungsi untuk setup tombol export (PDF dan Excel)
     function setupExportButtons() {
@@ -2846,121 +2223,156 @@ function performExcelExport() {
           } catch (err) {
             console.error("Error dalam handler exportToPdf:", err);
             showLoading(false);
-            Swal.fire({
-              icon: 'error',
-              title: 'Export Gagal',
-              text: 'Terjadi kesalahan saat mengeksport hasil ke PDF. Silakan coba lagi nanti.',
-              confirmButtonText: 'OK'
-            });
+            Swal.fire('Error','Gagal export PDF.','error');
           }
         });
-      } else {
-        console.warn("Tombol export PDF tidak ditemukan");
-      }
-      
-      // Setup export Excel button
-      const exportExcelBtn = document.getElementById('exportExcelBtn');
-      if (exportExcelBtn) {
-        console.log("Menambahkan event listener untuk export Excel");
-        exportExcelBtn.addEventListener('click', function() {
-          try {
-            exportToExcel();
-          } catch (err) {
-            console.error("Error dalam handler exportToExcel:", err);
+      } else { console.warn("Tombol export PDF tidak ditemukan"); }
+
+      // Setup export Excel button (dihapus)
+      // const exportExcelBtn = document.getElementById('exportExcelBtn');
+      // if (exportExcelBtn) { ... }
+    }
+
+    // Function to export to PDF
+    function exportToPdf() {
+        if (!userId || !collectionId) { Swal.fire('Error','ID pengguna atau koleksi tidak valid.','error'); return; }
+        showLoading(true);
+        // Cek jika allAnswers sudah ada
+        if (!allAnswers || allAnswers.length === 0) {
+            console.warn("Data jawaban belum ada untuk export PDF. Fetching...");
+            fetchAndCacheAnswerHistory().finally(() => {
+                // Pastikan allAnswers terisi setelah fetch
+                if (allAnswers && allAnswers.length > 0) {
+                    performPdfExport();
+                } else {
+                    showLoading(false);
+                    Swal.fire('Error', 'Gagal memuat data jawaban untuk export PDF.', 'error');
+                }
+            });
+        } else {
+            performPdfExport(); // Langsung export jika data sudah ada
+        }
+    }
+
+    // Fungsi untuk melakukan export PDF setelah persiapan data
+    function performPdfExport() {
+      try {
+        const exportUrl = `/api/export_result_pdf?user_id=${userId}&collection_id=${collectionId}`;
+        const timestampedUrl = `${exportUrl}&t=${new Date().getTime()}`;
+        console.log("Exporting PDF:", timestampedUrl);
+        window.open(timestampedUrl, '_blank'); // Buka di tab baru
+        // Sembunyikan loading setelah beberapa saat (asumsi download dimulai)
+        setTimeout(() => {
             showLoading(false);
             Swal.fire({
-              icon: 'error',
-              title: 'Export Gagal',
-              text: 'Terjadi kesalahan saat mengeksport hasil ke Excel. Silakan coba lagi nanti.',
-              confirmButtonText: 'OK'
-            });
+                icon: 'success',
+                title: 'Export Dimulai',
+                text: 'File PDF sedang dibuat dan akan diunduh.',
+                timer: 2500,
+                timerProgressBar: true
+             });
+        }, 2000);
+      } catch (error) {
+        showLoading(false); Swal.fire('Error','Gagal export PDF: '+error.message,'error');
+        console.error("performPdfExport error:", error);
+       }
+    }
+
+    // Utility functions untuk safe DOM manipulation
+    function safeSetText(elementId, text) {
+      const element = document.getElementById(elementId);
+      if (element) element.textContent = text;
+      else console.warn(`Element ID '${elementId}' not found`);
+    }
+
+    function safeUpdateProgressBar(elementId, percent) {
+      const element = document.getElementById(elementId);
+      if (element) {
+          element.style.width = '0%'; // Reset dulu
+          // Trigger reflow/repaint
+          element.offsetHeight;
+          // Set width with transition
+          setTimeout(() => { element.style.width = percent + '%'; }, 50); // Small delay before setting final width
+       }
+      else console.warn(`Progress bar ID '${elementId}' not found`);
+    }
+
+    // Utility function untuk escape HTML
+    function escapeHtml(text) {
+      if (typeof text !== 'string') return '';
+      const map={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // Definisikan taxonomyNames di scope global (sudah dipindah ke atas)
+    // Kumpulkan semua level yang tercapai (jawaban benar) sebagai array terurut unik
+    function computeAchievedLevelsList() {
+      if (!Array.isArray(allAnswers) || allAnswers.length === 0) return [];
+      const levelSet = new Set();
+      for (const ans of allAnswers) {
+        if (ans && ans.is_correct) {
+          let stageNum = null;
+          if (ans.stage !== undefined && ans.stage !== null && ans.stage !== '') {
+            stageNum = parseInt(ans.stage);
+          } else {
+            // Fallback dari nama state/level
+            const stateName = ans.level_name || ans.state || ans.level || '';
+            const derived = getLevelFromState(stateName);
+            stageNum = derived || 0;
           }
-        });
+          if (Number.isFinite(stageNum) && stageNum >= 1 && stageNum <= 5) {
+            levelSet.add(stageNum);
+          }
+        }
       }
+      return Array.from(levelSet).sort((a,b)=>a-b);
     }
 
-// Function to export to PDF
-function exportToPdf() {
-  try {
-    // Validasi parameter
-    if (!userId || !collectionId) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Export Gagal',
-        text: 'Parameter user atau koleksi tidak valid.',
-        confirmButtonText: 'OK'
-      });
-      return;
-    }
-    
-    showLoading(true);
-    
-    // Cek apakah ada data jawaban
-    if (allAnswers.length === 0) {
-      console.warn("Tidak ada data jawaban saat melakukan export PDF. Mencoba reload data terlebih dahulu...");
-      
-      // Coba ambil data jawaban secara singkat
-      fetchAndCacheAnswerHistory()
-        .catch(err => {
-          console.warn("Gagal mengambil data jawaban:", err.message);
-          console.warn("Melanjutkan export PDF meskipun tidak ada data jawaban lengkap");
-        })
-        .finally(() => {
-          // Lanjutkan proses export PDF
-          performPdfExport();
-        });
-    } else {
-      // Langsung export jika data sudah ada
-      performPdfExport();
-    }
-    
-  } catch (error) {
-    console.error("Error exporting to PDF:", error);
-    showLoading(false);
-    
-    // Show error notification
-    Swal.fire({
-      icon: 'error',
-      title: 'Export Gagal',
-      text: 'Terjadi kesalahan saat mengexport data ke PDF: ' + error.message,
-      confirmButtonText: 'OK'
-    });
-  }
-}
+    // Render badge berwarna untuk setiap level yang tercapai
+    function renderAchievedLevelsBadges() {
+      const container = document.getElementById('achieved-levels-container');
+      if (!container) return;
 
-// Fungsi untuk melakukan export PDF setelah persiapan data
-function performPdfExport() {
-  try {
-    // Construct the URL with parameters
-    const exportUrl = `/api/export_result_pdf?user_id=${userId}&collection_id=${collectionId}`;
-    
-    // Tambahkan timestamp untuk menghindari cache
-    const timestampedUrl = `${exportUrl}&t=${new Date().getTime()}`;
-    
-    // Log info untuk debugging
-    console.log("Mengeksport hasil ke PDF dengan URL:", timestampedUrl);
-    
-    // Open in a new tab or download directly
-    window.open(timestampedUrl, '_blank');
-    
-    // Hide loading after a short delay
-    setTimeout(() => {
-      showLoading(false);
-    }, 2000);
-    
-  } catch (error) {
-    console.error("Error performing PDF export:", error);
-    showLoading(false);
-    
-    // Show error notification
-    Swal.fire({
-      icon: 'error',
-      title: 'Export Gagal',
-      text: 'Terjadi kesalahan saat mengexport data ke PDF: ' + error.message,
-      confirmButtonText: 'OK'
-    });
-  }
-}
+      const levels = computeAchievedLevelsList();
+      if (levels.length === 0) {
+        container.textContent = '-';
+        return;
+      }
+
+      const levelBadgeClasses = {
+        1: ['bg-light','text-dark','border','border-secondary'],
+        2: ['bg-warning-subtle','text-warning-emphasis'],
+        3: ['bg-primary-subtle','text-primary-emphasis'],
+        4: ['bg-info-subtle','text-info-emphasis'],
+        5: ['bg-success-subtle','text-success-emphasis']
+      };
+
+      const html = levels.map(n => {
+        const classes = levelBadgeClasses[n] || ['bg-light','text-dark'];
+        const cls = ['badge','rounded-pill','me-1','mb-1','px-3','py-2', ...classes].join(' ');
+        return `<span class="${cls}">L${n}</span>`;
+      }).join('');
+      container.innerHTML = html;
+    }
+
+    // (renderAchievedLevelsDetails dihapus; detail per level disajikan di bagian Analisis)
   </script>
+  
+  <!-- Footer -->
+  <footer class="site-footer mt-5">
+    <div class="container py-3">
+      <div class="row align-items-center">
+        <div class="col-md-6 small text-muted">
+          © 2025 DIGIDAWS. Semua hak cipta.
+        </div>
+        <div class="col-md-6 text-md-end small">
+          <span class="me-2">Contact Me</span>
+          <a href="https://www.instagram.com/gunxame/" class="text-decoration-none" target="_blank" rel="noopener" aria-label="Instagram">
+            <i class="bi bi-instagram"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

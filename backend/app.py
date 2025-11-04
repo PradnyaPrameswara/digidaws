@@ -1,10 +1,12 @@
 import datetime
+import difflib
 import json
 import os
 import random
 import re
 import sys
 import tempfile
+import traceback
 from io import BytesIO
 from pathlib import Path
 import google.generativeai as genai
@@ -45,10 +47,10 @@ def load_user(user_id):
     if isinstance(user_id, str):
         if user_id.startswith('guru_'):
             actual_id = int(user_id.split('_')[1])
-            return Guru.query.get(actual_id)
+            return db.session.get(Guru, actual_id)
         elif user_id.startswith('siswa_'):
             actual_id = int(user_id.split('_')[1])
-            return Siswa.query.get(actual_id)
+            return db.session.get(Siswa, actual_id)
     return None
 
 # Konfigurasi MySQL
@@ -67,6 +69,289 @@ db = SQLAlchemy(app)
 my_api_key_gemini = 'AIzaSyCcx9iCB6oGXUPGoW2Ot3Mk7JjIreeCzRQ' 
 genai.configure(api_key=my_api_key_gemini)
 model = genai.GenerativeModel('gemini-2.5-flash-lite')
+
+# =========================================
+# MST ADAPTIVE SYSTEM CONSTANTS
+# =========================================
+
+# Technology Levels (5 Levels) - Updated for 5 Stage MST
+TECHNOLOGY_LEVELS = {
+    1: "Awareness",      # L1 - Mengenali/mengingat istilah, alat dasar (Medium only)
+    2: "Literacy",       # L2 - Menjelaskan fungsi, cara kerja sederhana (Easy, Hard)
+    3: "Capability",     # L3 - Menggunakan fitur dasar untuk tugas rutin (Medium, Hard)
+    4: "Creativity",     # L4 - Merancang/membuat solusi/produk baru sederhana (Easy, Medium, Hard)
+    5: "Criticism"       # L5 - Mengevaluasi dampak, efektivitas, memberi justifikasi (Easy, Medium, Hard)
+}
+
+# Difficulty Levels per Technology Level (original MST system)
+DIFFICULTY_LEVELS = {
+    1: ["Medium"],                    # L1 Awareness: Medium only
+    2: ["Easy", "Hard"],             # L2 Literacy: Easy, Hard  
+    3: ["Medium", "Hard"],           # L3 Capability: Medium, Hard
+    4: ["Easy", "Medium", "Hard"],   # L4 Creativity: Easy, Medium, Hard
+    5: ["Easy", "Medium", "Hard"]    # L5 Criticism: Easy, Medium, Hard
+}
+
+# Conversion functions between p-value and difficulty level
+def difficulty_to_p_value(difficulty):
+    """Convert difficulty level (Easy/Medium/Hard) to p-value (probability)"""
+    conversion_map = {
+        "Easy": 0.85,      # Higher probability = easier question
+        "Medium": 0.60,    # Medium probability
+        "Hard": 0.25       # Lower probability = harder question
+    }
+    return conversion_map.get(difficulty, 0.60)  # Default to Medium
+
+def p_value_to_difficulty(p_value):
+    """Convert p-value (probability) to difficulty level (Easy/Medium/Hard)"""
+    if p_value >= 0.75:
+        return "Easy"
+    elif p_value >= 0.45:
+        return "Medium"
+    else:
+        return "Hard"
+
+# MST Routing Logic - Simple 5 Stage System with User's Taxonomy  
+# Implements 4 Scenarios: High Ability (L1->L2H->L3H->L4H->L5H), Medium-High (L1->L2H->L3H->L4M->L5M->STOP),
+# Medium-Low (L1->L2H->L3M->L4E->STOP), Low Ability (L1->L2E->STOP)
+MST_ROUTING = {
+    # Stage 1: L1 Awareness (Medium only) - Starting point for all students
+    1: {
+        "technology_level": 1, 
+        "difficulty": "Medium",
+        "pass": {"stage": 2, "technology_level": 2, "difficulty": "Hard"},    # L1M Pass -> L2H (Stage 2)
+        "fail": {"stage": 2, "technology_level": 2, "difficulty": "Easy"}     # L1M Fail -> L2E (Stage 2)  
+    },
+    # Stage 2: L2 Literacy (Easy or Hard based on Stage 1 result)
+    2: {
+        "Hard": {  # L2H from L1M Pass
+            "pass": {"stage": 3, "technology_level": 3, "difficulty": "Hard"},    # L2H Pass -> L3H (Stage 3)
+            "fail": {"stage": 3, "technology_level": 3, "difficulty": "Medium"}   # L2H Fail -> L3M (Stage 3)
+        },
+        "Easy": {  # L2E from L1M Fail
+            "pass": {"stage": 3, "technology_level": 3, "difficulty": "Medium"},  # L2E Pass -> L3M (Stage 3)
+            "fail": {"stage": "STOP", "diagnosis": "< L2"}                        # L2E Fail -> STOP (Diagnosis: < L2)
+        }
+    },
+    # Stage 3: L3 Capability (Medium or Hard based on Stage 2 result)
+    3: {
+        "Hard": {  # L3H from L2H Pass  
+            "pass": {"stage": 4, "technology_level": 4, "difficulty": "Hard"},    # L3H Pass -> L4H (Stage 4)
+            "fail": {"stage": 4, "technology_level": 4, "difficulty": "Medium"}   # L3H Fail -> L4M (Stage 4)
+        },
+        "Medium": {  # L3M from L2H Fail or L2E Pass
+            "pass": {"stage": 4, "technology_level": 4, "difficulty": "Medium"},  # L3M Pass -> L4M (Stage 4)  
+            "fail": {"stage": 4, "technology_level": 4, "difficulty": "Easy"}     # L3M Fail -> L4E (Stage 4)
+        }
+    },
+    # Stage 4: L4 Creativity (Easy, Medium, or Hard based on Stage 3 result)
+    4: {
+        "Hard": {  # L4H from L3H Pass (High Ability Path)
+            "pass": {"stage": 5, "technology_level": 5, "difficulty": "Hard"},    # L4H Pass -> L5H (Stage 5)
+            "fail": {"stage": 5, "technology_level": 5, "difficulty": "Medium"}   # L4H Fail -> L5M (Stage 5)
+        },
+        "Medium": {  # L4M from L3H Fail or L3M Pass (Medium-High Path)
+            "pass": {"stage": 5, "technology_level": 5, "difficulty": "Medium"},  # L4M Pass -> L5M (Stage 5)
+            "fail": {"stage": 5, "technology_level": 5, "difficulty": "Easy"}     # L4M Fail -> L5E (Stage 5)
+        },
+        "Easy": {  # L4E from L3M Fail (Lower Path)
+            "pass": {"stage": 5, "technology_level": 5, "difficulty": "Easy"},    # L4E Pass -> L5E (Stage 5)
+            "fail": {"stage": "STOP", "diagnosis": "L3"}                          # L4E Fail -> STOP (Diagnosis: L3)
+        }
+    },
+    # Stage 5: L5 Criticism (Easy, Medium, or Hard based on Stage 4 result) - Final stage
+    5: {
+        "Hard": {  # L5H from L4H Pass (Highest ability path)
+            "pass": {"stage": "STOP", "diagnosis": "L5"},                         # L5H Pass -> STOP (Diagnosis: L5)
+            "fail": {"stage": "STOP", "diagnosis": "L4"}                          # L5H Fail -> STOP (Diagnosis: L4)
+        },
+        "Medium": {  # L5M from L4H Fail or L4M Pass (Medium-high path)
+            "pass": {"stage": "STOP", "diagnosis": "L5"},                         # L5M Pass -> STOP (Diagnosis: L5)
+            "fail": {"stage": "STOP", "diagnosis": "L4"}                          # L5M Fail -> STOP (Diagnosis: L4)
+        },
+        "Easy": {  # L5E from L4M Fail or L4E Pass (Lower ability path)
+            "pass": {"stage": "STOP", "diagnosis": "L5"},                         # L5E Pass -> STOP (Diagnosis: L5)
+            "fail": {"stage": "STOP", "diagnosis": "L4"}                          # L5E Fail -> STOP (Diagnosis: L4)
+        }
+    }
+}
+
+# =========================================
+# MST ADAPTIVE FUNCTIONS
+# =========================================
+
+def enforce_alignment_with_objectives(questions, module_components):
+    """Ensure each question's modul_reference maps to one of the extracted objectives/outcomes.
+    If missing or not matching, auto-map to the closest objective/outcome.
+    """
+    try:
+        tujuan_list = module_components.get("tujuan_pembelajaran", []) or []
+        capaian_list = module_components.get("capaian_pembelajaran", []) or []
+        allowed = [t.strip() for t in (tujuan_list + capaian_list) if isinstance(t, str) and t.strip()]
+        if not allowed:
+            return questions
+
+        normalized_allowed = {a: a for a in allowed}
+        allowed_lower = {a.lower(): a for a in allowed}
+
+        def choose_best_reference(text):
+            if not text or not text.strip():
+                return allowed[0]
+            txt = text.strip()
+            # Exact (case-insensitive) match
+            if txt.lower() in allowed_lower:
+                return allowed_lower[txt.lower()]
+            # Fuzzy match
+            candidates = difflib.get_close_matches(txt, allowed, n=1, cutoff=0.6)
+            return candidates[0] if candidates else allowed[0]
+
+        for q in questions:
+            current_ref = q.get("modul_reference", "")
+            best = choose_best_reference(current_ref)
+            q["modul_reference"] = best
+        return questions
+    except Exception as e:
+        print(f"WARNING: enforce_alignment_with_objectives error: {e}")
+        return questions
+
+def get_questions_for_module(collection_id, technology_level, difficulty, limit=3):
+    """
+    Get questions for a specific module (technology level + difficulty)
+    """
+    try:
+        questions = db.session.query(Question).join(
+            CollectionQuestion, CollectionQuestion.question_id == Question.id
+        ).filter(
+            CollectionQuestion.collection_id == collection_id,
+            Question.technology_level == technology_level,
+            Question.difficulty == difficulty,
+            Question.is_validated == True
+        ).limit(limit).all()
+        
+        return questions
+    except Exception as e:
+        print(f"Error getting questions for module: {str(e)}")
+        return []
+
+def calculate_module_score(student_id, questions):
+    """
+    Calculate score for a module based on answered questions
+    Returns percentage (0-100)
+    """
+    if not questions:
+        return 0
+    
+    question_ids = [q.id for q in questions]
+    correct_answers = db.session.query(SiswaAnswer).filter(
+        SiswaAnswer.siswa_id == student_id,
+        SiswaAnswer.question_id.in_(question_ids),
+        SiswaAnswer.is_correct == True
+    ).count()
+    
+    total_questions = len(questions)
+    percentage = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
+    return percentage
+
+# =========================================
+# MST ADAPTIVE TRACKING SYSTEM
+# =========================================
+
+class MSTState(db.Model):
+    """Track MST adaptive test state per siswa per collection"""
+    __tablename__ = 'mst_state'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    siswa_id = db.Column(db.Integer, db.ForeignKey('siswa.id'), nullable=False)
+    collection_id = db.Column(db.Integer, db.ForeignKey('question_collections.id'), nullable=False)
+    current_stage = db.Column(db.Integer, default=1)  # 1-5
+    current_level = db.Column(db.String(10), nullable=False)  # Easy, Medium, Hard
+    questions_answered = db.Column(db.Integer, default=0)
+    questions_correct = db.Column(db.Integer, default=0)
+    stage_completed = db.Column(db.Boolean, default=False)
+    final_diagnosis = db.Column(db.String(100))  # "Level X (Category)" atau "Di Bawah Level Y"
+    test_completed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+    
+    # Relationships
+    siswa = db.relationship('Siswa', backref='mst_states')
+    collection = db.relationship('QuestionCollection', backref='mst_states')
+
+def get_mst_state(siswa_id, collection_id):
+    """Get atau create MST state untuk siswa & collection"""
+    state = MSTState.query.filter_by(siswa_id=siswa_id, collection_id=collection_id).first()
+    if not state:
+        # Validasi siswa exists
+        siswa = Siswa.query.get(siswa_id)
+        if not siswa:
+            raise ValueError(f"Siswa dengan ID {siswa_id} tidak ditemukan dalam database")
+        
+        # Validasi collection exists
+        collection = QuestionCollection.query.get(collection_id)
+        if not collection:
+            raise ValueError(f"Collection dengan ID {collection_id} tidak ditemukan dalam database")
+        
+        # Start dengan Stage 1: L1 Medium
+        state = MSTState(
+            siswa_id=siswa_id,
+            collection_id=collection_id,
+            current_stage=1,
+            current_level="Medium"
+        )
+        db.session.add(state)
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise Exception(f"Gagal membuat MST state: {str(e)}")
+    return state
+
+def determine_next_stage(state):
+    """
+    Implementasi alur MST adaptif 5 Stage sesuai taxonomy user - 1 SOAL per stage
+    Returns: (next_stage, next_level, should_stop, diagnosis)
+    
+    4 Skenario Alur MST:
+    1. High Ability: L1M(PASS)->L2H(PASS)->L3H(PASS)->L4H(PASS)->L5H(PASS/FAIL)->STOP
+    2. Medium-High: L1M(PASS)->L2H(PASS)->L3H(FAIL)->L4M(PASS)->L5M(PASS/FAIL)->STOP
+    3. Medium-Low: L1M(PASS)->L2H(FAIL)->L3M(PASS)->L4E(PASS/FAIL)->STOP
+    4. Low Ability: L1M(FAIL)->L2E(FAIL)->STOP
+    """
+    stage = state.current_stage
+    level = state.current_level
+    correct_answers = state.questions_correct
+    
+    # 1 soal per stage, jadi passed = (correct_answers >= 1)
+    passed = (correct_answers >= 1)
+    
+    print(f"[MST] Stage {stage} L{stage}{level[0]}: {correct_answers} correct = {'PASS' if passed else 'FAIL'}")
+    
+    # Get routing info from MST_ROUTING
+    if stage in MST_ROUTING:
+        stage_config = MST_ROUTING[stage]
+        
+        # Stage 1 is special - no difficulty branching
+        if stage == 1:
+            route = stage_config["pass"] if passed else stage_config["fail"]
+        else:
+            # Stages 2-5 have difficulty-based routing
+            if level in stage_config:
+                route = stage_config[level]["pass"] if passed else stage_config[level]["fail"]
+            else:
+                print(f"[MST ERROR] Stage {stage} level {level} not found in routing config")
+                return (None, None, True, "Configuration Error")
+        
+        # Process route result
+        if route["stage"] == "STOP":
+            return (None, None, True, route["diagnosis"])
+        else:
+            return (route["stage"], route["difficulty"], False, None)
+    
+    # Fallback - should not happen with proper config
+    print(f"[MST ERROR] Stage {stage} not found in MST_ROUTING")
+    return (None, None, True, f"L{stage}")
+    # Default fallback (seharusnya tidak tercapai dengan diagram baru)
+    return (None, None, True, f"Level {max(1, stage-1)}")
 
 # =========================================
 # PROGRESS TRACKING SYSTEM (DATABASE-BASED untuk Production)
@@ -163,16 +448,24 @@ def get_progress(user_id):
                     "message": getattr(progress, f'step_{i}_message')
                 }
             
-            return {
+            result = {
                 "current_step": progress.current_step,
                 "steps": steps_data,
                 "timestamp": progress.updated_at
             }
+            
+            # Commit untuk menutup transaksi read-only
+            db.session.commit()
+            return result
         else:
+            # Commit untuk menutup transaksi read-only bahkan jika tidak ada data
+            db.session.commit()
             return None
             
     except Exception as e:
         print(f"Error getting progress for user {user_id}: {str(e)}")
+        # Rollback pada error
+        db.session.rollback()
         # Fallback ke memory-based tracking jika DB error
         global progress_tracker_fallback
         if 'progress_tracker_fallback' in globals():
@@ -203,82 +496,121 @@ def validate_kurikulum_merdeka_modul_ajar(content_text):
     """
     Validasi KHUSUS untuk Modul Ajar Kurikulum Merdeka - Hanya menerima yang memiliki komponen wajib
     """
-    if not content_text or len(content_text.strip()) < 800:
-        return False, "Dokumen terlalu pendek untuk modul ajar Kurikulum Merdeka (minimal 800 karakter)"
+    if not content_text or len(content_text.strip()) < 400:
+        return False, "Dokumen terlalu pendek untuk modul ajar Kurikulum Merdeka (minimal 400 karakter)"
     
     content_lower = content_text.lower()
     missing_components = []
     validation_score = 0
     
-    # 1. WAJIB: Header "MODUL AJAR" - Indikator utama Kurikulum Merdeka
+    # 1. WAJIB: Header "MODUL AJAR" - Indikator utama Kurikulum Merdeka (lebih fleksibel)
     modul_ajar_patterns = [
         r'modul\s+ajar',
         r'modul\s+pembelajaran',
         r'teaching\s+module',
-        r'learning\s+module'
+        r'learning\s+module',
+        r'rpp\s+kurikulum\s+merdeka',
+        r'rencana\s+pelaksanaan\s+pembelajaran',
+        r'lesson\s+plan',
+        r'rpp\s+merdeka',
+        r'kurikulum\s+merdeka',
+        r'merdeka\s+belajar',
+        r'perangkat\s+ajar',
+        r'bahan\s+ajar',
+        r'materi\s+pembelajaran',
+        r'desain\s+pembelajaran'
     ]
     
     has_modul_header = any(re.search(pattern, content_lower) for pattern in modul_ajar_patterns)
     if has_modul_header:
         validation_score += 25
-        print("✓ Header MODUL AJAR ditemukan")
+        print("[OK] Header MODUL AJAR ditemukan")
     else:
         missing_components.append("Header 'MODUL AJAR'")
-        print("✗ Header MODUL AJAR tidak ditemukan")
+        print("[X] Header MODUL AJAR tidak ditemukan")
     
-    # 2. WAJIB: Identitas Modul (Mata Pelajaran, Kelas, Fase)
+    # 2. WAJIB: Identitas Modul (Mata Pelajaran, Kelas, Fase) - lebih fleksibel
     identitas_patterns = [
         r'mata\s+pelajaran\s*[:]\s*',
         r'subject\s*[:]\s*',
         r'fase\s*/?\s*kelas\s*[:]\s*',
         r'phase\s*/?\s*class\s*[:]\s*',
         r'fase\s*[:]\s*[a-g]',
-        r'kelas\s*[:]\s*[ivx]+',
-        r'grade\s*[:]\s*\d+'
+        r'kelas\s*[:]\s*[ivx\d]+',
+        r'grade\s*[:]\s*\d+',
+        r'mapel\s*[:]\s*',
+        r'pelajaran\s*[:]\s*',
+        r'kelas\s+\d+',
+        r'semester\s*[:]\s*',
+        r'tingkat\s*[:]\s*',
+        r'jenjang\s*[:]\s*',
+        r'sekolah\s+dasar',
+        r'sekolah\s+menengah',
+        r'smp|sma|smk|sd',
+        r'elementary|junior|senior|high\s+school'
     ]
     
     has_identitas = any(re.search(pattern, content_lower) for pattern in identitas_patterns)
     if has_identitas:
         validation_score += 15
-        print("✓ Identitas Modul (Mata Pelajaran/Kelas/Fase) ditemukan")
+        print("[OK] Identitas Modul (Mata Pelajaran/Kelas/Fase) ditemukan")
     else:
         missing_components.append("Identitas Modul (Mata Pelajaran, Kelas, Fase)")
-        print("✗ Identitas Modul tidak lengkap")
+        print("[X] Identitas Modul tidak lengkap")
     
-    # 3. WAJIB: Komponen Inti - Tujuan Pembelajaran
+    # 3. WAJIB: Komponen Inti - Tujuan Pembelajaran (lebih fleksibel)
     tujuan_patterns = [
         r'tujuan\s+pembelajaran',
         r'learning\s+objectives?',
         r'capaian\s+pembelajaran',
         r'learning\s+outcomes?',
         r'i\.\s*tujuan\s+pembelajaran',
-        r'1\.\s*tujuan\s+pembelajaran'
+        r'1\.\s*tujuan\s+pembelajaran',
+        r'objektif\s+pembelajaran',
+        r'target\s+pembelajaran',
+        r'sasaran\s+pembelajaran',
+        r'kompetensi\s+dasar',
+        r'indikator\s+pencapaian',
+        r'setelah\s+mengikuti\s+pembelajaran',
+        r'siswa\s+mampu',
+        r'peserta\s+didik\s+dapat',
+        r'akan\s+dapat\s+memahami',
+        r'diharapkan\s+siswa'
     ]
     
     has_tujuan = any(re.search(pattern, content_lower) for pattern in tujuan_patterns)
     if has_tujuan:
         validation_score += 20
-        print("✓ Tujuan Pembelajaran ditemukan")
+        print("[OK] Tujuan Pembelajaran ditemukan")
     else:
         missing_components.append("Tujuan Pembelajaran")
-        print("✗ Tujuan Pembelajaran tidak ditemukan")
+        print("[X] Tujuan Pembelajaran tidak ditemukan")
     
-    # 4. WAJIB: Kompetensi Awal - Komponen khas Kurikulum Merdeka
+    # 4. WAJIB: Kompetensi Awal - Komponen khas Kurikulum Merdeka (lebih fleksibel)
     kompetensi_patterns = [
         r'kompetensi\s+awal',
         r'prerequisite\s+competenc',
         r'kemampuan\s+prasyarat',
         r'ii\.\s*kompetensi\s+awal',
-        r'2\.\s*kompetensi\s+awal'
+        r'2\.\s*kompetensi\s+awal',
+        r'kemampuan\s+dasar',
+        r'pengetahuan\s+awal',
+        r'prasyarat\s+pembelajaran',
+        r'kemampuan\s+prerequisit',
+        r'bekal\s+awal',
+        r'pengetahuan\s+sebelumnya',
+        r'sudah\s+dipelajari',
+        r'telah\s+menguasai',
+        r'kemampuan\s+yang\s+dimiliki'
     ]
     
     has_kompetensi_awal = any(re.search(pattern, content_lower) for pattern in kompetensi_patterns)
     if has_kompetensi_awal:
         validation_score += 20
-        print("✓ Kompetensi Awal ditemukan")
+        print("[OK] Kompetensi Awal ditemukan")
     else:
         missing_components.append("Kompetensi Awal")
-        print("✗ Kompetensi Awal tidak ditemukan")
+        print("[X] Kompetensi Awal tidak ditemukan")
     
     # 5. WAJIB: Pemahaman Bermakna - Komponen khas Kurikulum Merdeka
     bermakna_patterns = [
@@ -292,10 +624,10 @@ def validate_kurikulum_merdeka_modul_ajar(content_text):
     has_pemahaman_bermakna = any(re.search(pattern, content_lower) for pattern in bermakna_patterns)
     if has_pemahaman_bermakna:
         validation_score += 15
-        print("✓ Pemahaman Bermakna ditemukan")
+        print("[OK] Pemahaman Bermakna ditemukan")
     else:
         missing_components.append("Pemahaman Bermakna")
-        print("✗ Pemahaman Bermakna tidak ditemukan")
+        print("[X] Pemahaman Bermakna tidak ditemukan")
     
     # 6. OPSIONAL BONUS: Profil Pelajar Pancasila (ciri khas Kurikulum Merdeka)
     profil_patterns = [
@@ -309,7 +641,7 @@ def validate_kurikulum_merdeka_modul_ajar(content_text):
     has_profil_pancasila = any(re.search(pattern, content_lower) for pattern in profil_patterns)
     if has_profil_pancasila:
         validation_score += 10
-        print("✓ BONUS: Profil Pelajar Pancasila ditemukan")
+        print("[OK] BONUS: Profil Pelajar Pancasila ditemukan")
     
     # 7. OPSIONAL BONUS: Pertanyaan Pemantik
     pemantik_patterns = [
@@ -323,7 +655,7 @@ def validate_kurikulum_merdeka_modul_ajar(content_text):
     has_pertanyaan_pemantik = any(re.search(pattern, content_lower) for pattern in pemantik_patterns)
     if has_pertanyaan_pemantik:
         validation_score += 5
-        print("✓ BONUS: Pertanyaan Pemantik ditemukan")
+        print("[OK] BONUS: Pertanyaan Pemantik ditemukan")
     
     # 8. VALIDASI KONTEN PENDIDIKAN
     edu_indicators = [
@@ -335,21 +667,21 @@ def validate_kurikulum_merdeka_modul_ajar(content_text):
     edu_count = sum(1 for indicator in edu_indicators if indicator in content_lower)
     if edu_count >= 5:
         validation_score += 5
-        print(f"✓ Konteks pendidikan memadai ({edu_count} indikator ditemukan)")
+        print(f"[OK] Konteks pendidikan memadai ({edu_count} indikator ditemukan)")
     else:
         missing_components.append("Konteks pendidikan yang memadai")
-        print(f"✗ Konteks pendidikan kurang ({edu_count} indikator)")
+        print(f"[X] Konteks pendidikan kurang ({edu_count} indikator)")
     
     # VALIDASI AKHIR
     print(f"\n=== HASIL VALIDASI MODUL AJAR KURIKULUM MERDEKA ===")
     print(f"Skor Validasi: {validation_score}/100")
     
-    # Threshold ketat: minimal 80 dari 100 untuk komponen wajib
-    if validation_score >= 80:
-        print("✅ DITERIMA: File memenuhi standar Modul Ajar Kurikulum Merdeka")
+    # Threshold yang lebih fleksibel: minimal 55 dari 100 untuk komponen wajib (turunkan agar mengurangi false negative)
+    if validation_score >= 55:
+        print("[DITERIMA] File memenuhi standar Modul Ajar Kurikulum Merdeka")
         return True, f"Modul Ajar Kurikulum Merdeka valid (skor: {validation_score}/100)"
     else:
-        print("❌ DITOLAK: File tidak memenuhi standar Modul Ajar Kurikulum Merdeka")
+        print("[DITOLAK] File tidak memenuhi standar Modul Ajar Kurikulum Merdeka")
         print(f"Komponen yang hilang atau kurang: {', '.join(missing_components)}")
         return False, f"Bukan Modul Ajar Kurikulum Merdeka yang valid. Komponen hilang: {', '.join(missing_components[:3])}"
 
@@ -359,6 +691,10 @@ def validate_file_format_and_content(file_stream, file_ext, filename):
     """
     try:
         # 1. Validasi ukuran file (lebih toleran)
+        # Guard: file_stream bisa None jika client mengirim tanpa payload atau terjadi error saat baca
+        if file_stream is None:
+            return False, "File kosong atau tidak terbaca dari permintaan (stream None). Pastikan Anda memilih file yang benar."
+
         file_size = len(file_stream)
         if file_size < 512:  # Dikurangi dari 1KB ke 512 bytes
             return False, "File terlalu kecil. File pembelajaran minimal berukuran 512 bytes"
@@ -393,6 +729,7 @@ def validate_file_format_and_content(file_stream, file_ext, filename):
         return True, content_text
         
     except Exception as e:
+        # Tangani error generik dengan pesan yang lebih ramah
         return False, f"Error validasi file: {str(e)}"
 
 def check_content_quality_score(module_components):
@@ -468,6 +805,7 @@ def extract_kurikulum_merdeka_components(content_text):
         "fase": "",
         "kompetensi_awal": "",
         "tujuan_pembelajaran": [],
+        "capaian_pembelajaran": [],
         "pemahaman_bermakna": [],
         "target_peserta_didik": "",
         "profil_pelajar_pancasila": [],
@@ -493,7 +831,7 @@ def extract_kurikulum_merdeka_components(content_text):
         if match:
             results["mata_pelajaran"] = match.group(1).strip()
             results["topik_utama"] = match.group(1).strip()
-            print(f"✓ Mata Pelajaran: {results['mata_pelajaran']}")
+            print(f"[OK] Mata Pelajaran: {results['mata_pelajaran']}")
             break
     
     # Fase dan Kelas
@@ -513,7 +851,7 @@ def extract_kurikulum_merdeka_components(content_text):
                 results["kelas"] = match.group(2).strip()
             else:
                 results["kelas"] = match.group(1).strip()
-            print(f"✓ Kelas/Fase: {results['kelas']} (Fase: {results.get('fase', 'N/A')})")
+            print(f"[OK] Kelas/Fase: {results['kelas']} (Fase: {results.get('fase', 'N/A')})")
             break
     
     # 2. EKSTRAK KOMPETENSI AWAL - Komponen khas Kurikulum Merdeka
@@ -541,7 +879,7 @@ def extract_kurikulum_merdeka_components(content_text):
             else:
                 results["kompetensi_awal"] = clean_text
                 
-            print(f"✓ Kompetensi Awal ditemukan (pattern {i}): {len(results['kompetensi_awal'])} karakter")
+            print(f"[OK] Kompetensi Awal ditemukan (pattern {i}): {len(results['kompetensi_awal'])} karakter")
             break
     
     # 3. EKSTRAK TUJUAN PEMBELAJARAN - Komponen utama Kurikulum Merdeka  
@@ -566,7 +904,7 @@ def extract_kurikulum_merdeka_components(content_text):
         tujuan_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
         if tujuan_match:
             tujuan_text = tujuan_match.group(1).strip()
-            print(f"✓ Tujuan pembelajaran ditemukan (pattern {i})")
+            print(f"[OK] Tujuan pembelajaran ditemukan (pattern {i})")
             
             # Strategy 1: Ekstrak bullet points atau numbering
             bullets = re.findall(r'(?:^|\n)\s*[•\-\*\d\.]\s*([^\n•\-\*]+)', tujuan_text, re.MULTILINE)
@@ -574,7 +912,7 @@ def extract_kurikulum_merdeka_components(content_text):
             
             if len(bullets) >= 2:
                 results["tujuan_pembelajaran"] = bullets[:6]
-                print(f"  → {len(bullets)} tujuan dalam format bullets")
+                print(f"   ->  {len(bullets)} tujuan dalam format bullets")
                 tujuan_found = True
                 break
             
@@ -594,7 +932,7 @@ def extract_kurikulum_merdeka_components(content_text):
             
             if len(unique_sentences) >= 2:
                 results["tujuan_pembelajaran"] = unique_sentences
-                print(f"  → {len(unique_sentences)} tujuan dengan action verbs")
+                print(f"   ->  {len(unique_sentences)} tujuan dengan action verbs")
                 tujuan_found = True
                 break
             
@@ -609,7 +947,7 @@ def extract_kurikulum_merdeka_components(content_text):
             
             if len(meaningful_lines) >= 2:
                 results["tujuan_pembelajaran"] = meaningful_lines[:5]
-                print(f"  → {len(meaningful_lines)} tujuan dari lines")
+                print(f"   ->  {len(meaningful_lines)} tujuan dari lines")
                 tujuan_found = True
                 break
     
@@ -628,7 +966,35 @@ def extract_kurikulum_merdeka_components(content_text):
         
         if len(filtered_sentences) >= 2:
             results["tujuan_pembelajaran"] = filtered_sentences[:4]
-            print(f"  → FALLBACK: {len(filtered_sentences)} tujuan ditemukan")
+            print(f"   ->  FALLBACK: {len(filtered_sentences)} tujuan ditemukan")
+
+    # 3b. EKSTRAK CAPAIAN PEMBELAJARAN (jika tersedia terpisah dari tujuan)
+    capaian_patterns = [
+        r'(?:capaian\s+pembelajaran|cp)(?:\s*[:\n]|\s+-\s*)(.*?)(?=\n\s*(?:pemahaman\s+bermakna|kompetensi\s+awal|indikator|tujuan\s+pembelajaran|profil\s+pelajar|pertanyaan\s+pemantik|[ivx]+\.|\d+\.|$))',
+        r'capaian\s+pembelajaran[^\n]*\n((?:\s*[•\-\*\d\.]+\s*[^\n]+\n?)+)'
+    ]
+    capaian_found = False
+    for i, pattern in enumerate(capaian_patterns, 1):
+        if capaian_found:
+            break
+        cp_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if cp_match:
+            cp_text = cp_match.group(1).strip()
+            # Extract bullets or meaningful lines
+            bullets = re.findall(r'(?:^|\n)\s*[•\-\*\d\.]\s*([^\n•\-\*]+)', cp_text, re.MULTILINE)
+            bullets = [b.strip() for b in bullets if len(b.strip()) > 15]
+            if bullets:
+                results["capaian_pembelajaran"] = bullets[:6]
+                print(f"[OK] Capaian Pembelajaran: {len(bullets)} item (pattern {i})")
+                capaian_found = True
+                break
+            # Otherwise split lines
+            lines = [line.strip() for line in cp_text.split('\n') if len(line.strip()) > 20]
+            if lines:
+                results["capaian_pembelajaran"] = lines[:6]
+                print(f"[OK] Capaian Pembelajaran (lines): {len(lines)} item (pattern {i})")
+                capaian_found = True
+                break
     
     # 4. EKSTRAK PEMAHAMAN BERMAKNA - Komponen khas Kurikulum Merdeka
     bermakna_patterns = [
@@ -642,7 +1008,7 @@ def extract_kurikulum_merdeka_components(content_text):
         bermakna_match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
         if bermakna_match:
             bermakna_text = bermakna_match.group(1).strip()
-            print(f"✓ Pemahaman bermakna ditemukan (pattern {i})")
+            print(f"[OK] Pemahaman bermakna ditemukan (pattern {i})")
             
             # Strategy 1: Extract bullets/numbering
             bullets = re.findall(r'(?:^|\n)\s*[•\-\*\d\.]\s*([^\n•\-\*]+)', bermakna_text, re.MULTILINE)
@@ -650,7 +1016,7 @@ def extract_kurikulum_merdeka_components(content_text):
             
             if len(bullets) >= 2:
                 results["pemahaman_bermakna"] = bullets[:4]
-                print(f"  → {len(bullets)} pemahaman bermakna dalam format bullets")
+                print(f"   ->  {len(bullets)} pemahaman bermakna dalam format bullets")
                 break
             
             # Strategy 2: Split by lines
@@ -659,13 +1025,13 @@ def extract_kurikulum_merdeka_components(content_text):
             
             if len(lines) >= 2:
                 results["pemahaman_bermakna"] = lines[:3]
-                print(f"  → {len(lines)} pemahaman bermakna dari lines")
+                print(f"   ->  {len(lines)} pemahaman bermakna dari lines")
                 break
             
             # Strategy 3: Use entire text if meaningful
             if 50 < len(bermakna_text) < 400:
                 results["pemahaman_bermakna"] = [bermakna_text]
-                print("  → 1 pemahaman bermakna (text utuh)")
+                print("   ->  1 pemahaman bermakna (text utuh)")
                 break
     
     # 5. EKSTRAK PROFIL PELAJAR PANCASILA - Ciri khas Kurikulum Merdeka
@@ -685,7 +1051,7 @@ def extract_kurikulum_merdeka_components(content_text):
             dimensi_list = re.findall(r'(?:[•\-\*\d\.]\s*)?([^•\-\*\n\d\.][^:\n]{15,})', profil_text)
             if dimensi_list:
                 results["profil_pelajar_pancasila"] = [d.strip() for d in dimensi_list[:6]]
-                print(f"✓ Profil Pelajar Pancasila: {len(dimensi_list)} dimensi")
+                print(f"[OK] Profil Pelajar Pancasila: {len(dimensi_list)} dimensi")
             break
     
     # 6. EKSTRAK PERTANYAAN PEMANTIK
@@ -704,7 +1070,7 @@ def extract_kurikulum_merdeka_components(content_text):
             questions = re.findall(r'[•\-\*\d\.]*\s*([^•\-\*\n\d\.][^?\n]*\?)', pemantik_text)
             if questions:
                 results["pertanyaan_pemantik"] = [q.strip() for q in questions[:5]]
-                print(f"✓ Pertanyaan Pemantik: {len(questions)} pertanyaan")
+                print(f"[OK] Pertanyaan Pemantik: {len(questions)} pertanyaan")
             break
     
     # 7. TARGET PESERTA DIDIK
@@ -725,7 +1091,7 @@ def extract_kurikulum_merdeka_components(content_text):
             
             if len(clean_text) > 20:
                 results["target_peserta_didik"] = clean_text
-                print(f"✓ Target Peserta Didik: {len(clean_text)} karakter")
+                print(f"[OK] Target Peserta Didik: {len(clean_text)} karakter")
             break
     
     # SUMMARY HASIL EKSTRAKSI
@@ -733,11 +1099,11 @@ def extract_kurikulum_merdeka_components(content_text):
     print(f"Mata Pelajaran: {results['mata_pelajaran'] or 'Tidak terdeteksi'}")
     print(f"Kelas/Fase: {results['kelas'] or 'Tidak terdeteksi'}")
     print(f"Tujuan Pembelajaran: {len(results['tujuan_pembelajaran'])} item")
-    print(f"Kompetensi Awal: {'✓' if results['kompetensi_awal'] else '✗'}")
+    print(f"Kompetensi Awal: {'OK' if results['kompetensi_awal'] else 'X'}")
     print(f"Pemahaman Bermakna: {len(results['pemahaman_bermakna'])} item")
     print(f"Profil Pelajar Pancasila: {len(results['profil_pelajar_pancasila'])} dimensi")
     print(f"Pertanyaan Pemantik: {len(results['pertanyaan_pemantik'])} pertanyaan")
-    print(f"Target Peserta Didik: {'✓' if results['target_peserta_didik'] else '✗'}")
+    print(f"Target Peserta Didik: {'OK' if results['target_peserta_didik'] else 'X'}")
     print("=" * 50)
     
     return results
@@ -768,14 +1134,14 @@ def validate_kurikulum_merdeka_components(module_components):
     if mata_pelajaran and len(mata_pelajaran.strip()) > 3:
         validation_report["detected"].append("Mata Pelajaran")
         validation_report["quality_score"] += 15
-        print(f"✓ Mata Pelajaran: {mata_pelajaran}")
+        print(f"[OK] Mata Pelajaran: {mata_pelajaran}")
         
         if kelas and len(kelas.strip()) > 1:
             validation_report["quality_score"] += 5
-            print(f"✓ Kelas/Fase: {kelas}")
+            print(f"[OK] Kelas/Fase: {kelas}")
     else:
         validation_report["missing"].append("Mata Pelajaran")
-        print("✗ Mata Pelajaran tidak teridentifikasi")
+        print("[X] Mata Pelajaran tidak teridentifikasi")
     
     # 2. VALIDASI TUJUAN PEMBELAJARAN (30 poin - paling penting)
     tujuan_list = module_components.get("tujuan_pembelajaran", [])
@@ -785,35 +1151,35 @@ def validate_kurikulum_merdeka_components(module_components):
         if len(meaningful_tujuan) >= 3:
             validation_report["detected"].append(f"Tujuan Pembelajaran ({len(tujuan_list)} item)")
             validation_report["quality_score"] += 30
-            print(f"✓ Tujuan Pembelajaran: {len(tujuan_list)} item berkualitas")
+            print(f"[OK] Tujuan Pembelajaran: {len(tujuan_list)} item berkualitas")
         elif len(meaningful_tujuan) >= 2:
             validation_report["detected"].append(f"Tujuan Pembelajaran ({len(tujuan_list)} item)")
             validation_report["quality_score"] += 25
-            print(f"✓ Tujuan Pembelajaran: {len(tujuan_list)} item (cukup)")
+            print(f"[OK] Tujuan Pembelajaran: {len(tujuan_list)} item (cukup)")
         elif len(meaningful_tujuan) >= 1:
             validation_report["detected"].append("Tujuan Pembelajaran (minimal)")
             validation_report["quality_score"] += 15
             print(f"⚠ Tujuan Pembelajaran: hanya {len(meaningful_tujuan)} item berkualitas")
         else:
             validation_report["missing"].append("Tujuan Pembelajaran")
-            print("✗ Tujuan Pembelajaran tidak memadai")
+            print("[X] Tujuan Pembelajaran tidak memadai")
     else:
         validation_report["missing"].append("Tujuan Pembelajaran")
-        print("✗ Tujuan Pembelajaran tidak ditemukan")
+        print("[X] Tujuan Pembelajaran tidak ditemukan")
     
     # 3. VALIDASI KOMPETENSI AWAL (25 poin - khas Kurikulum Merdeka)
     kompetensi_awal = module_components.get("kompetensi_awal", "")
     if kompetensi_awal and len(kompetensi_awal.strip()) > 50:
         validation_report["detected"].append("Kompetensi Awal")
         validation_report["quality_score"] += 25
-        print(f"✓ Kompetensi Awal: {len(kompetensi_awal)} karakter")
+        print(f"[OK] Kompetensi Awal: {len(kompetensi_awal)} karakter")
     elif kompetensi_awal and len(kompetensi_awal.strip()) > 20:
         validation_report["detected"].append("Kompetensi Awal (singkat)")
         validation_report["quality_score"] += 15
         print(f"⚠ Kompetensi Awal: terlalu singkat ({len(kompetensi_awal)} karakter)")
     else:
         validation_report["missing"].append("Kompetensi Awal")
-        print("✗ Kompetensi Awal tidak memadai")
+        print("[X] Kompetensi Awal tidak memadai")
     
     # 4. VALIDASI PEMAHAMAN BERMAKNA (20 poin - khas Kurikulum Merdeka)
     bermakna_list = module_components.get("pemahaman_bermakna", [])
@@ -823,23 +1189,23 @@ def validate_kurikulum_merdeka_components(module_components):
         if len(meaningful_bermakna) >= 2:
             validation_report["detected"].append(f"Pemahaman Bermakna ({len(bermakna_list)} item)")
             validation_report["quality_score"] += 20
-            print(f"✓ Pemahaman Bermakna: {len(bermakna_list)} item")
+            print(f"[OK] Pemahaman Bermakna: {len(bermakna_list)} item")
         elif len(meaningful_bermakna) >= 1:
             validation_report["detected"].append("Pemahaman Bermakna (minimal)")
             validation_report["quality_score"] += 10
             print(f"⚠ Pemahaman Bermakna: hanya {len(meaningful_bermakna)} item berkualitas")
         else:
             validation_report["missing"].append("Pemahaman Bermakna")
-            print("✗ Pemahaman Bermakna tidak berkualitas")
+            print("[X] Pemahaman Bermakna tidak berkualitas")
     else:
         validation_report["missing"].append("Pemahaman Bermakna")
-        print("✗ Pemahaman Bermakna tidak ditemukan")
+        print("[X] Pemahaman Bermakna tidak ditemukan")
     
     # 5. BONUS: Target Peserta Didik (5 poin)
     target_peserta = module_components.get("target_peserta_didik", "")
     if target_peserta and len(target_peserta.strip()) > 30:
         validation_report["quality_score"] += 5
-        print(f"✓ BONUS: Target Peserta Didik ditemukan")
+        print(f"[OK] BONUS: Target Peserta Didik ditemukan")
     
     # Laporan akhir
     print(f"\n--- HASIL VALIDASI KOMPONEN ---")
@@ -895,8 +1261,8 @@ def log_extraction_results(module_components):
         for i, bermakna in enumerate(bermakna_items[:3], 1):
             print(f"  {i}. {bermakna[:80]}{'...' if len(bermakna) > 80 else ''}")
     
-    print(f"Kompetensi Awal: {'✓' if module_components.get('kompetensi_awal') else '✗'}")
-    print(f"Target Peserta Didik: {'✓' if module_components.get('target_peserta_didik') else '✗'}")
+    print(f"Kompetensi Awal: {'OK' if module_components.get('kompetensi_awal') else 'X'}")
+    print(f"Target Peserta Didik: {'OK' if module_components.get('target_peserta_didik') else 'X'}")
     
     # Validasi
     validation = validate_detected_keywords(module_components)
@@ -909,20 +1275,20 @@ def log_extraction_results(module_components):
 
 def create_optimized_prompt_with_good_structure(module_components):
     """
-    Buat prompt dengan struktur lama yang bagus tetapi data yang sudah dioptimalkan
+    Buat prompt singkat dan fokus berdasarkan komponen modul ajar untuk MST 5 Stage
     """
     
     # Format tujuan pembelajaran
     tujuan_list = []
-    for i, tujuan in enumerate(module_components.get("tujuan_pembelajaran", [])[:6], 1):
+    for tujuan in module_components.get("tujuan_pembelajaran", [])[:4]:
         tujuan_list.append(f"• {tujuan.strip()}")
     
     # Format pemahaman bermakna
     pemahaman_list = []
-    for i, pemahaman in enumerate(module_components.get("pemahaman_bermakna", [])[:4], 1):
+    for pemahaman in module_components.get("pemahaman_bermakna", [])[:3]:
         pemahaman_list.append(f"• {pemahaman.strip()}")
-    
-    # Menggunakan struktur prompt lama yang sudah bagus
+
+    # Prompt baru (disediakan oleh pengguna) — fokus pada kejelasan, anti-ambigu, dan format JSON valid
     prompt = f"""
 Anda adalah seorang ahli pembuat soal asesmen diagnostik yang bertugas membantu guru untuk membuat soal yang akan diberikan pada siswa SMA. Soal dibuat berdasarkan Tujuan Pembelajaran dan komponen modul ajar yang telah diekstrak.
 
@@ -941,61 +1307,46 @@ TUJUAN PEMBELAJARAN:
 PEMAHAMAN BERMAKNA:
 {chr(10).join(pemahaman_list) if pemahaman_list else "• Mengembangkan pemahaman konseptual yang mendalam"}
 
+CAPAIAN PEMBELAJARAN (bila tersedia):
+{chr(10).join([f"• {cp.strip()}" for cp in module_components.get("capaian_pembelajaran", [])[:4]]) if module_components.get("capaian_pembelajaran") else "• (Tidak tersedia di dokumen; gunakan Tujuan Pembelajaran sebagai acuan utama)"}
+
 TARGET PESERTA DIDIK:
 {module_components.get("target_peserta_didik", "Peserta didik reguler/tipikal: umum, tidak ada kesulitan dalam mencerna dan memahami materi ajar")}
 ========================================
 
-**Indeks Kesulitan Item untuk Diagnosis Kognitif**
-Indeks kesulitan item sangat penting dalam menilai kemampuan kognitif individu di berbagai domain. Hal ini penting untuk mendapatkan pemahaman mendalam tentang kekuatan dan kelemahan kognitif seseorang.
-
-Kesulitan item dalam diagnosis kognitif menggambarkan seberapa menantang item tes tertentu terhadap konstruk kognitif yang dievaluasi. Tingkat kesulitan ini diukur dengan indeks kesulitan item.
-
-**Membuat Sesi Multi-Tahap Berdasarkan Taksonomi Kompetensi Teknologi**
 Dalam membuat soal untuk sesi multi-tahap, gunakan taksonomi kompetensi teknologi berikut sebagai panduan untuk menentukan tipe dan tingkat kesulitan soal pada setiap level:
 
 SPESIFIKASI SOAL PER LEVEL:
 ========================================
-Stage I (Kotak 1) → Kesadaran Teknologi
-Probabilitas (p): 0.95
+Level 1 → Kesadaran Teknologi
+Tingkat kesulitan: Medium
 Fokus soal: definisi, istilah, identifikasi teknologi dasar
 Jenis pengetahuan: knowledge that
 Contoh soal: "Alat yang digunakan untuk menyimpan data berbasis internet adalah..."
 
-Stage II (Kotak 2) → Literasi Teknologi
-Probabilitas (p): 0.90
+Level 2 → Literasi Teknologi
+Tingkat kesulitan: Easy atau Hard
 Fokus soal: klasifikasi, hubungan antar teknologi, penjelasan fungsi
 Jenis pengetahuan: knowledge that
 Contoh soal: "Manakah teknologi yang termasuk komunikasi sinkron?"
 
-Stage III
-Kotak 3 → Kemampuan Teknologi
-p: 0.75
+Level 3 → Kemampuan Teknologi
+Tingkat kesulitan: Medium atau Hard
 Fokus soal: aplikasi praktis sederhana, langkah-langkah dasar teknologi
 Jenis pengetahuan: knowledge that + how (level SMA)
-Contoh soal: "Urutkan langkah membuat email: 1) login 2) klik compose 3) isi pesan 4) kirim"
+Contoh soal: "Urutkan langkah membuat email: 1. login, 2. klik compose, 3. isi pesan, 4. kirim"
 
-Kotak 4 → Kreativitas Teknologi (Dasar)
-p: 0.67
+Level 4 → Kreativitas Teknologi (Dasar)
+Tingkat kesulitan: Easy, Medium, atau Hard
 Fokus soal: identifikasi masalah sederhana, pemecahan masalah dasar
 Jenis pengetahuan: knowledge that + how (level SMA)
 Contoh soal: "Jika komputer tidak bisa terhubung internet, langkah pertama yang dilakukan adalah..."
 
-Stage IV (Final)
-Kotak 5 → Kemampuan Teknologi (penguatan)
-p: 0.75
-Soal aplikasi lanjutan yang sesuai SMA, tidak melibatkan coding kompleks
-
-Kotak 6 → Kritik Teknologi
-p: 0.20
+Level 5 → Kritik Teknologi
+Tingkat kesulitan: Easy, Medium, atau Hard
 Fokus soal: membandingkan teknologi sederhana, memilih solusi yang tepat
 Jenis pengetahuan: knowledge that + how + why (level SMA)
 Contoh soal: "Untuk menyimpan foto keluarga, mana yang lebih aman: flash disk atau cloud storage?"
-
-Kotak 7 → Kreativitas + Kritik Teknologi (Final Tinggi)
-p: 0.17
-Fokus soal: merancang solusi sederhana menggunakan teknologi yang familiar
-Jenis pengetahuan: knowledge that + how + why (level SMA)  
-Contoh soal: "Untuk membuat presentasi sekolah yang menarik, kombinasi aplikasi terbaik adalah..."
 
 ATURAN PENTING - KEJELASAN DAN KETEPATAN:
 ========================================
@@ -1038,48 +1389,21 @@ ATURAN KHUSUS ANTI-AMBIGUITAS:
 ✗ JANGAN buat opsi jawaban yang memerlukan asumsi tambahan
 ✗ JANGAN buat soal dengan jawaban benar lebih dari satu
 
-ADAPTASI KONTEKS KHUSUS SMA KELAS X:
+KAIDAH BAHASA INDONESIA (KBBI/EYD):
 ========================================
-GAYA BAHASA & KOMPLEKSITAS:
-- Gunakan bahasa yang mudah dipahami siswa usia 15-16 tahun
-- Contoh teknologi: smartphone, laptop, WiFi, aplikasi populer (WhatsApp, Instagram, YouTube)
-- Hindari jargon teknis tingkat lanjut atau bahasa pemrograman kompleks
-- Fokus pada konsep dasar teknologi informasi dan komunikasi
-- Gunakan konteks sekolah dan kehidupan remaja
+- Ikuti kaidah KBBI/EYD untuk tanda baca (koma, titik, titik dua, titik koma, tanda kurung, tanda kutip, tanda tanya, tanda seru).
+- Gunakan huruf kapital secara tepat (awalan kalimat, nama diri, akronim baku) dan hindari kapitalisasi berlebihan.
+- Penempatan spasi benar: spasi setelah koma/titik/titik dua; tidak ada spasi sebelum tanda baca penutup.
+- Teks konsisten: satu konsep per soal, kalimat ringkas (≤2 klausa), suara aktif, hindari negasi ganda.
+- Hindari campuran bahasa yang tidak perlu; gunakan padanan bahasa Indonesia baku jika tersedia.
 
-CONTOH SOAL YANG BENAR (DEFINITIF & JELAS):
+ATURAN ANGKA & MATEMATIKA:
 ========================================
-✓ BENAR: "Fungsi utama RAM dalam komputer adalah..."
-  A. Menyimpan data secara permanen
-  B. Menyimpan data sementara saat program berjalan ✓
-  C. Mengatur suhu processor
-  D. Menampilkan gambar ke monitor
-
-✓ BENAR: "Protocol yang digunakan untuk mengirim email adalah..."
-  A. HTTP
-  B. FTP  
-  C. SMTP ✓
-  D. TCP
-
-✓ BENAR: "Ekstensi file dokumen Microsoft Word adalah..."
-  A. .txt
-  B. .pdf
-  C. .docx ✓
-  D. .xlsx
-
-CONTOH SOAL YANG SALAH (AMBIGU & TIDAK JELAS):
-========================================
-✗ SALAH: "Aplikasi yang mungkin cocok untuk editing video adalah..."
-  → MASALAH: Kata "mungkin" dan "cocok" terlalu subjektif
-
-✗ SALAH: "Manakah yang lebih baik untuk menyimpan data?"
-  → MASALAH: "Lebih baik" subjektif, tidak ada konteks spesifik
-
-✗ SALAH: "Umumnya, keamanan password yang baik sebaiknya..."
-  → MASALAH: "Umumnya" dan "sebaiknya" tidak definitif
-
-✗ SALAH: "Beberapa keuntungan cloud storage antara lain..."
-  → MASALAH: "Beberapa" dan "antara lain" tidak spesifik
+- Pemisah ribuan menggunakan titik: 1.000; 25.600; 1.250.000.
+- Pecahan desimal menggunakan koma: 3,5; 12,75.
+- Simbol satuan mengikuti standar (MB, GB, Hz) tanpa titik akhir dan tanpa spasi sebelum satuan (contoh: 5 GB, 2,4 GHz).
+- Soal matematika tidak terlalu rumit: gunakan angka kecil/sederhana, operasi dasar, dan konteks realistis.
+- Jika menyebut angka ribuan di soal/opsi/penjelasan, wajib gunakan titik sebagai pemisah ribuan.
 
 PEDOMAN PENULISAN SOAL DEFINITIF:
 ========================================
@@ -1105,8 +1429,9 @@ FORMAT OUTPUT - JSON ARRAY:
 PENTING: Berikan response dalam format JSON array yang valid. Jangan tambahkan teks apapun sebelum atau sesudah JSON.
 
 CONTOH FORMAT YANG BENAR (DEFINITIF & JELAS):
-[{{
+[{ {
     "level": 1,
+    "difficulty": "Medium",
     "question_type": "multiple_choice", 
     "soal": "Fungsi utama CPU dalam sistem komputer adalah",
     "options": [
@@ -1116,10 +1441,10 @@ CONTOH FORMAT YANG BENAR (DEFINITIF & JELAS):
         "Menyediakan daya listrik"
     ],
     "jawaban_benar": "Memproses instruksi dan data",
-    "p": 0.95,
+    "taxonomy_indicator": "Mengingat dan mengenali istilah/perangkat dasar TIK",
     "explanation": "CPU (Central Processing Unit) adalah unit pemrosesan pusat yang bertugas mengeksekusi instruksi program dan memproses data dalam komputer",
-    "modul_reference": "Tujuan Pembelajaran: Menjelaskan komponen dasar komputer"
-}}]
+    "modul_reference": "• Menjelaskan komponen dasar komputer"
+} }]
 
 KRITERIA KUALITAS SOAL:
 ========================================
@@ -1165,48 +1490,62 @@ HINDARI TOPIK KOMPLEKS:
 - Server configuration
 - Advanced cybersecurity
 - Machine learning atau AI development
+ - Machine learning atau AI development
+
+KETERKAITAN TAKSONOMI & TUJUAN (WAJIB):
+========================================
+Setiap soal HARUS terhubung jelas ke taksonomi dan tujuan/capaian pembelajaran:
+- Gunakan field "level" (1–5) sesuai spesifikasi level di atas.
+- Gunakan field "difficulty" dengan nilai: "Easy", "Medium", atau "Hard" sesuai mapping level.
+- Tambahkan field "taxonomy_indicator": satu kalimat ringkas yang mewakili indikator taksonomi pada level tersebut.
+- Tambahkan field "modul_reference": tulis persis salah satu butir Capaian Pembelajaran (CP) atau Tujuan Pembelajaran (TP) yang paling relevan (copy apa adanya).
+
+DAFTAR INDIKATOR TAKSONOMI TEKNOLOGI (RINGKAS):
+- Level 1 (Kesadaran): Mengingat dan mengenali istilah/perangkat dasar TIK.
+- Level 2 (Literasi): Menjelaskan fungsi dan hubungan sederhana antarteknologi.
+- Level 3 (Kemampuan): Menerapkan langkah/fitur dasar untuk tugas praktis.
+- Level 4 (Kreativitas): Merancang atau memilih solusi sederhana untuk masalah nyata.
+- Level 5 (Kritik): Mengevaluasi pilihan/implikasi teknologi disertai alasan yang jelas.
 
 CHECKLIST KUALITAS SEBELUM MENGIRIM JAWABAN:
 ========================================
 Pastikan SETIAP soal memenuhi kriteria berikut:
 
-□ PERTANYAAN:
-  - Tidak menggunakan kata: mungkin, biasanya, umumnya, sebaiknya, kemungkinan
-  - Menggunakan fakta teknis yang dapat diverifikasi dari sumber standar
-  - Bahasa jelas, langsung, dan definitif
-  - Dapat dijawab dengan pasti berdasarkan pengetahuan teknis
+ PERTANYAAN:
+    - Tidak menggunakan kata: mungkin, biasanya, umumnya, sebaiknya, kemungkinan
+    - Menggunakan fakta teknis yang dapat diverifikasi dari sumber standar
+    - Bahasa jelas, langsung, dan definitif
+    - Dapat dijawab dengan pasti berdasarkan pengetahuan teknis
 
-□ OPSI JAWABAN:
-  - Tidak ada opsi yang memerlukan interpretasi subjektif  
-  - Jawaban benar 100% akurat menurut standar industri
-  - Pengecoh jelas salah bagi yang memahami konsep
-  - Tidak ada ambiguitas dalam formulasi opsi
+ OPSI JAWABAN:
+    - Tidak ada opsi yang memerlukan interpretasi subjektif  
+    - Jawaban benar 100% akurat menurut standar industri
+    - Pengecoh jelas salah bagi yang memahami konsep
+    - Tidak ada ambiguitas dalam formulasi opsi
 
-□ TERMINOLOGY:
-  - Menggunakan istilah teknis baku dan standar
-  - Tidak ada jargon yang dapat diinterpretasi berbeda
-  - Konsisten dengan terminologi yang diajarkan di SMA
-  - Sesuai dengan kurikulum dan standar pendidikan
+ TERMINOLOGY:
+    - Menggunakan istilah teknis baku dan standar
+    - Tidak ada jargon yang dapat diinterpretasi berbeda
+    - Konsisten dengan terminologi yang diajarkan di SMA
+    - Sesuai dengan kurikulum dan standar pendidikan
 
-□ VERIFIKASI AKHIR:
-  - Soal dapat dikerjakan oleh siswa SMA kelas X
-  - Berkaitan langsung dengan materi modul ajar
-  - Tidak memerlukan pengetahuan di luar scope SMA
-  - Jawaban dapat dipertanggungjawabkan secara akademis
+ VERIFIKASI AKHIR:
+    - Soal dapat dikerjakan oleh siswa SMA kelas X
+    - Berkaitan langsung dengan materi modul ajar
+    - Tidak memerlukan pengetahuan di luar scope SMA
+    - Jawaban dapat dipertanggungjawabkan secara akademis
 
-TARGET: 35 soal total (5 soal per level) dalam format JSON array yang valid.
+TARGET: 55 soal total dalam format JSON array yang valid.
 
-PRINSIP KUNCI YANG HARUS DITERAPKAN:
-========================================
-1. DEFINITIF: Tidak ada ruang interpretasi ganda
-2. VERIFIABLE: Jawaban dapat dibuktikan dari sumber terpercaya  
-3. OBJECTIVE: Berdasarkan fakta, bukan opini atau preferensi
-4. PRECISE: Menggunakan istilah teknis yang tepat dan baku
-5. CLEAR: Bahasa lugas tanpa ambiguitas atau ketidakpastian
-6. EDUCATIONAL: Menguji pemahaman konsep, bukan hafalan
-7. APPROPRIATE: Sesuai tingkat kognitif siswa SMA kelas X
+Distribusi wajib per level & kesulitan (HARUS PERSIS, 5 per kombinasi yang diizinkan):
+- Level 1 (Kesadaran): Medium 5 soal
+- Level 2 (Literasi): Easy 5 soal, Hard 5 soal (total 10)
+- Level 3 (Kemampuan): Medium 5 soal, Hard 5 soal (total 10)
+- Level 4 (Kreativitas): Easy 5 soal, Medium 5 soal, Hard 5 soal (total 15)
+- Level 5 (Kritik): Easy 5 soal, Medium 5 soal, Hard 5 soal (total 15)
+
+Catatan: Pastikan setiap soal memakai field "level" (1–5) dan "difficulty" ("Easy" | "Medium" | "Hard") sesuai distribusi di atas. Jumlah per kombinasi level-kesulitan harus tepat 5.
 """
-    
     return prompt
 
 def extract_hybrid_module_components(content_text):
@@ -1242,6 +1581,37 @@ def extract_hybrid_module_components(content_text):
     else:
         print(f"Ekstraksi spesifik berhasil (score: {validation['quality_score']:.1f}%)")
         return specific_components, validation
+
+# =========================================
+# RESPONSE HELPERS
+# =========================================
+def extract_response_text(response):
+    """Safely extract text from Gemini response across possible shapes.
+    Returns an empty string if unavailable.
+    """
+    try:
+        if response is None:
+            return ""
+        text = getattr(response, "text", None)
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+        # Try candidates -> content.parts[*].text
+        candidates = getattr(response, "candidates", None)
+        if candidates:
+            parts_texts = []
+            for c in candidates:
+                content = getattr(c, "content", None)
+                parts = getattr(content, "parts", None) if content else None
+                if parts:
+                    for p in parts:
+                        t = getattr(p, "text", None)
+                        if isinstance(t, str) and t.strip():
+                            parts_texts.append(t.strip())
+            if parts_texts:
+                return "\n".join(parts_texts)
+        return ""
+    except Exception:
+        return ""
 
 # =========================================
 # DATABASE MODELS
@@ -1296,7 +1666,9 @@ class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     guru_id = db.Column(db.Integer, db.ForeignKey('guru.id'), nullable=False)
     collection_id = db.Column(db.Integer, db.ForeignKey('question_collections.id'), nullable=True)
-    level = db.Column(db.Integer, nullable=False)
+    level = db.Column(db.Integer, nullable=False)  # Deprecated, use technology_level instead
+    technology_level = db.Column(db.Integer, nullable=False, default=1)  # L1-L5 (Awareness, Literacy, Capability, Creativity, Criticism)
+    difficulty = db.Column(db.String(10), nullable=False, default='Medium')  # Easy, Medium, Hard
     soal = db.Column(db.Text, nullable=False)
     jawaban_benar = db.Column(db.Text, nullable=True)
     options = db.Column(db.Text, nullable=True)
@@ -1363,6 +1735,12 @@ class SiswaResult(db.Model):
     correct = db.Column(db.Integer, default=0)
     incorrect = db.Column(db.Integer, default=0)
     current_level = db.Column(db.Integer, default=1)
+    # MST Adaptive fields
+    current_stage = db.Column(db.Integer, default=1)  # Stage 1-5
+    current_path = db.Column(db.String(20), default='START')  # START, UPPER, MIDDLE, LOWER
+    technology_level_achieved = db.Column(db.Integer, default=1)  # Final diagnosis L1-L5
+    is_adaptive_test_complete = db.Column(db.Boolean, default=False)
+    adaptive_test_data = db.Column(db.Text)  # JSON data for tracking MST path
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
@@ -1373,9 +1751,13 @@ class SiswaAnswer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     siswa_id = db.Column(db.Integer, db.ForeignKey('siswa.id'), nullable=False)
     question_id = db.Column(db.Integer, db.ForeignKey('questions.id'), nullable=False)
+    collection_id = db.Column(db.Integer, db.ForeignKey('question_collections.id'), nullable=True)  # For MST tracking
     siswa_answer = db.Column(db.Text, nullable=False)
+    selected_answer = db.Column(db.Text, nullable=True)  # Alias for siswa_answer
     is_correct = db.Column(db.Boolean, default=False)
-    level = db.Column(db.Integer, nullable=False)
+    level = db.Column(db.String(20), nullable=False, default='Awareness')  # MST level name
+    difficulty = db.Column(db.String(10), nullable=False, default='Medium')  # Easy, Medium, Hard
+    stage = db.Column(db.Integer, nullable=False, default=1)  # MST Stage 1-5
     answered_at = db.Column(db.DateTime, server_default=db.func.now())
     
     # Relasi dengan Question
@@ -1740,21 +2122,22 @@ def register():
 # =========================================
 # Fungsi next_level yang baru berdasarkan diagram
 def next_level(current_level, is_correct):
+    """Menentukan level selanjutnya berdasarkan MST 5 Stage Technology Assessment."""
     if current_level == 1:
-        return 2  # Dari level 1 selalu ke level 2
+        return 2  # L1 selalu ke L2
     elif current_level == 2:
-        return 4 if is_correct else 3  # Benar ke atas (4), salah ke bawah (3)
-    elif current_level == 4:
-        return 7 if is_correct else 6  # Benar ke atas (7), salah ke bawah (6)
+        return 3 if is_correct else 3  # L2 selalu ke L3 (sudah difilter easy/hard di routing)
     elif current_level == 3:
-        return 6 if is_correct else 5  # Benar ke atas (6), salah ke bawah (5)
-    elif current_level in [5, 6, 7]:
-        return None  # Sudah di level akhir
+        return 4 if is_correct else 4  # L3 selalu ke L4 (sudah difilter medium/hard di routing)
+    elif current_level == 4:
+        return 5 if is_correct else 5  # L4 selalu ke L5 (sudah difilter oleh routing)
+    elif current_level == 5:
+        return None  # L5 adalah stage akhir
     else:
         return None  # Untuk keamanan
 
-# level akhir tetap sama
-FINAL_levelS = [5, 6, 7]
+# Level akhir hanya L5 dalam sistem MST 5-stage
+FINAL_LEVELS = [5]
 
 # =========================================
 # FUNGSI MENENTUKAN BOBOT (ASSIGN_WEIGHT)
@@ -1775,58 +2158,80 @@ def assign_weight(p: float) -> int:
 # FUNGSI KETERANGAN LEVEL
 # =========================================
 def get_level_description(level):
-    """Mengembalikan deskripsi teks untuk level numerik."""
+    """Mengembalikan deskripsi teks untuk level numerik berdasarkan MST 5 Stage Technology Assessment."""
     descriptions = {
-        1: "Kesadaran Teknologi: Pemahaman dasar tentang konsep dan istilah.",
-        2: "Literasi Teknologi: Mampu menjelaskan konsep dan cara kerjanya.",
-        3: "Aplikasi Dasar: Mampu menerapkan konsep pada masalah sederhana.",
-        4: "Aplikasi Lanjut: Mampu menganalisis dan memecahkan masalah kompleks.",
-        5: "Kemampuan Rendah: Telah menyelesaikan tes dengan penguasaan pada tingkat dasar.",
-        6: "Kemampuan Menengah: Telah menyelesaikan tes dengan penguasaan pada tingkat menengah.",
-        7: "Kemampuan Tinggi: Telah menyelesaikan tes dengan penguasaan pada tingkat mahir.",
+        1: "L1 - Kesadaran Teknologi: Pengenalan teknologi dasar, identifikasi perangkat dan aplikasi",
+        2: "L2 - Literasi Teknologi: Pemahaman cara kerja teknologi, literasi digital dasar", 
+        3: "L3 - Kemampuan Teknologi: Penerapan teknologi untuk memecahkan masalah praktis",
+        4: "L4 - Kreativitas Teknologi: Penggunaan teknologi secara kreatif dan inovatif",
+        5: "L5 - Evaluasi Kritis Teknologi: Evaluasi dan kritik teknologi secara mendalam"
     }
     return descriptions.get(level, "Level Tidak Dikenal")
 
 def get_level_description_short(level):
-    """Mengembalikan deskripsi singkat untuk level numerik berdasarkan taksonomi teknologi."""
+    """Mengembalikan deskripsi singkat untuk level numerik berdasarkan MST 5 Stage Technology Assessment."""
     descriptions = {
-        1: "Stage I (Kotak 1) - Kesadaran Teknologi",
-        2: "Stage II (Kotak 2) - Literasi Teknologi",
-        3: "Stage III (Kotak 3) - Kemampuan Teknologi",
-        4: "Stage III (Kotak 4) - Kreativitas Teknologi (Dasar)",
-        5: "Stage IV (Kotak 5) - Kemampuan Teknologi (Penguatan)",
-        6: "Stage IV (Kotak 6) - Kritik Teknologi",
-        7: "Stage IV (Kotak 7) - Kreativitas + Kritik Teknologi (Final Tinggi)",
+        1: "L1 - Kesadaran Teknologi",
+        2: "L2 - Literasi Teknologi", 
+        3: "L3 - Kemampuan Teknologi",
+        4: "L4 - Kreativitas Teknologi",
+        5: "L5 - Evaluasi Kritis Teknologi"
     }
     return descriptions.get(level, "Level Tidak Dikenal")
 
 def get_technology_taxonomy(level):
-    """Mengembalikan taksonomi teknologi untuk level numerik (format lengkap)."""
+    """Mengembalikan taksonomi teknologi untuk level numerik berdasarkan MST 5 Stage (format lengkap)."""
     technology_mapping = {
-        1: "Knowledge That - Definisi, istilah, identifikasi teknologi dasar",
-        2: "Knowledge That - Klasifikasi, hubungan antar teknologi, penjelasan fungsi", 
-        3: "Knowledge That + How - Aplikasi praktis, instruksi, puzzle urutan",
-        4: "Knowledge That + How - Modifikasi, debugging, analisis error sederhana",
-        5: "Knowledge That + How - Aplikasi lanjutan, puzzle assembly terbimbing",
-        6: "Knowledge That + How + Why - Evaluasi trade-off, menilai solusi, kritik teknologi",
-        7: "Knowledge That + How + Why - Merancang solusi baru, integrasi multi-konsep, optimalisasi teknologi"
+        1: "Knowledge That - Awareness level: Definisi, istilah, identifikasi teknologi dasar",
+        2: "Knowledge That - Literacy level: Pemahaman cara kerja, literasi digital dasar", 
+        3: "Knowledge That + How - Capability level: Penerapan teknologi untuk problem solving praktis",
+        4: "Knowledge That + How + Create - Creativity level: Penggunaan teknologi secara kreatif dan inovatif",
+        5: "Knowledge That + How + Why + Evaluate - Critical evaluation level: Evaluasi dan kritik teknologi mendalam"
     }
     return technology_mapping.get(level, "Tidak Dikenal")
 
 def get_technology_taxonomy_short(level):
-    """Mengembalikan taksonomi teknologi untuk level numerik (format singkat)."""
+    """Mengembalikan taksonomi teknologi untuk level numerik berdasarkan MST 5 Stage (format singkat)."""
     technology_mapping = {
         1: "Know That",
         2: "Know That", 
         3: "Know That + How",
-        4: "Know That + How",
-        5: "Know That + How",
-        6: "Know That + How + Why",
-        7: "Know That + How + Why"
+        4: "Know That + How + Create",
+        5: "Know That + How + Why + Evaluate"
     }
     return technology_mapping.get(level, "Tidak Dikenal")
 
 # Legacy functions for backward compatibility (deprecated)
+
+# ===============================
+# NORMALIZATION HELPERS
+# ===============================
+def normalize_level(value, min_level=1, max_level=5):
+    """Normalize various level formats to an integer within [min_level, max_level].
+    Accepts integers, strings like 'L5', 'Level 5', 'L5 - ...', '< L2'.
+    Any value >= max_level maps to max_level; values below min map to min.
+    """
+    try:
+        if value is None:
+            return min_level
+        if isinstance(value, int):
+            if value >= max_level:
+                return max_level
+            if value <= min_level:
+                return min_level
+            return value
+        s = str(value)
+        m = re.search(r"([1-9])", s)
+        if m:
+            n = int(m.group(1))
+            if n >= max_level:
+                return max_level
+            if n <= min_level:
+                return min_level
+            return n
+    except Exception:
+        pass
+    return min_level
 
 
 # =========================================
@@ -1846,38 +2251,163 @@ def is_answer_correct(user_answer, expected_answer):
 # =========================================
 # FUNGSI UNTUK CARI DAN TAMBAH KOLOM
 # =========================================
-def check_and_add_columns():
+def add_column_if_missing(table_name, column_name, column_definition):
+    """Helper function to add column if it doesn't exist"""
     try:
-        print("Memeriksa struktur tabel questions...")
-        # Dapatkan informasi kolom dari model
-        column_info = db.inspect(db.engine).get_columns('questions')
-        column_names = [col['name'] for col in column_info]
+        exists = db.session.execute(text(
+            f"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME='{table_name}' AND COLUMN_NAME='{column_name}'"
+        )).scalar()
         
-        # Cek dan tambahkan kolom yang diperlukan
-        columns_to_add = []
-        
-        if 'jawaban_benar' not in column_names:
-            columns_to_add.append("jawaban_benar TEXT NULL")
-        
-        if 'options' not in column_names:
-            columns_to_add.append("options TEXT NULL")
-            
-        if 'question_type' not in column_names:
-            columns_to_add.append("question_type VARCHAR(20) DEFAULT 'multiple_choice'")
-        
-        # Tambahkan kolom yang diperlukan jika ada
-        if columns_to_add:
-            print(f"Menambahkan kolom yang diperlukan: {', '.join(columns_to_add)}")
-            alter_query = f"ALTER TABLE questions ADD COLUMN {', ADD COLUMN '.join(columns_to_add)}"
-            db.session.execute(text(alter_query))
-            db.session.commit()
-            print("Kolom berhasil ditambahkan!")
+        if not exists:
+            db.session.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}"))
+            print(f"✅ Added column {column_name} to {table_name}")
+            return True
         else:
-            print("Semua kolom yang diperlukan sudah ada dalam tabel")
+            print(f"✓ Column {column_name} already exists in {table_name}")
+            return False
+    except Exception as e:
+        print(f"❌ Error adding column {column_name} to {table_name}: {e}")
+        raise e
+
+def check_and_add_columns():
+    """
+    Cek dan tambahkan kolom yang diperlukan untuk sistem MST
+    Migrasi lengkap dari: migrate_mst_database.py, add_missing_columns.py
+    """
+    try:
+        print("🔧 Memulai migrasi database untuk sistem MST...")
+        
+        # 1. MIGRASI TABEL QUESTIONS
+        print("\n📋 Migrasi tabel questions...")
+        
+        # Kolom dasar untuk questions (dari add_missing_columns.py)
+        add_column_if_missing('questions', 'jawaban_benar', 'jawaban_benar TEXT NULL')
+        add_column_if_missing('questions', 'options', 'options TEXT NULL')
+        add_column_if_missing('questions', 'question_type', "question_type VARCHAR(20) DEFAULT 'multiple_choice'")
+        add_column_if_missing('questions', 'is_validated', 'is_validated BOOLEAN DEFAULT FALSE')
+        
+        # Kolom MST untuk questions (dari migrate_mst_database.py)
+        add_column_if_missing('questions', 'technology_level', "technology_level INT DEFAULT 1 COMMENT 'L1-L5: Awareness, Literacy, Capability, Creativity, Criticism'")
+        add_column_if_missing('questions', 'difficulty', "difficulty VARCHAR(10) DEFAULT 'Medium' COMMENT 'Easy, Medium, Hard'")
+        
+        # Update existing questions dengan default values
+        db.session.execute(text("""
+            UPDATE questions
+            SET technology_level = COALESCE(technology_level,
+                CASE
+                    WHEN level <= 2 THEN 1
+                    WHEN level <= 4 THEN 2
+                    WHEN level <= 6 THEN 3
+                    ELSE 4
+                END),
+                difficulty = COALESCE(difficulty, 'Medium')
+            WHERE technology_level IS NULL OR difficulty IS NULL
+        """))
+        
+        # 2. MIGRASI TABEL SISWA_RESULTS
+        print("\n👥 Migrasi tabel siswa_results...")
+        
+        add_column_if_missing('siswa_results', 'collection_id', 'collection_id INT NULL')
+        add_column_if_missing('siswa_results', 'current_stage', "current_stage INT DEFAULT 1 COMMENT 'Stage 1-5 dalam MST'")
+        add_column_if_missing('siswa_results', 'current_path', "current_path VARCHAR(20) DEFAULT 'START' COMMENT 'START, UPPER, MIDDLE, LOWER'")
+        add_column_if_missing('siswa_results', 'technology_level_achieved', "technology_level_achieved INT DEFAULT 1 COMMENT 'Final diagnosis L1-L5'")
+        add_column_if_missing('siswa_results', 'is_adaptive_test_complete', "is_adaptive_test_complete BOOLEAN DEFAULT FALSE COMMENT 'Apakah tes adaptif sudah selesai'")
+        add_column_if_missing('siswa_results', 'adaptive_test_data', "adaptive_test_data TEXT COMMENT 'JSON data untuk tracking MST path'")
+        
+        # 3. MIGRASI TABEL SISWA_ANSWERS
+        print("\n📝 Migrasi tabel siswa_answers...")
+        
+        add_column_if_missing('siswa_answers', 'collection_id', 'collection_id INT NULL')
+        add_column_if_missing('siswa_answers', 'selected_answer', 'selected_answer TEXT NULL')
+        add_column_if_missing('siswa_answers', 'technology_level', "technology_level INT DEFAULT 1 COMMENT 'L1-L5 saat jawaban dibuat'")
+        add_column_if_missing('siswa_answers', 'difficulty', "difficulty VARCHAR(10) DEFAULT 'Medium' COMMENT 'Easy, Medium, Hard'")
+        add_column_if_missing('siswa_answers', 'stage', "stage INT DEFAULT 1 COMMENT 'Stage MST saat menjawab'")
+        
+        # Ubah tipe data kolom level dari INT ke VARCHAR (dari add_missing_columns.py)
+        try:
+            level_col_info = db.session.execute(text("SHOW COLUMNS FROM siswa_answers WHERE Field = 'level'")).fetchone()
+            if level_col_info and 'int' in level_col_info[1].lower():
+                print("🔄 Mengubah tipe data kolom level dari INT ke VARCHAR(20)...")
+                db.session.execute(text("ALTER TABLE siswa_answers MODIFY COLUMN level VARCHAR(20) NOT NULL DEFAULT 'Awareness'"))
+                print("✅ Tipe data kolom level berhasil diubah")
+        except Exception as e:
+            print(f"⚠️ Warning: Tidak dapat mengubah tipe kolom level: {e}")
+        
+        # Update existing answers dengan default values
+        db.session.execute(text("""
+            UPDATE siswa_answers
+            SET technology_level = COALESCE(technology_level,
+                CASE
+                    WHEN level LIKE '%1%' OR level LIKE '%Awareness%' THEN 1
+                    WHEN level LIKE '%2%' OR level LIKE '%Literacy%' THEN 2
+                    WHEN level LIKE '%3%' OR level LIKE '%Capability%' THEN 3
+                    WHEN level LIKE '%4%' OR level LIKE '%Creativity%' THEN 4
+                    WHEN level LIKE '%5%' OR level LIKE '%Criticism%' THEN 5
+                    ELSE 1
+                END),
+                difficulty = COALESCE(difficulty, 'Medium'),
+                stage = COALESCE(stage, 1)
+            WHERE technology_level IS NULL OR difficulty IS NULL OR stage IS NULL
+        """))
+        
+        # 4. TAMBAHKAN FOREIGN KEY CONSTRAINTS (dari add_missing_columns.py)
+        print("\n🔗 Menambahkan foreign key constraints...")
+        
+        try:
+            # Foreign key untuk siswa_answers.collection_id
+            fk_exists = db.session.execute(text("""
+                SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'siswa_answers' 
+                AND COLUMN_NAME = 'collection_id' 
+                AND REFERENCED_TABLE_NAME = 'question_collections'
+            """)).scalar()
+            
+            if not fk_exists:
+                db.session.execute(text("""
+                    ALTER TABLE siswa_answers 
+                    ADD CONSTRAINT fk_siswa_answers_collection 
+                    FOREIGN KEY (collection_id) 
+                    REFERENCES question_collections(id)
+                """))
+                print("✅ Foreign key constraint untuk siswa_answers.collection_id ditambahkan")
+        except Exception as e:
+            print(f"⚠️ Warning: Tidak dapat menambahkan foreign key constraint: {e}")
+        
+        db.session.commit()
+        print("\n✅ Semua migrasi database berhasil diselesaikan!")
+        
+        # SUMMARY
+        print("\n📊 SUMMARY PERUBAHAN DATABASE:")
+        print("=" * 50)
+        print("TABEL QUESTIONS:")
+        print("  + jawaban_benar (TEXT) - Jawaban yang benar")
+        print("  + options (TEXT) - Pilihan jawaban")
+        print("  + question_type (VARCHAR) - Tipe soal")
+        print("  + is_validated (BOOLEAN) - Status validasi soal")
+        print("  + technology_level (INT) - Level teknologi L1-L5")
+        print("  + difficulty (VARCHAR) - Easy, Medium, Hard")
+        print("\nTABEL SISWA_RESULTS:")
+        print("  + collection_id (INT) - ID koleksi soal")
+        print("  + current_stage (INT) - Stage MST saat ini")
+        print("  + current_path (VARCHAR) - Path MST (START/UPPER/MIDDLE/LOWER)")
+        print("  + technology_level_achieved (INT) - Diagnosis akhir L1-L5")
+        print("  + is_adaptive_test_complete (BOOLEAN) - Status tes selesai")
+        print("  + adaptive_test_data (TEXT) - Data tracking MST")
+        print("\nTABEL SISWA_ANSWERS:")
+        print("  + collection_id (INT) - ID koleksi soal")
+        print("  + selected_answer (TEXT) - Jawaban yang dipilih")
+        print("  + technology_level (INT) - Level saat menjawab")
+        print("  + difficulty (VARCHAR) - Kesulitan soal")
+        print("  + stage (INT) - Stage MST saat menjawab")
+        print("  ~ level (VARCHAR) - Diubah dari INT ke VARCHAR")
+        print("=" * 50)
         
         return True
+        
     except Exception as e:
-        print(f"Error ketika memeriksa/menambahkan kolom: {str(e)}")
+        db.session.rollback()
+        print(f"❌ Error dalam migrasi database: {str(e)}")
         return False
 
 # =========================================
@@ -1940,9 +2470,23 @@ def DashboardSiswa():
         return redirect(url_for('login'))
     return render_template('siswa/Dashboard_siswa.html')
 
+@app.route('/mst-adaptive')
+@login_required
+def mst_adaptive_page():
+    # Pastikan yang mengakses halaman MST adalah siswa
+    if not hasattr(current_user, 'user_type') or current_user.user_type != 'siswa':
+        flash("Akses ditolak. Hanya siswa yang dapat mengakses MST Adaptive Test.", "error")
+        return redirect(url_for('login'))
+    return render_template('siswa/qna_siswa.html')
+
 @app.route('/qna')
 def qna():
     return render_template('siswa/qna_siswa.html')
+
+@app.route('/mst-guide')
+def mst_guide():
+    return render_template('siswa/mst_guide.html')
+
 
 # =========================================
 # RESULTS PAGE
@@ -1972,8 +2516,8 @@ def get_test_status():
                 "current_level": 1
             })
         
-        # Cek apakah current_level adalah level final (5, 6, 7)
-        is_completed = result.current_level in [5, 6, 7]
+        # Cek apakah current_level adalah level final (L5 dalam MST 5-stage)
+        is_completed = result.current_level == 5
         
         return jsonify({
             "success": True,
@@ -2506,36 +3050,6 @@ def get_level_description_with_study_tips(level):
                 "Evaluasi efektivitas sistem"
             ],
             "estimated_time": "5-6 jam"
-        },
-        6: {
-            "title": "Level 6 - Kritik Teknologi (Evaluasi)",
-            "study_tips": [
-                "⚖️ Kembangkan kemampuan evaluasi kritis",
-                "📊 Analisis data dan metrics",
-                "🎯 Identifikasi kriteria evaluasi",
-                "💭 Pertimbangkan multiple perspectives"
-            ],
-            "practice_suggestions": [
-                "Technology assessment",
-                "Comparative analysis",
-                "Impact evaluation"
-            ],
-            "estimated_time": "6-7 jam"
-        },
-        7: {
-            "title": "Level 7 - Kreativitas + Kritik (Sintesis Tinggi)",
-            "study_tips": [
-                "🚀 Integrasikan multiple konsep",
-                "🎨 Design solusi inovatif",
-                "🌐 Pertimbangkan implikasi luas",
-                "🔮 Antisipasi trend dan perkembangan"
-            ],
-            "practice_suggestions": [
-                "Design project",
-                "Innovation workshop",
-                "Future technology prediction"
-            ],
-            "estimated_time": "7-8 jam"
         }
     }
     
@@ -2806,101 +3320,124 @@ def get_collection_recommendations_summary(collection_id):
             return jsonify({"success": False, "message": "Collection not found"}), 404
         
         # Ambil semua siswa yang assigned ke koleksi ini
+        # --- PERBAIKAN 1: Menggunakan 'added_at' ---
         assigned_students = db.session.query(
-            Siswa, collection_students.c.assigned_at
+            Siswa, collection_students.c.added_at  # Diganti dari assigned_at
         ).join(
             collection_students, 
             Siswa.id == collection_students.c.siswa_id
         ).filter(
             collection_students.c.collection_id == collection_id
         ).all()
+        # --- AKHIR PERBAIKAN 1 ---
         
         students_summary = []
         collection_topics_count = {}
         collection_levels_count = {}
         total_students_analyzed = 0
         
-        for student, assigned_at in assigned_students:
+        for student, added_at in assigned_students: # Diganti dari assigned_at
+        
             # Cek apakah siswa sudah mengerjakan tes
             result = SiswaResult.query.filter_by(
                 siswa_id=student.id,
                 collection_id=collection_id
             ).first()
             
-            if not result:
-                # Siswa belum mengerjakan
+            # --- PERBAIKAN 2: Logika Status Tes ---
+            status_tes = "belum_mengerjakan"
+            current_level_result = 1
+            if result:
+                current_level_result = result.current_level or 1
+                total_jawaban = (result.correct or 0) + (result.incorrect or 0)
+                # Gunakan flag is_adaptive_test_complete dari database
+                is_completed = result.is_adaptive_test_complete 
+                
+                if is_completed:
+                    # Jika tes selesai (mencapai STOP node di level manapun L2, L4, atau L5)
+                    status_tes = "sudah_mengerjakan"
+                elif total_jawaban > 0:
+                    # Jika belum selesai TAPI sudah menjawab (masih di L1, L2, L3, L4)
+                    status_tes = "sedang_mengerjakan"
+                # else: status_tes tetap "belum_mengerjakan"
+            # --- AKHIR PERBAIKAN 2 ---
+
+            # Hanya analisis jika tes sudah selesai
+            if status_tes == "sudah_mengerjakan":
+                weakness_analysis = analyze_student_weaknesses(student.id, collection_id)
+                
+                if "error" not in weakness_analysis:
+                    total_students_analyzed += 1
+                    
+                    recommendations = generate_contextual_recommendations(weakness_analysis)
+                    
+                    priority_count = {"Critical": 0, "High": 0, "Medium": 0}
+                    for rec in recommendations:
+                        priority = rec.get("priority", "Medium")
+                        if priority in priority_count:
+                            priority_count[priority] += 1
+                    
+                    for topic, data in weakness_analysis.get("topic_statistics", {}).items():
+                        if topic not in collection_topics_count:
+                            collection_topics_count[topic] = 0
+                        collection_topics_count[topic] += data["count"]
+                    
+                    for level, data in weakness_analysis.get("level_statistics", {}).items():
+                        if level not in collection_levels_count:
+                            collection_levels_count[level] = 0
+                        collection_levels_count[level] += data["count"]
+                    
+                    students_summary.append({
+                        "student_id": student.id,
+                        "student_name": student.nama,
+                        "student_class": student.kelas,
+                        "status": status_tes,
+                        "assigned_date": added_at.strftime('%Y-%m-%d %H:%M:%S') if added_at else None,
+                        "result": {
+                            "current_level": result.current_level,
+                            "correct": result.correct,
+                            "incorrect": result.incorrect,
+                            "accuracy": round((result.correct / (result.correct + result.incorrect) * 100), 2) if (result.correct + result.incorrect) > 0 else 0
+                        },
+                        "weakness_summary": {
+                            "total_errors": sum(data["count"] for data in weakness_analysis.get("topic_statistics", {}).values()),
+                            "weak_topics": list(weakness_analysis.get("topic_statistics", {}).keys())[:3],
+                            "weak_levels": [level for level, data in weakness_analysis.get("level_statistics", {}).items() if data["count"] >= 2]
+                        },
+                        "recommendations_count": len(recommendations),
+                        "priority_summary": priority_count
+                    })
+                else:
+                    # Error saat analisis
+                    students_summary.append({
+                        "student_id": student.id,
+                        "student_name": student.nama,
+                        "student_class": student.kelas,
+                        "status": "error_analysis",
+                        "assigned_date": added_at.strftime('%Y-%m-%d %H:%M:%S') if added_at else None,
+                        "result": { "current_level": current_level_result, "correct": result.correct, "incorrect": result.incorrect, "accuracy": 0 },
+                        "recommendations_count": 0,
+                        "priority_summary": {"Critical": 0, "High": 0, "Medium": 0},
+                        "error": weakness_analysis.get("error", "Unknown error")
+                    })
+            else:
+                # Jika status 'belum_mengerjakan' atau 'sedang_mengerjakan'
                 students_summary.append({
                     "student_id": student.id,
                     "student_name": student.nama,
                     "student_class": student.kelas,
-                    "status": "belum_mengerjakan",
-                    "assigned_date": assigned_at.strftime('%Y-%m-%d %H:%M:%S') if assigned_at else None,
+                    "status": status_tes,
+                    "assigned_date": added_at.strftime('%Y-%m-%d %H:%M:%S') if added_at else None,
+                    "result": {
+                        "current_level": current_level_result,
+                        "correct": result.correct if result else 0,
+                        "incorrect": result.incorrect if result else 0,
+                        "accuracy": round((result.correct / (result.correct + result.incorrect) * 100), 2) if result and (result.correct + result.incorrect) > 0 else 0
+                    },
                     "recommendations_count": 0,
                     "priority_summary": {"Critical": 0, "High": 0, "Medium": 0}
                 })
-                continue
-            
-            # Analisis kelemahan siswa
-            weakness_analysis = analyze_student_weaknesses(student.id, collection_id)
-            
-            if "error" not in weakness_analysis:
-                total_students_analyzed += 1
-                
-                # Generate rekomendasi
-                recommendations = generate_contextual_recommendations(weakness_analysis)
-                
-                # Hitung prioritas rekomendasi
-                priority_count = {"Critical": 0, "High": 0, "Medium": 0}
-                for rec in recommendations:
-                    priority = rec.get("priority", "Medium")
-                    if priority in priority_count:
-                        priority_count[priority] += 1
-                
-                # Update collection-wide statistics
-                for topic, data in weakness_analysis.get("topic_statistics", {}).items():
-                    if topic not in collection_topics_count:
-                        collection_topics_count[topic] = 0
-                    collection_topics_count[topic] += data["count"]
-                
-                for level, data in weakness_analysis.get("level_statistics", {}).items():
-                    if level not in collection_levels_count:
-                        collection_levels_count[level] = 0
-                    collection_levels_count[level] += data["count"]
-                
-                # Summary untuk siswa ini
-                students_summary.append({
-                    "student_id": student.id,
-                    "student_name": student.nama,
-                    "student_class": student.kelas,
-                    "status": "sudah_mengerjakan",
-                    "assigned_date": assigned_at.strftime('%Y-%m-%d %H:%M:%S') if assigned_at else None,
-                    "result": {
-                        "current_level": result.current_level,
-                        "correct": result.correct,
-                        "incorrect": result.incorrect,
-                        "accuracy": round((result.correct / (result.correct + result.incorrect) * 100), 2) if (result.correct + result.incorrect) > 0 else 0
-                    },
-                    "weakness_summary": {
-                        "total_errors": sum(data["count"] for data in weakness_analysis.get("topic_statistics", {}).values()),
-                        "weak_topics": list(weakness_analysis.get("topic_statistics", {}).keys())[:3],
-                        "weak_levels": [level for level, data in weakness_analysis.get("level_statistics", {}).items() if data["count"] >= 2]
-                    },
-                    "recommendations_count": len(recommendations),
-                    "priority_summary": priority_count
-                })
-            else:
-                students_summary.append({
-                    "student_id": student.id,
-                    "student_name": student.nama,
-                    "student_class": student.kelas,
-                    "status": "error_analysis",
-                    "assigned_date": assigned_at.strftime('%Y-%m-%d %H:%M:%S') if assigned_at else None,
-                    "recommendations_count": 0,
-                    "priority_summary": {"Critical": 0, "High": 0, "Medium": 0},
-                    "error": weakness_analysis.get("error", "Unknown error")
-                })
         
-        # Urutkan topik dan level berdasarkan frekuensi
         most_common_topics = sorted(collection_topics_count.items(), key=lambda x: x[1], reverse=True)[:5]
         most_problematic_levels = sorted(collection_levels_count.items(), key=lambda x: x[1], reverse=True)[:3]
         
@@ -2910,7 +3447,7 @@ def get_collection_recommendations_summary(collection_id):
             "collection_description": collection.description,
             "total_students": len(assigned_students),
             "students_completed": len([s for s in students_summary if s["status"] == "sudah_mengerjakan"]),
-            "students_pending": len([s for s in students_summary if s["status"] == "belum_mengerjakan"]),
+            "students_pending": len([s for s in students_summary if s["status"] == "sedang_mengerjakan"]), # Hanya sedang mengerjakan
             "students_summary": students_summary,
             "collection_analysis": {
                 "total_students_analyzed": total_students_analyzed,
@@ -2925,6 +3462,7 @@ def get_collection_recommendations_summary(collection_id):
         })
         
     except Exception as e:
+        db.session.rollback()
         print(f"Error generating collection recommendations summary: {str(e)}")
         import traceback
         traceback.print_exc()
@@ -2934,6 +3472,60 @@ def get_collection_recommendations_summary(collection_id):
         }), 500
 
 # Helper function to get student answer history
+def generate_personalized_tip_for_answer(question_text, user_answer, correct_answer, explanation, level):
+    """Generate personalized tip for a specific wrong answer using AI"""
+    try:
+        prompt = f"""
+        Kamu adalah GURU yang memberikan tips belajar singkat untuk siswa yang salah menjawab soal.
+
+        SOAL: {question_text}
+        
+        JAWABAN SISWA: {user_answer}
+        JAWABAN BENAR: {correct_answer}
+        PENJELASAN: {explanation}
+        LEVEL SOAL: {level}
+
+        TUGASMU:
+        Buat 1 tips belajar yang SANGAT SINGKAT (maksimal 2 kalimat) yang spesifik untuk soal ini.
+        Tips harus praktis dan langsung bisa diterapkan siswa.
+
+        GAYA BAHASA:
+        [OK] Gunakan "kamu" atau "Bapak/Ibu sarankan"
+        [OK] Bahasa guru yang peduli
+        [OK] Konkret dan spesifik untuk materi soal ini
+        [OK] Positif dan memotivasi
+
+        HINDARI:
+        [DITOLAK] Tips umum yang bisa dipakai untuk semua soal
+        [DITOLAK] Kalimat panjang
+        [DITOLAK] Bullet points atau numbering
+        [DITOLAK] Pengulangan penjelasan yang sudah ada
+
+        CONTOH YANG BAGUS:
+        "Untuk soal seperti ini, coba buat tabel perbandingan antara konsep A dan B. Ini akan bantu kamu lihat perbedaannya dengan jelas."
+        "Bapak/Ibu sarankan kamu latih lagi rumus ini sambil tulis langkah-langkahnya. Jangan lupa cek satuan ya!"
+
+        Berikan 1 tips yang tepat untuk soal ini:
+        """
+        
+        response = model.generate_content(prompt)
+        tip = response.text.strip()
+        
+        # Bersihkan dari bullet points atau numbering jika ada
+        tip = re.sub(r'^[\d\.\-\*\•]+\s*', '', tip)
+        tip = tip.replace('\n', ' ').strip()
+        
+        return tip
+    except Exception as e:
+        print(f"Error generating personalized tip: {str(e)}")
+        # Fallback ke tips berdasarkan level jika AI gagal
+        if level <= 2:
+            return "Untuk menguasai konsep dasar ini, buat catatan ringkas dengan kata-katamu sendiri. Ini akan bantu kamu ingat lebih lama."
+        elif level <= 4:
+            return "Pelajari kembali materi ini dengan mencari tahu mengapa jawaban yang benar itu benar. Coba jelaskan ke diri sendiri atau teman."
+        else:
+            return "Untuk soal analisis seperti ini, buat tabel perbandingan atau diagram. Visual akan bantu kamu lihat hubungan antar konsepnya."
+
 def get_student_answer_history(student_id, collection_id):
     try:
         # Get collection questions
@@ -2957,7 +3549,7 @@ def get_student_answer_history(student_id, collection_id):
         # Format answers
         formatted_answers = []
         for answer, question in answers:
-            formatted_answers.append({
+            answer_dict = {
                 "question_id": question.id,
                 "question": question.soal,
                 "user_answer": answer.siswa_answer,
@@ -2965,8 +3557,23 @@ def get_student_answer_history(student_id, collection_id):
                 "is_correct": answer.is_correct,
                 "explanation": question.explanation,
                 "level": answer.level,
-                "answered_at": answer.answered_at.isoformat() if answer.answered_at else None
-            })
+                "answered_at": answer.answered_at.isoformat() if answer.answered_at else None,
+                "stage": answer.stage if hasattr(answer, 'stage') else None, # Ambil stage dari SiswaAnswer
+                "difficulty": answer.difficulty if hasattr(answer, 'difficulty') else None # Ambil difficulty dari SiswaAnswer
+            }
+            
+            # Generate personalized tip untuk jawaban yang salah
+            if not answer.is_correct:
+                personalized_tip = generate_personalized_tip_for_answer(
+                    question.soal,
+                    answer.siswa_answer,
+                    question.jawaban_benar,
+                    question.explanation,
+                    answer.level
+                )
+                answer_dict["personalized_tip"] = personalized_tip
+            
+            formatted_answers.append(answer_dict)
             
         return formatted_answers
     except Exception as e:
@@ -3226,14 +3833,14 @@ def get_level_analysis():
                                 
                         prev_level = curr_level
         
-        # Additional statistics
-        # Count students in basic (1-2), intermediate (3-4), and advanced (5-7) levels
+        # Additional statistics for MST 5-stage system
+        # Count students in basic (L1-L2), intermediate (L3), and advanced (L4-L5) levels
         basic_count = formatted_distribution.get("1", 0) + formatted_distribution.get("2", 0)
-        intermediate_count = formatted_distribution.get("3", 0) + formatted_distribution.get("4", 0)
-        advanced_count = formatted_distribution.get("5", 0) + formatted_distribution.get("6", 0) + formatted_distribution.get("7", 0)
+        intermediate_count = formatted_distribution.get("3", 0)
+        advanced_count = formatted_distribution.get("4", 0) + formatted_distribution.get("5", 0)
         
-        # Count completed students (reached final levels 5, 6, or 7)
-        completed_count = advanced_count
+        # Count completed students (reached final level L5)
+        completed_count = formatted_distribution.get("5", 0)
         
         # Calculate percentages
         total_students = len(student_ids)
@@ -3845,57 +4452,332 @@ def get_collection(collection_id):
             'success': False,
             'message': f"Error: {str(e)}"
         }), 500
+
+def enforce_mst_distribution(parsed_questions):
+    """Return a new list of questions enforced to match the MST distribution table.
+
+    Distribution (by level):
+    L1: 10  -> E:5  M:5
+    L2: 20  -> E:12 H:8
+    L3: 20  -> E:5  M:8  H:7
+    L4: 22  -> E:4  M:11 H:7
+    L5: 22  -> E:11 M:7  H:4
+    Total: 94
+
+    Strategy:
+    - Group parsed questions by (level, difficulty)
+    - For each required slot, take existing unique questions if available
+    - If insufficient, duplicate existing questions from same (level,difficulty) with a deterministic suffix
+    - If still impossible (no question at that (level,diff)), borrow from same level different difficulty preferring Medium->Easy->Hard as fallback
+    """
+    # target map
+    target = {
+        1: {'total': 10, 'Easy': 5, 'Medium': 5, 'Hard': 0},
+        2: {'total': 20, 'Easy': 12, 'Medium': 0, 'Hard': 8},
+        3: {'total': 20, 'Easy': 5, 'Medium': 8, 'Hard': 7},
+        4: {'total': 22, 'Easy': 4, 'Medium': 11, 'Hard': 7},
+        5: {'total': 22, 'Easy': 11, 'Medium': 7, 'Hard': 4}
+    }
+
+    # group existing
+    groups = {}
+    for q in parsed_questions:
+        lvl = int(q.get('level', 0)) if q.get('level') is not None else 0
+        diff = q.get('difficulty', 'Medium')
+        groups.setdefault((lvl, diff), [])
+        groups[(lvl, diff)].append(q)
+
+    final = []
+    uid = 1
+    for lvl in range(1, 6):
+        for diff in ['Easy', 'Medium', 'Hard']:
+            need = target[lvl].get(diff, 0)
+            available = list(groups.get((lvl, diff), []))
+
+            # If not enough available, try borrow from other difficulties in same level
+            if len(available) < need:
+                # borrow order: Medium -> Easy -> Hard for balance (prefer Medium)
+                borrow_order = ['Medium', 'Easy', 'Hard']
+                for borrow_diff in borrow_order:
+                    if borrow_diff == diff:
+                        continue
+                    borrow_avail = groups.get((lvl, borrow_diff), [])
+                    for b in borrow_avail:
+                        if len(available) >= need:
+                            break
+                        available.append(b)
+                    if len(available) >= need:
+                        break
+
+            # Now fill using unique items, then duplicate with suffix if necessary
+            idx = 0
+            while len(available) < need:
+                # Try to duplicate an existing item from available if any
+                if available:
+                    src = available[idx % len(available)]
+                    dup = src.copy()
+                    dup['soal'] = dup.get('soal', '') + f" [variasi {uid}]"
+                    dup['id'] = f"synthetic-{lvl}-{diff}-{uid}"
+                    available.append(dup)
+                    uid += 1
+                else:
+                    # As last resort, create a placeholder question
+                    placeholder = {
+                        'level': lvl,
+                        'question_type': 'multiple_choice',
+                        'soal': f'Placeholder soal level {lvl} ({diff}) - tambahkan ulang dari materi',
+                        'options': ['A', 'B', 'C', 'D'],
+                        'jawaban_benar': 'A',
+                        'difficulty': diff,
+                        'id': f'placeholder-{lvl}-{diff}-{uid}'
+                    }
+                    available.append(placeholder)
+                    uid += 1
+
+            # Take exactly `need` items and append to final
+            for i in range(need):
+                item = available[i]
+                # ensure correctness of fields
+                item['level'] = lvl
+                item['difficulty'] = diff
+                final.append(item)
+
+    return final
+
+ 
+
+def enforce_exactly_5_per_level(parsed_questions):
+    """Enforce exactly 5 questions per level (1..5), regardless of difficulty.
+
+    Strategy:
+    - Group incoming questions by level, retain original difficulty if any
+    - Selection preference within a level: Medium -> Easy -> Hard to keep balance
+    - If less than 5 available, borrow from any remaining within level
+    - If still short, duplicate with small variation suffix
+    - As last resort, create placeholder questions
+
+    Returns a list of 25 questions (5 per level).
+    """
+    parsed = parsed_questions or []
+    # Group by level and difficulty for selection preference
+    by_level = {lvl: {"Medium": [], "Easy": [], "Hard": [], "other": []} for lvl in range(1, 6)}
+    for q in parsed:
+        try:
+            lvl = int(q.get('level', 0)) if q.get('level') is not None else 0
+        except Exception:
+            lvl = 0
+        if 1 <= lvl <= 5:
+            diff = (q.get('difficulty') or 'Medium').capitalize()
+            if diff not in ("Easy", "Medium", "Hard"):
+                by_level[lvl]["other"].append(q)
+            else:
+                by_level[lvl][diff].append(q)
+
+    final = []
+    uid = 1
+    pref_order = ["Medium", "Easy", "Hard"]
+
+    for lvl in range(1, 6):
+        selected = []
+        # take by preference
+        for diff in pref_order:
+            for q in by_level[lvl][diff]:
+                if len(selected) >= 5:
+                    break
+                selected.append(q)
+            if len(selected) >= 5:
+                break
+        # then take from 'other' bucket if still needed
+        if len(selected) < 5:
+            for q in by_level[lvl]["other"]:
+                if len(selected) >= 5:
+                    break
+                selected.append(q)
+
+        # duplicate if still less than 5
+        idx = 0
+        while len(selected) < 5:
+            if selected:
+                src = selected[idx % len(selected)]
+                dup = src.copy()
+                dup['soal'] = (dup.get('soal', '') or '') + f" [variasi {uid}]"
+                dup['id'] = f"synthetic-{lvl}-{uid}"
+                # keep difficulty if present, default to Medium
+                if not dup.get('difficulty'):
+                    dup['difficulty'] = 'Medium'
+                selected.append(dup)
+                uid += 1
+                idx += 1
+            else:
+                # create placeholder
+                placeholder = {
+                    'level': lvl,
+                    'question_type': 'multiple_choice',
+                    'soal': f'Soal placeholder level {lvl} - tambahkan materi terkait',
+                    'options': ['A', 'B', 'C', 'D'],
+                    'jawaban_benar': 'A',
+                    'difficulty': 'Medium',
+                    'id': f'placeholder-{lvl}-{uid}'
+                }
+                selected.append(placeholder)
+                uid += 1
+
+        # normalize fields and add to final
+        for item in selected[:5]:
+            item['level'] = lvl
+            if not item.get('difficulty'):
+                item['difficulty'] = 'Medium'
+            final.append(item)
+
+    return final
+
+def enforce_mst_distribution_5_each(parsed_questions):
+    """Enforce exactly 5 questions for each allowed (level, difficulty) combo.
+
+    Allowed difficulties per level are defined in DIFFICULTY_LEVELS.
+    Target per combo: 5 questions.
+    Total target = sum(5 * len(DIFFICULTY_LEVELS[level]) for level in 1..5) = 55.
+
+    Strategy:
+    - Group incoming questions by (level, difficulty)
+    - For each allowed (level, diff), take up to 5 existing
+    - If less than 5, borrow from the same level other difficulties (relabel to target diff)
+    - If still less, duplicate with a small variation suffix
+    - As last resort, create a placeholder question
+    """
+    # Group incoming
+    groups = {}
+    for q in (parsed_questions or []):
+        try:
+            lvl = int(q.get('level', 0)) if q.get('level') is not None else 0
+        except Exception:
+            lvl = 0
+        diff = (q.get('difficulty') or 'Medium').capitalize()
+        if diff not in ("Easy", "Medium", "Hard"):
+            diff = 'Medium'
+        groups.setdefault((lvl, diff), []).append(q)
+
+    final = []
+    uid = 1
+    # Borrow order preference when filling gaps
+    borrow_order = ['Medium', 'Easy', 'Hard']
+
+    for lvl in range(1, 6):
+        allowed_diffs = DIFFICULTY_LEVELS.get(lvl, [])
+        for diff in allowed_diffs:
+            need = 5
+            selected = []
+            # Take existing of same (lvl, diff)
+            for item in list(groups.get((lvl, diff), [])):
+                if len(selected) >= need:
+                    break
+                selected.append(item)
+
+            # Borrow from same level other diffs (relabel to target diff)
+            if len(selected) < need:
+                for borrow_diff in borrow_order:
+                    if borrow_diff == diff:
+                        continue
+                    for b in list(groups.get((lvl, borrow_diff), [])):
+                        if len(selected) >= need:
+                            break
+                        clone = b.copy()
+                        clone['difficulty'] = diff
+                        selected.append(clone)
+                    if len(selected) >= need:
+                        break
+
+            # Duplicate with small variation if still short
+            idx = 0
+            while len(selected) < need:
+                if selected:
+                    src = selected[idx % len(selected)]
+                    dup = src.copy()
+                    dup['soal'] = (dup.get('soal', '') or '') + f" [variasi {uid}]"
+                    dup['id'] = f"synthetic-{lvl}-{diff}-{uid}"
+                    dup['difficulty'] = diff
+                    selected.append(dup)
+                    uid += 1
+                    idx += 1
+                else:
+                    # create placeholder
+                    placeholder = {
+                        'level': lvl,
+                        'question_type': 'multiple_choice',
+                        'soal': f'Soal placeholder level {lvl} ({diff}) - tambahkan materi terkait',
+                        'options': ['A', 'B', 'C', 'D'],
+                        'jawaban_benar': 'A',
+                        'difficulty': diff,
+                        'id': f'placeholder-{lvl}-{diff}-{uid}'
+                    }
+                    selected.append(placeholder)
+                    uid += 1
+
+            # Normalize and keep exactly 5
+            for item in selected[:need]:
+                item['level'] = lvl
+                item['difficulty'] = diff
+                final.append(item)
+
+    return final
+
 def emergency_json_parser(raw_text):
     """
-    Emergency parser untuk mencoba mengekstrak soal dari response AI yang tidak valid JSON
+    Emergency parser untuk mencoba mengekstrak soal dari response AI yang tidak valid JSON.
+    Mengembalikan list soal yang sudah dipaksa mengikuti distribusi 5 per (level, kesulitan yang diizinkan) total 55.
     """
     try:
         questions = []
-        
+
         # Cari pattern soal dengan berbagai format
         patterns = [
-            r'"level"\s*:\s*(\d+).*?"soal"\s*:\s*"([^"]+)".*?"options"\s*:\s*\[(.*?)\].*?"jawaban_benar"\s*:\s*"([^"]+)"',
+            r'"level"\s*:\s*(\d+).*?"soal"\s*:\s*"([^"]+)".*?"options"\s*:\s*\[(.*?)\].*?"jawaban_benar"\s*:\s*"([^"]+)' ,
             r'level.*?(\d+).*?soal.*?"([^"]+)".*?options.*?\[(.*?)\].*?jawaban_benar.*?"([^"]+)"',
         ]
-        
+
         for pattern in patterns:
             matches = re.findall(pattern, raw_text, re.DOTALL | re.IGNORECASE)
-            
             for match in matches:
                 try:
                     level = int(match[0])
                     soal = match[1].strip()
                     options_text = match[2]
                     jawaban_benar = match[3].strip()
-                    
+
                     # Parse options
                     options = []
                     option_matches = re.findall(r'"([^"]+)"', options_text)
                     if len(option_matches) >= 4:
                         options = option_matches[:4]
-                    
+
                     if soal and options and jawaban_benar and 1 <= level <= 7:
+                        # Default difficulty by level (approx)
+                        if level <= 2:
+                            default_difficulty = "Easy"
+                        elif level <= 4:
+                            default_difficulty = "Medium"
+                        else:
+                            default_difficulty = "Hard"
+
                         questions.append({
                             "level": level,
                             "question_type": "multiple_choice",
                             "soal": soal,
                             "options": options,
                             "jawaban_benar": jawaban_benar,
-                            "p": 0.75,  # Default probability
+                            "difficulty": default_difficulty,
                             "explanation": f"Soal level {level} dari modul ajar"
                         })
-                        
-                        if len(questions) >= 35:  # Stop after 35 questions
-                            break
-                            
-                except (ValueError, IndexError) as e:
+                except (ValueError, IndexError):
                     continue
-            
+
             if questions:
                 break
-        
-        return questions if len(questions) >= 7 else None  # Minimal 7 soal
-        
+
+        # Terapkan distribusi 5 per (level, difficulty) setelah emergency parse
+        final_questions = enforce_mst_distribution_5_each(questions)
+        return final_questions if final_questions else None
+
     except Exception as e:
         print(f"Emergency parser error: {str(e)}")
         return None
@@ -3908,11 +4790,11 @@ def emergency_json_parser(raw_text):
 def get_upload_progress(user_id):
     """Endpoint untuk mengecek progress upload - Compatible dengan VPS multiple workers"""
     try:
-        # Validasi user exists
+        # Validasi user exists (gunakan Session.get untuk menghindari warning SQLAlchemy 2.0)
         if hasattr(current_user, 'user_type') and current_user.user_type == 'guru':
-            user = Guru.query.get(user_id)
+            user = db.session.get(Guru, user_id)
         else:
-            user = Siswa.query.get(user_id)
+            user = db.session.get(Siswa, user_id)
             
         if not user:
             return jsonify({
@@ -4020,7 +4902,7 @@ def cleanup_old_progress():
         }), 500
 
 # =========================================
-# ENDPOINT UPLOAD & GENERATE 5 SOAL PER level (35 TOTAL)
+# ENDPOINT UPLOAD & GENERATE (jumlah diatur oleh post-processing)
 # =========================================
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -4069,8 +4951,8 @@ def upload_file():
             print(f"Validasi gagal: {validation_result}")
             
             # Buat pesan error yang lebih informatif berdasarkan jenis masalah
-            if "minimal 800 karakter" in validation_result:
-                error_message = "📄 File terlalu pendek! Modul Ajar Kurikulum Merdeka membutuhkan konten yang lebih lengkap (minimal 800 karakter). Pastikan dokumen berisi komponen-komponen yang diperlukan."
+            if "minimal 400 karakter" in validation_result:
+                error_message = "📄 File terlalu pendek! Modul Ajar Kurikulum Merdeka membutuhkan konten yang lebih lengkap (minimal 400 karakter). Pastikan dokumen berisi komponen-komponen yang diperlukan."
             elif "Header 'MODUL AJAR'" in validation_result:
                 error_message = "📋 Header tidak ditemukan! File harus memiliki judul 'MODUL AJAR' di bagian atas dokumen sesuai format Kurikulum Merdeka."
             elif "Tujuan Pembelajaran" in validation_result:
@@ -4084,7 +4966,7 @@ def upload_file():
             elif "Bukan Modul Ajar Kurikulum Merdeka" in validation_result:
                 error_message = "⚠️ File bukan Modul Ajar Kurikulum Merdeka yang valid! Sistem hanya menerima dokumen dengan format dan komponen sesuai standar Kurikulum Merdeka."
             else:
-                error_message = f"❌ File tidak memenuhi standar Modul Ajar Kurikulum Merdeka: {validation_result}"
+                error_message = f"[DITOLAK] File tidak memenuhi standar Modul Ajar Kurikulum Merdeka: {validation_result}"
                 
             return jsonify({
                 "success": False,
@@ -4182,18 +5064,26 @@ def upload_file():
                 module_components.get("mata_pelajaran", "")[:30],
                 module_components.get("topik_utama", "")[:30], 
                 module_components.get("kelas", ""),
-                str(len(module_components.get("tujuan_pembelajaran", []))),
-                str(len(module_components.get("pemahaman_bermakna", [])))
+                str(len(module_components.get("tujuan_pembelajaran") or [])),
+                str(len(module_components.get("pemahaman_bermakna") or []))
             ]
         })
 
         # PERUBAHAN: Gunakan prompt yang dioptimalkan tapi tetap struktur lama
         prompt = create_optimized_prompt_with_good_structure(module_components)
+        if not isinstance(prompt, str) or not prompt.strip():
+            clear_progress(user_id)
+            return jsonify({
+                "success": False,
+                "message": "Gagal menyusun prompt dari dokumen. Pastikan komponen utama (Tujuan Pembelajaran, Kompetensi Awal, Pemahaman Bermakna) terdeteksi.",
+                "error_type": "prompt_generation_failed"
+            }), 500
 
         print(f"[{datetime.datetime.now()}] Mengirim prompt teroptimalkan ({len(prompt)} chars) ke Gemini AI...")
         print(f"Efisiensi: Ukuran prompt ~{len(prompt)} karakter (vs ~8000+ sebelumnya) - penghematan signifikan!")
         response = model.generate_content(prompt)
-        raw_text = response.text.strip()
+        # Pastikan raw_text selalu string agar aman diproses di langkah berikutnya
+        raw_text = extract_response_text(response) or ""
         print(f"[{datetime.datetime.now()}] Respons dari Gemini AI diterima.")
         update_progress(user_id, 4, "completed", "AI berhasil menghasilkan soal")
         
@@ -4201,29 +5091,29 @@ def upload_file():
         print(f"[PROGRESS] Step 5 - Saving to database...")
         update_progress(user_id, 5, "active", "Memproses dan menyimpan soal ke database...")
         
-        print("Raw AI response:", raw_text[:500])
+        print("Raw AI response:", (raw_text or "")[:500])
         
         # Enhanced JSON parsing with multiple strategies
-        print(f"Response length: {len(raw_text)} chars")
-        print(f"Response starts with: {raw_text[:100]}")
-        print(f"Response ends with: {raw_text[-100:]}")
+        print(f"Response length: {len(raw_text or '')} chars")
+        print(f"Response starts with: {(raw_text or '')[:100]}")
+        print(f"Response ends with: {(raw_text or '')[-100:]}")
         
         # Check for JSON indicators
         json_indicators = ['[', '{', '"level"', '"soal"', '"options"']
-        found_indicators = [indicator for indicator in json_indicators if indicator in raw_text]
+        found_indicators = [indicator for indicator in json_indicators if indicator in (raw_text or '')]
         print(f"JSON indicators found: {found_indicators}")
         
         gen_questions = []
         try:
             # Method 1: Direct JSON parsing
             gen_questions = json.loads(raw_text)
-            print("✅ Berhasil parsing JSON langsung")
+            print("[DITERIMA] Berhasil parsing JSON langsung")
         except json.JSONDecodeError:
-            print("❌ Direct JSON parsing gagal, mencoba pembersihan...")
+            print("[DITOLAK] Direct JSON parsing gagal, mencoba pembersihan...")
             
             try:
                 # Method 2: Clean markdown and common issues
-                cleaned_text = raw_text.strip()
+                cleaned_text = (raw_text or '').strip()
                 # Remove markdown code blocks
                 cleaned_text = re.sub(r'```(?:json)?\s*\n?', '', cleaned_text)
                 cleaned_text = re.sub(r'```\s*$', '', cleaned_text)
@@ -4233,74 +5123,75 @@ def upload_file():
                 cleaned_text = re.sub(r'//.*?\n', '\n', cleaned_text)
                 
                 gen_questions = json.loads(cleaned_text)
-                print("✅ Berhasil parsing JSON setelah pembersihan")
+                print("[DITERIMA] Berhasil parsing JSON setelah pembersihan")
             except json.JSONDecodeError:
-                print("❌ Pembersihan gagal, mencoba ekstraksi regex...")
+                print("[DITOLAK] Pembersihan gagal, mencoba ekstraksi regex...")
                 
                 try:
                     # Method 3: Extract JSON array using regex
                     json_pattern = r'\[\s*\{.*?\}\s*\]'
-                    match = re.search(json_pattern, raw_text, re.DOTALL)
+                    match = re.search(json_pattern, (raw_text or ''), re.DOTALL)
                     if match:
                         json_text = match.group()
                         # Clean the extracted JSON
                         json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
                         gen_questions = json.loads(json_text)
-                        print("✅ Berhasil parsing JSON dari ekstraksi regex")
+                        print("[DITERIMA] Berhasil parsing JSON dari ekstraksi regex")
                     else:
-                        raise json.JSONDecodeError("No JSON array found", raw_text, 0)
+                        raise json.JSONDecodeError("No JSON array found", (raw_text or ''), 0)
                 except json.JSONDecodeError:
-                    print("❌ Regex ekstraksi gagal, mencoba bracket matching...")
+                    print("[DITOLAK] Regex ekstraksi gagal, mencoba bracket matching...")
                     
                     try:
                         # Method 4: Find JSON by bracket matching
-                        start_bracket = raw_text.find('[')
+                        _rt = (raw_text or '')
+                        start_bracket = _rt.find('[')
                         if start_bracket == -1:
-                            raise json.JSONDecodeError("No opening bracket found", raw_text, 0)
+                            raise json.JSONDecodeError("No opening bracket found", _rt, 0)
                         
                         # Count brackets to find matching closing bracket
                         bracket_count = 0
                         end_bracket = -1
                         
-                        for i in range(start_bracket, len(raw_text)):
-                            if raw_text[i] == '[':
+                        for i in range(start_bracket, len(_rt)):
+                            if _rt[i] == '[':
                                 bracket_count += 1
-                            elif raw_text[i] == ']':
+                            elif _rt[i] == ']':
                                 bracket_count -= 1
                                 if bracket_count == 0:
                                     end_bracket = i
                                     break
                         
                         if end_bracket == -1:
-                            raise json.JSONDecodeError("No matching closing bracket found", raw_text, 0)
+                            raise json.JSONDecodeError("No matching closing bracket found", _rt, 0)
                         
-                        json_text = raw_text[start_bracket:end_bracket+1]
+                        json_text = _rt[start_bracket:end_bracket+1]
                         # Clean the extracted JSON
                         json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
                         json_text = re.sub(r'//.*?\n', '\n', json_text)
                         
                         gen_questions = json.loads(json_text)
-                        print("✅ Berhasil parsing JSON dari bracket matching")
+                        print("[DITERIMA] Berhasil parsing JSON dari bracket matching")
                     except json.JSONDecodeError as final_error:
-                        print(f"❌ Semua metode parsing gagal. Error terakhir: {str(final_error)}")
+                        print(f"[DITOLAK] Semua metode parsing gagal. Error terakhir: {str(final_error)}")
                         
                         # ENHANCED: Log raw response untuk debugging
                         print("=== RAW AI RESPONSE (first 1000 chars) ===")
-                        print(raw_text[:1000])
+                        print((raw_text or '')[:1000])
                         print("=== END RAW RESPONSE ===")
                         
                         # Method 5: Emergency fallback - manual parsing
                         try:
                             print("🚨 Mencoba emergency parsing...")
-                            gen_questions = emergency_json_parser(raw_text)
+                            gen_questions = emergency_json_parser((raw_text or ''))
                             if gen_questions:
-                                print(f"✅ Emergency parsing berhasil: {len(gen_questions)} soal")
+                                print(f"[DITERIMA] Emergency parsing berhasil: {len(gen_questions)} soal")
                             else:
                                 raise Exception("Emergency parsing juga gagal")
                         except Exception as emergency_error:
-                            print(f"❌ Emergency parsing gagal: {str(emergency_error)}")
+                            print(f"[DITOLAK] Emergency parsing gagal: {str(emergency_error)}")
                             return jsonify({
-                                "message": f"Gagal memproses response AI. Raw response length: {len(raw_text)}. Silakan coba lagi atau hubungi administrator."
+                                "message": f"Gagal memproses response AI. Raw response length: {len(raw_text or '')}. Silakan coba lagi atau hubungi administrator."
                             }), 500
 
         if not isinstance(gen_questions, list):
@@ -4308,6 +5199,23 @@ def upload_file():
             return jsonify({"message": "AI tidak mengembalikan array soal yang valid"}), 500
             
         print(f"Berhasil mengekstrak {len(gen_questions)} soal")
+
+        # Align modul_reference to extracted objectives/outcomes to enforce grounding
+        try:
+            before_align = len(gen_questions)
+            gen_questions = enforce_alignment_with_objectives(gen_questions, module_components)
+            print(f"Alignment modul_reference diterapkan pada {before_align} soal")
+        except Exception as e:
+            print(f"WARNING: Gagal menerapkan alignment modul_reference: {e}")
+        
+        # Enforce 5 questions per allowed (level, difficulty) combo (target total: 55)
+        try:
+            before_cnt = len(gen_questions)
+            gen_questions = enforce_mst_distribution_5_each(gen_questions)
+            after_cnt = len(gen_questions)
+            print(f"Distribusi 5 per (level, difficulty) diterapkan: {before_cnt} -> {after_cnt} soal (target 55)")
+        except Exception as e:
+            print(f"WARNING: Gagal menerapkan distribusi 5-per-combo: {e}")
         
         if len(gen_questions) < 7:
             print(f"Jumlah soal tidak mencukupi: {len(gen_questions)}")
@@ -4355,30 +5263,47 @@ def upload_file():
         new_questions_from_db = [] 
         for q in gen_questions:
             try:
+                # MST 5-Stage: level should be 1-5 (not 1-7)
                 level_num = int(q.get("level"))
-                if 1 <= level_num <= 7:
+                if not (1 <= level_num <= 5):
+                    print(f"⚠️  WARNING: Soal dengan level {level_num} dilewati (harus 1-5)")
+                    continue
+                
+                # Handle both old format (p value) and new format (difficulty)
+                if 'difficulty' in q:
+                    difficulty = q.get('difficulty', 'Medium')
+                    p_val = difficulty_to_p_value(difficulty)
+                else:
+                    # Backward compatibility: convert old p value to difficulty
                     p_val = float(q.get("p", 0.75))
-                    bobot = assign_weight(p_val)
-                    
-                    options_str = None
-                    if 'options' in q and isinstance(q['options'], list):
-                        options_str = json.dumps(q['options'])
-                    
-                    question_type = q.get('question_type', 'multiple_choice')
-                    
-                    new_question = Question(
-                        guru_id=current_user.id,
-                        level=level_num,
-                        soal=q.get("soal"),
-                        jawaban_benar=q.get("jawaban_benar", ""),
-                        options=options_str,
-                        question_type=question_type,
-                        p=p_val,
-                        bobot=bobot,
-                        explanation=q.get("explanation", "")
-                    )
-                    db.session.add(new_question)
-                    new_questions_from_db.append(new_question)
+                    difficulty = p_value_to_difficulty(p_val)
+                
+                bobot = assign_weight(p_val)
+                
+                options_str = None
+                if 'options' in q and isinstance(q['options'], list):
+                    options_str = json.dumps(q['options'])
+                
+                question_type = q.get('question_type', 'multiple_choice')
+                
+                # MST 5-Stage: level and technology_level are the same (1-5)
+                technology_level = level_num  # Direct mapping for MST 5-stage
+                
+                new_question = Question(
+                    guru_id=current_user.id,
+                    level=level_num,                        # Keep for backward compatibility
+                    technology_level=technology_level,      # PRIMARY field for MST 5-stage (L1-L5)
+                    soal=q.get("soal"),
+                    jawaban_benar=q.get("jawaban_benar", ""),
+                    options=options_str,
+                    question_type=question_type,
+                    p=p_val,
+                    bobot=bobot,
+                    explanation=q.get("explanation", ""),
+                    difficulty=difficulty
+                )
+                db.session.add(new_question)
+                new_questions_from_db.append(new_question)
             except Exception as e:
                 db.session.rollback()
                 print(f"Error memproses soal: {str(e)}")
@@ -4403,11 +5328,13 @@ def upload_file():
                 "guru_id": q_db.guru_id,
                 "collection_id": q_db.collection_id,
                 "level": q_db.level,
+                "technology_level": q_db.technology_level,  # Include technology_level in response
                 "soal": q_db.soal,
                 "jawaban_benar": q_db.jawaban_benar,
                 "options": options,
                 "question_type": q_db.question_type,
                 "p": float(q_db.p),
+                "difficulty": q_db.difficulty,
                 "bobot": q_db.bobot,
                 "explanation": q_db.explanation,
                 "created_at": q_db.created_at.isoformat() if q_db.created_at else None,
@@ -4428,7 +5355,7 @@ def upload_file():
         update_progress(user_id, 5, "completed", "Semua soal berhasil disimpan!")
         
         # Create success message without quality score
-        message = f"✅ Modul ajar berhasil divalidasi dan diproses! Total {len(questions_for_frontend)} soal pilihan ganda berhasil digenerate ({level_summary})"
+        message = f"[DITERIMA] Modul ajar berhasil divalidasi dan diproses! Total {len(questions_for_frontend)} soal pilihan ganda berhasil digenerate ({level_summary})"
 
         # Clear progress after successful completion
         clear_progress(user_id)
@@ -4471,7 +5398,7 @@ def upload_file():
         elif "extract" in error_str or "parsing" in error_str:
             error_message = "📋 Gagal menganalisis isi dokumen. Pastikan file tidak rusak dan format sesuai (.pdf, .doc, .docx)."
         else:
-            error_message = f"❌ Terjadi kesalahan sistem yang tidak terduga. Silakan coba lagi atau hubungi administrator jika masalah berlanjut.\n\nDetail teknis: {str(e)}"
+            error_message = f"[DITOLAK] Terjadi kesalahan sistem yang tidak terduga. Silakan coba lagi atau hubungi administrator jika masalah berlanjut.\n\nDetail teknis: {str(e)}"
             
         return jsonify({
             "success": False, 
@@ -5300,9 +6227,10 @@ def convert_text_to_dataframe_improved(text):
 # =========================================
 @app.route('/get_question', methods=['GET'])
 def get_question():
+    """MST Adaptive Question Selection"""
     user_id = request.args.get("user_id", "default")
-    collection_id = request.args.get("collection_id")  # Ambil collection_id dari parameter URL
-    print(f"Get question untuk user_id: {user_id}")
+    collection_id = request.args.get("collection_id")
+    print(f"[MST] Get question untuk user_id: {user_id}, collection_id: {collection_id}")
     
     try:
         # Validasi input
@@ -5312,9 +6240,8 @@ def get_question():
                 "message": "Collection ID tidak ditemukan dalam URL!"
             }), 400
             
-        # Konversi user_id menjadi integer jika bukan "default"
+        # Konversi user_id menjadi integer
         siswa_id = int(user_id) if user_id != "default" else None
-        
         if siswa_id is None:
             return jsonify({
                 "status": "error",
@@ -5333,81 +6260,131 @@ def get_question():
                 "message": "Anda tidak memiliki akses ke koleksi soal ini."
             }), 403
             
-        # Cari hasil siswa berdasarkan siswa_id DAN collection_id
-        user_result = SiswaResult.query.filter_by(
-            siswa_id=siswa_id,
-            collection_id=collection_id
-        ).first()
+        # Get atau create MST state
+        mst_state = get_mst_state(siswa_id, collection_id)
         
-        # Jika tidak ditemukan, buat baru
-        if not user_result:
-            print(f"Membuat user result baru untuk siswa_id: {siswa_id} dan collection_id: {collection_id}")
-            
-            # Cek apakah siswa ada
-            siswa = db.session.query(Siswa).filter_by(id=siswa_id).first()
-            if not siswa:
-                return jsonify({
-                    "status": "error",
-                    "message": "Siswa tidak ditemukan"
-                }), 404
-                
-            # Buat record baru
-            user_result = SiswaResult(
-                siswa_id=siswa_id,
-                collection_id=int(collection_id),
-                current_level=1
-            )
-            db.session.add(user_result)
-            db.session.commit()
-
-        current_level = user_result.current_level
-        print(f"Level saat ini: {current_level}")
+        # Cek apakah test sudah selesai
+        if mst_state.test_completed:
+            return jsonify({
+                "status": "game over",
+                "message": f"Tes selesai! Diagnosis: {mst_state.final_diagnosis}"
+            }), 200
         
-        # PERBAIKAN: Ambil soal dari database berdasarkan level, collection_id, DAN is_validated
-        # Gunakan CollectionQuestion untuk memastikan soal adalah bagian dari collection
+        print(f"[MST] Current state: Stage {mst_state.current_stage}, Level {mst_state.current_level}")
+        
+        # Dapatkan soal berdasarkan stage dan level saat ini
+        target_level_map = {
+            1: "Awareness",
+            2: "Literacy", 
+            3: "Capability",
+            4: "Creativity",
+            5: "Criticism"
+        }
+        
+        target_level = target_level_map[mst_state.current_stage]
+        target_difficulty = mst_state.current_level
+        
+        # Cari soal yang sesuai dengan stage dan difficulty
         questions = db.session.query(Question).join(
             CollectionQuestion,  
             CollectionQuestion.question_id == Question.id
         ).filter(
-            Question.level == current_level,
+            Question.technology_level == mst_state.current_stage,  # Gunakan technology_level (1-5)
+            Question.difficulty == target_difficulty,  # Gunakan difficulty (Easy/Medium/Hard)
             CollectionQuestion.collection_id == int(collection_id),
-            Question.is_validated == True  # <--- INI TAMBAHANNYA
+            Question.is_validated == True
         ).all()
         
-        print(f"Ditemukan {len(questions)} soal yang divalidasi untuk level {current_level} dalam koleksi {collection_id}")
+        print(f"[MST] Mencari soal: Technology Level {mst_state.current_stage}, Difficulty {target_difficulty}")
+        print(f"[MST] Ditemukan {len(questions)} soal")
         
+        # Jika tidak ada soal, coba fallback mechanism
         if not questions:
-            # Jika tidak ada soal yang ditemukan
-            return jsonify({
-                "status": "error",  
-                "message": f"Tidak ada soal yang tervalidasi tersedia untuk level {current_level} dalam koleksi ini."
-            }), 200
+            print(f"[MST] Tidak ada soal untuk Stage {mst_state.current_stage} {target_difficulty}, mencoba fallback...")
+            
+            # Coba cari soal dengan difficulty lain di stage yang sama
+            fallback_difficulties = ['Medium', 'Easy', 'Hard']
+            if target_difficulty in fallback_difficulties:
+                fallback_difficulties.remove(target_difficulty)
+            
+            for fallback_diff in fallback_difficulties:
+                questions = db.session.query(Question).join(
+                    CollectionQuestion,  
+                    CollectionQuestion.question_id == Question.id
+                ).filter(
+                    Question.technology_level == mst_state.current_stage,
+                    Question.difficulty == fallback_diff,
+                    CollectionQuestion.collection_id == int(collection_id),
+                    Question.is_validated == True
+                ).all()
+                
+                if questions:
+                    print(f"[MST] Fallback berhasil: menggunakan {fallback_diff} untuk Stage {mst_state.current_stage}")
+                    target_difficulty = fallback_diff  # Update difficulty yang digunakan
+                    break
+            
+            # Jika masih tidak ada, tandai tes selesai dengan diagnosis berdasarkan progress
+            if not questions:
+                # Hitung diagnosis berdasarkan stage terakhir yang berhasil diselesaikan
+                if mst_state.current_stage == 2:
+                    diagnosis = "< L2 (Siswa belum mencapai Level Literacy)"
+                elif mst_state.current_stage == 3:
+                    diagnosis = "L2 (Literacy)"
+                elif mst_state.current_stage == 4:
+                    diagnosis = "L3 (Capability)"
+                elif mst_state.current_stage == 5:
+                    diagnosis = "L4 (Creativity)"
+                else:
+                    diagnosis = "L1 (Awareness)"
+                
+                # Update state dan tandai selesai
+                mst_state.test_completed = True
+                mst_state.final_diagnosis = diagnosis
+                db.session.commit()
+                
+                return jsonify({
+                    "status": "win",  
+                    "message": f"Tes selesai! Diagnosis: {diagnosis}. (Catatan: Koleksi ini tidak memiliki cukup soal untuk semua stage MST)"
+                }), 200
 
-        # Pilih soal secara acak
+        # Pilih soal acak
         question = random.choice(questions)
-        print(f"Soal dipilih ID: {question.id}")
+        print(f"[MST] Soal dipilih ID: {question.id}")
         
-        # Parse opsi jika soal memiliki opsi dalam format JSON
+        # Parse opsi dengan lebih robust
         options = []
         if hasattr(question, 'options') and question.options:
             try:
-                options = json.loads(question.options)
-            except:
+                if isinstance(question.options, str):
+                    options = json.loads(question.options)
+                elif isinstance(question.options, list):
+                    options = question.options
+                else:
+                    options = []
+            except json.JSONDecodeError as e:
+                print(f"[MST] Error parsing options: {e}")
                 options = []
         
+        # Pastikan options adalah list dan tidak kosong
+        if not options or not isinstance(options, list):
+            options = ["Option A", "Option B", "Option C", "Option D"]  # Default options
+            print(f"[MST] Menggunakan default options untuk question ID: {question.id}")
+        
         response_data = {
+            "status": "continue",  # Status untuk frontend
             "id": question.id,
-            "level": question.level,
-            "question": question.soal,
+            "level": target_level,  # Nama level (Awareness, dll)
+            "technology_level": question.technology_level,  # Angka level (1-5)
+            "difficulty": question.difficulty,
+            "stage": mst_state.current_stage,
+            "question": question.soal,  # Frontend mengharapkan field 'question'
             "options": options,
             "question_type": question.question_type or "multiple_choice",
             "bobot": question.bobot,
-            "p": question.p,
             "explanation": question.explanation,
             "jawaban_benar": question.jawaban_benar if question.question_type == 'multiple_choice' else None
         }
         
-        # Mengirimkan soal ke frontend
         return jsonify(response_data), 200
         
     except ValueError:
@@ -5417,7 +6394,7 @@ def get_question():
         }), 400
         
     except Exception as e:
-        print(f"Error di get_question: {str(e)}")
+        print(f"[MST] Error di get_question: {str(e)}")
         return jsonify({
             "status": "error",
             "message": f"Kesalahan server: {str(e)}"
@@ -5427,159 +6404,202 @@ def get_question():
 # =========================================
 @app.route('/submit_answer', methods=['POST'])
 def submit_answer():
-    data = request.json
+    """MST Adaptive Answer Processing"""
+    data = request.get_json(silent=True) or {}
     user_id = data.get("user_id", "default")
-    answer = data.get("answer", "").strip()
+    raw_answer = data.get("answer", "")
+    answer = raw_answer.strip() if isinstance(raw_answer, str) else str(raw_answer)
     question_id = data.get("question_id")
-    collection_id = data.get("collection_id")  # Ambil collection_id dari request
-    
-    print(f"Submit jawaban untuk user_id: {user_id}, jawaban: {answer[:50]}..., question_id: {question_id}, collection_id: {collection_id}")
+    collection_id = data.get("collection_id")
 
-    # Cari atau buat user result
-    # PERBAIKAN: Filter berdasarkan collection_id juga
-    user_result = SiswaResult.query.filter_by(siswa_id=user_id, collection_id=collection_id).first()
-    if not user_result:
-        print(f"Membuat user result baru untuk {user_id} pada collection {collection_id}")
-        user_result = SiswaResult(
-            siswa_id=user_id,
-            collection_id=collection_id,  # Tambahkan collection_id
-            correct=0,
-            incorrect=0,
-            current_level=1
-        )
-        db.session.add(user_result)
-        db.session.commit()
+    print(f"[MST] ========== SUBMIT ANSWER REQUEST ==========")
+    print(f"[MST] user_id: {user_id} (type: {type(user_id)})")
+    print(f"[MST] jawaban: {answer[:80]}...")
+    print(f"[MST] question_id: {question_id} (type: {type(question_id)})")
+    print(f"[MST] collection_id: {collection_id} (type: {type(collection_id)})")
+    print(f"[MST] ============================================")
 
-    current_level = user_result.current_level
-    print(f"Current level: {current_level}")
-    
-    # Dapatkan pertanyaan berdasarkan question_id
-    if question_id:
+    try:
+        # Validasi dan konversi ID user
         try:
-            question = Question.query.get(int(question_id))
-            if not question:
-                return jsonify({"status": "error", "message": f"Soal dengan ID {question_id} tidak ditemukan."}), 404
-        except Exception as e:
-            print(f"Error mendapatkan soal dengan ID {question_id}: {str(e)}")
-            return jsonify({"status": "error", "message": f"Error: {str(e)}"}), 500
-    else:
-        # Ambil soal yang terkait dengan koleksi
-        questions = db.session.query(Question).join(
-            CollectionQuestion, 
-            CollectionQuestion.question_id == Question.id
-        ).filter(
-            Question.level == current_level,
-            CollectionQuestion.collection_id == collection_id
-        ).all()
-        
-        if not questions:
-            return jsonify({"status": "game over", "message": f"Tidak ada soal untuk level {current_level} dalam koleksi ini."}), 200
-        question = random.choice(questions)
-    
-    soal_text = question.soal
-    print(f"Evaluasi jawaban untuk soal: {soal_text}")
-    
-    # Parse opsi jawaban
-    options = []
-    if hasattr(question, 'options') and question.options:
-        try:
-            options = json.loads(question.options)
-        except:
-            options = []
-    
-    # Evaluasi jawaban pilihan ganda dengan membandingkan dengan jawaban benar
-    correct = is_answer_correct(answer, question.jawaban_benar)
-    print(f"Hasil evaluasi pilihan ganda: {'Benar' if correct else 'Salah'}")
-
-    # Simpan jawaban user ke database
-    user_answer = SiswaAnswer(
-        siswa_id=user_id,
-        question_id=question.id,
-        siswa_answer=answer,
-        is_correct=correct,
-        level=current_level
-    )
-    db.session.add(user_answer)
-
-    # Update statistik
-    if correct:
-        user_result.correct += 1
-        print(f"Jawaban benar. Total benar: {user_result.correct}")
-        
-        # Tentukan level selanjutnya jika jawaban benar
-        if current_level in FINAL_levelS:
-            # Jika sudah di level final, selesai
-            status_message = f"Anda telah menyelesaikan semua level! level terakhir: {current_level}."
-            db.session.commit()
+            siswa_id = int(user_id)
+        except (TypeError, ValueError) as e:
             return jsonify({
-                "status": "win", 
-                "message": status_message,
-                "explanation": question.explanation
+                "status": "error",
+                "message": f"User ID tidak valid: '{user_id}'. Pastikan Anda sudah login."
+            }), 400
+
+        # Validasi siswa exists
+        siswa = Siswa.query.get(siswa_id)
+        if not siswa:
+            return jsonify({
+                "status": "error",
+                "message": f"Siswa dengan ID {siswa_id} tidak ditemukan. Silakan login ulang."
+            }), 404
+
+        print(f"[MST] OK Siswa validated: {siswa.nama} (ID: {siswa.id})")
+
+        # Validasi input
+        if question_id is None or collection_id is None:
+            return jsonify({
+                "status": "error",
+                "message": "Data tidak lengkap: question_id atau collection_id hilang"
+            }), 400
+
+        # Konversi ID dengan safety check
+        try:
+            question_id_int = int(question_id)
+            collection_id_int = int(collection_id)
+        except (TypeError, ValueError):
+            return jsonify({
+                "status": "error",
+                "message": "ID soal atau koleksi tidak valid"
+            }), 400
+
+        # Get MST state
+        mst_state = get_mst_state(siswa_id, collection_id_int)
+        print(f"[MST] MST State SEBELUM proses: Stage {mst_state.current_stage}, Level {mst_state.current_level}, Selesai? {mst_state.test_completed}")
+
+        if mst_state.test_completed:
+            return jsonify({
+                "status": "game over",
+                "message": f"Tes sudah selesai! Diagnosis: {mst_state.final_diagnosis}"
             }), 200
-        else:
-            # Jika belum di level final, tentukan level selanjutnya untuk jawaban benar
-            nxt = next_level(current_level, True)  # Passing is_correct=True
-            print(f"level berikutnya: {nxt}")
-            
-            if nxt is None:
-                db.session.commit()
+
+        # Get question
+        question = Question.query.get(question_id_int)
+        if not question:
+            return jsonify({"status": "error", "message": "Soal tidak ditemukan"}), 404
+
+        # Check if answer is correct - DENGAN NULL SAFETY
+        correct_answer = (question.jawaban_benar or "").strip()
+        user_answer_norm = answer.strip().lower()
+        correct_answer_norm = correct_answer.lower()
+        is_correct = (user_answer_norm == correct_answer_norm) if correct_answer else False
+
+        print(f"[MST] Jawaban: '{answer}' vs '{correct_answer}' => {'BENAR' if is_correct else 'SALAH'}")
+
+        # --- PERBAIKAN LOGIKA: Simpan SEMUA jawaban (benar dan salah) untuk riwayat ---
+        try:
+            level_name = TECHNOLOGY_LEVELS.get(mst_state.current_stage, str(mst_state.current_stage))
+            user_answer_record = SiswaAnswer(
+                siswa_id=siswa_id,
+                question_id=question_id_int,
+                collection_id=collection_id_int,
+                siswa_answer=answer,
+                selected_answer=answer,
+                is_correct=is_correct, # Simpan status benar/salah
+                stage=mst_state.current_stage,
+                level=level_name,
+                difficulty=question.difficulty if hasattr(question, 'difficulty') and question.difficulty else 'Medium'
+            )
+            db.session.add(user_answer_record)
+            # Jangan commit dulu, tunggu update state MST
+            print(f"[MST] Answer record DIBUAT (is_correct={is_correct}) (belum commit)")
+        except Exception as e_ans:
+            print(f"[MST] Error membuat record jawaban: {str(e_ans)}")
+            db.session.rollback()
+            return jsonify({"status": "error", "message": f"Error menyimpan jawaban: {str(e_ans)}"}), 500
+        # --- PERBAIKAN SELESAI ---
+
+        # Update MST state counters (setelah jawaban dibuat, sebelum menentukan stage berikutnya)
+        # Note: counter ini HANYA untuk stage saat ini
+        mst_state.questions_answered = (mst_state.questions_answered or 0) + 1
+        if is_correct:
+            mst_state.questions_correct = (mst_state.questions_correct or 0) + 1
+
+        # Check if stage module is completed - MST ADAPTIF: 1 SOAL PER STAGE
+        stage_question_limit = 1  # Sesuai skenario: 1 soal per stage
+
+        if (mst_state.questions_answered or 0) >= stage_question_limit:
+            # Evaluate stage completion
+            next_stage, next_level_difficulty, should_stop, diagnosis = determine_next_stage(mst_state)
+            print(f"[MST] Hasil determine_next_stage: next_stage={next_stage}, next_level_difficulty={next_level_difficulty}, should_stop={should_stop}, diagnosis={diagnosis}")
+
+            # --- PERBAIKAN UTAMA DIMULAI: Update state jika tes selesai ---
+            if should_stop:
+                # Test selesai
+                mst_state.test_completed = True
+                mst_state.final_diagnosis = diagnosis
+                print(f"[MST] TES SELESAI! Diagnosis: {diagnosis} akan disimpan.")
+                try:
+                    db.session.commit() # Commit semua perubahan (jawaban + state MST yang sudah final)
+                    print("[MST] Commit Berhasil - Status tes selesai disimpan")
+                except Exception as e_commit_stop:
+                     print(f"[MST] Error commit saat tes selesai: {str(e_commit_stop)}")
+                     db.session.rollback()
+                     return jsonify({"status": "error", "message": f"Error finalisasi tes: {str(e_commit_stop)}"}), 500
+
                 return jsonify({
-                    "status": "win", 
-                    "message": f"Anda telah menyelesaikan semua level!",
-                    "explanation": question.explanation
+                    "status": "game over", # Frontend akan redirect ke halaman hasil
+                    "message": f"Tes selesai! Diagnosis akhir Anda adalah: {diagnosis}",
+                    "explanation": question.explanation,
+                    "is_correct": is_correct,
+                    "correct_answer": correct_answer
                 }), 200
-
-            user_result.current_level = nxt
-            db.session.commit()
-            print(f"Database diperbarui: user pindah ke level {nxt}")
-
-            return jsonify({
-                "status": "continue", 
-                "message": f"Jawaban benar! Lanjut ke level {nxt}",
-                "explanation": question.explanation
-            }), 200
-    else:
-        # Jika jawaban salah
-        user_result.incorrect += 1
-        print(f"Jawaban salah. Total salah: {user_result.incorrect}")
-        
-        # Tentukan level selanjutnya berdasarkan jawaban salah
-        if current_level in FINAL_levelS:
-            # Jika sudah di level final, selesai
-            db.session.commit()
-            return jsonify({
-                "status": "game over", 
-                "message": f"Game over! Anda telah menyelesaikan semua level dengan jawaban salah pada level {current_level}.",
-                "explanation": question.explanation
-            }), 200
-        else:
-            # Tentukan level selanjutnya berdasarkan jawaban salah
-            next_level_if_wrong = next_level(current_level, False)  # Passing is_correct=False
-            
-            if next_level_if_wrong:
-                user_result.current_level = next_level_if_wrong
-                db.session.commit()
-                print(f"Database diperbarui: karena salah, user pindah ke level {next_level_if_wrong}")
-                
-                if next_level_if_wrong in FINAL_levelS:
-                    return jsonify({
-                        "status": "continue", 
-                        "message": f"Jawaban salah. Lanjut ke level final {next_level_if_wrong}.",
-                        "explanation": question.explanation
-                    }), 200
-                else:
-                    return jsonify({
-                        "status": "continue", 
-                        "message": f"Jawaban salah. Lanjut ke level {next_level_if_wrong}.",
-                        "explanation": question.explanation
-                    }), 200
+            # --- PERBAIKAN UTAMA SELESAI ---
             else:
-                db.session.commit()
+                # Lanjut ke stage/level berikutnya
+                print(f"[MST] Lanjut ke Stage {next_stage} Difficulty {next_level_difficulty}")
+                mst_state.current_stage = next_stage
+                mst_state.current_level = next_level_difficulty # Simpan difficulty untuk stage berikutnya
+                mst_state.questions_answered = 0  # Reset counter untuk stage baru
+                mst_state.questions_correct = 0   # Reset counter untuk stage baru
+                try:
+                    db.session.commit() # Commit semua perubahan (jawaban + state MST baru)
+                    print("[MST] Commit Berhasil - Lanjut ke stage berikutnya")
+                except Exception as e_commit_next:
+                     print(f"[MST] Error commit saat lanjut stage: {str(e_commit_next)}")
+                     db.session.rollback()
+                     return jsonify({"status": "error", "message": f"Error lanjut stage: {str(e_commit_next)}"}), 500
+
                 return jsonify({
-                    "status": "wrong", 
-                    "message": "Jawaban salah. Silakan coba lagi.",
-                    "explanation": question.explanation
+                    "status": "continue",
+                    "message": f"{'Benar!' if is_correct else 'Salah.'} Lanjut ke Stage {next_stage} - {next_level_difficulty}",
+                    "explanation": question.explanation,
+                    "next_stage": next_stage,
+                    "next_level": next_level_difficulty, # Kirim difficulty berikutnya
+                    "is_correct": is_correct,
+                    "correct_answer": correct_answer
                 }), 200
+        else:
+            # Kasus ini seharusnya tidak terjadi jika stage_question_limit = 1
+            # Jika limit > 1, commit jawaban saja
+            try:
+                db.session.commit()
+                print("[MST] Commit Berhasil - Masih dalam stage yang sama (limit > 1)")
+            except Exception as e_commit_same:
+                print(f"[MST] Error commit saat masih di stage sama: {str(e_commit_same)}")
+                db.session.rollback()
+                return jsonify({"status": "error", "message": f"Error simpan jawaban: {str(e_commit_same)}"}), 500
+
+            progress = f"{mst_state.questions_answered}/{stage_question_limit}"
+            return jsonify({
+                "status": "continue",
+                "message": f"{'Benar!' if is_correct else 'Salah.'} Progress Stage {mst_state.current_stage}: {progress}",
+                "explanation": question.explanation,
+                "stage_progress": progress,
+                "is_correct": is_correct,
+                "correct_answer": correct_answer
+            }), 200
+
+    except ValueError as e:
+        print(f"[MST] ValueError di submit_answer: {str(e)}")
+        # Tidak perlu rollback karena belum ada perubahan DB signifikan
+        return jsonify({
+            "status": "error",
+            "message": f"Format data tidak valid: {str(e)}"
+        }), 400
+    except Exception as e:
+        print(f"[MST] Exception di submit_answer: {str(e)}")
+        print(f"[MST] Error type: {type(e).__name__}")
+        import traceback
+        print(f"[MST] Traceback: {traceback.format_exc()}")
+        db.session.rollback() # Rollback jika ada error tak terduga
+        return jsonify({
+            "status": "error",
+            "message": f"Kesalahan server: {str(e)}"
+        }), 500
 
 # =========================================
 # GET SUMMARY
@@ -5648,7 +6668,17 @@ def get_summary():
 @login_required # Pastikan hanya user yang login yang bisa mengakses
 def get_questions():
     try:
+        # Check if user is authenticated
+        if not current_user.is_authenticated:
+            return jsonify({"success": False, "message": "User not authenticated"}), 401
+            
+        # Check user type
+        if not hasattr(current_user, 'user_type'):
+            return jsonify({"success": False, "message": "User type not found"}), 403
+            
+        print(f"[get_questions] User ID: {current_user.id}, Type: {current_user.user_type}")
         print("Fetching questions from database...")
+        
         # Ambil semua soal yang dimiliki oleh guru yang sedang login
         # Gunakan SQLAlchemy ORM daripada raw SQL untuk filter ini
         questions_raw = (
@@ -5951,14 +6981,33 @@ def get_collection_questions(collection_id):
             except:
                 options = []
         
+        # Determine stage based on technology_level (MST 5-stage system)
+        stage = None
+        
+        # MST 5-Stage: Use technology_level directly (1-5)
+        if hasattr(q, 'technology_level') and q.technology_level is not None and q.technology_level >= 1:
+            stage = f"L{q.technology_level}"
+        else:
+            # Fallback: Use old level field if technology_level not set
+            # This is for backward compatibility with old questions
+            if q.level:
+                # Old level system (1-7) to new stage (L1-L5) mapping
+                level_to_stage_map = {1: 'L1', 2: 'L2', 3: 'L3', 4: 'L3', 5: 'L4', 6: 'L4', 7: 'L5'}
+                stage = level_to_stage_map.get(q.level, 'L1')
+            else:
+                stage = 'L1'  # Default fallback
+        
         question_data.append({
             'id': q.id,
             'level': q.level,
+            'stage': stage,  # NEW: Add stage field for proper MST 5-stage display
+            'technology_level': getattr(q, 'technology_level', None),  # NEW: Include technology_level
             'soal': q.soal,
             'jawaban_benar': q.jawaban_benar,
             'options': options,
             'question_type': q.question_type if hasattr(q, 'question_type') else 'multiple_choice',
             'p': float(q.p) if q.p else 0.5,
+            'difficulty': q.difficulty if hasattr(q, 'difficulty') and q.difficulty else p_value_to_difficulty(float(q.p) if q.p else 0.5),
             'bobot': q.bobot or 1,
             'explanation': q.explanation or '',
             'is_validated': q.is_validated # NEW: Sertakan status validasi
@@ -6056,22 +7105,52 @@ def update_collection_description(collection_id):
 @app.route('/api/collections/<int:collection_id>', methods=['DELETE'])
 @login_required
 def delete_collection(collection_id):
-    # Verifikasi kepemilikan koleksi
-    collection = QuestionCollection.query.filter_by(id=collection_id, guru_id=current_user.id).first()
-    if not collection:
-        return jsonify({'success': False, 'message': 'Koleksi tidak ditemukan'}), 404
-    
-    # Hapus semua relasi collection_questions terlebih dahulu
-    CollectionQuestion.query.filter_by(collection_id=collection_id).delete()
-    
-    # Hapus koleksi
-    db.session.delete(collection)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True, 
-        'message': 'Koleksi berhasil dihapus'
-    })
+    try:
+        # Verifikasi kepemilikan koleksi
+        collection = QuestionCollection.query.filter_by(id=collection_id, guru_id=current_user.id).first()
+        if not collection:
+            return jsonify({'success': False, 'message': 'Koleksi tidak ditemukan'}), 404
+        
+        # Hapus semua data terkait secara berurutan
+        # 1. Hapus siswa answers yang terkait collection ini
+        db.session.execute(
+            text("DELETE FROM siswa_answers WHERE collection_id = :cid"),
+            {"cid": collection_id}
+        )
+        
+        # 2. Hapus MST state yang terkait collection ini
+        db.session.execute(
+            text("DELETE FROM mst_state WHERE collection_id = :cid"),
+            {"cid": collection_id}
+        )
+        
+        # 3. Hapus relasi collection_students
+        db.session.execute(
+            text("DELETE FROM collection_students WHERE collection_id = :cid"),
+            {"cid": collection_id}
+        )
+        
+        # 4. Hapus relasi collection_questions
+        db.session.execute(
+            text("DELETE FROM collection_questions WHERE collection_id = :cid"),
+            {"cid": collection_id}
+        )
+        
+        # 5. Hapus koleksi itu sendiri
+        db.session.delete(collection)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Koleksi berhasil dihapus'
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting collection: {str(e)}")
+        return jsonify({
+            'success': False, 
+            'message': f'Gagal menghapus koleksi: {str(e)}'
+        }), 500
 
 # Endpoint untuk menghapus soal dari koleksi
 @app.route('/api/collections/<int:collection_id>/questions/<int:question_id>', methods=['DELETE'])
@@ -6517,11 +7596,11 @@ def get_student_collections():
                     'collections': []
                 }
             
-            # Cek apakah koleksi baru (dibuat dalam 7 hari terakhir)
+            # Cek apakah koleksi baru (dibuat dalam 1 hari terakhir)
             is_new = False
             if collection.created_at:
                 delta = datetime.datetime.now() - collection.created_at
-                is_new = delta.days < 7
+                is_new = delta.days < 1
             
             teachers_dict[guru.id]['collections'].append({
                 'id': collection.id,
@@ -6542,6 +7621,197 @@ def get_student_collections():
         print(f"Error getting student collections: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
     
+# =========================================
+# MST ADAPTIVE ENDPOINTS
+# =========================================
+
+@app.route('/api/mst/start/<int:collection_id>', methods=['POST'])
+@login_required
+def start_mst_test(collection_id):
+    """Start MST adaptive test for a student"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'user_type') or current_user.user_type != 'siswa':
+        return jsonify({'success': False, 'message': 'Akses ditolak'}), 403
+    
+    try:
+        # Check if collection exists and student has access
+        collection = QuestionCollection.query.get(collection_id)
+        if not collection:
+            return jsonify({'success': False, 'message': 'Koleksi tidak ditemukan'}), 404
+        
+        # Check if student is assigned to this collection
+        access_check = db.session.query(collection_students).filter(
+            collection_students.c.collection_id == collection_id,
+            collection_students.c.siswa_id == current_user.id
+        ).first()
+        
+        if not access_check:
+            return jsonify({'success': False, 'message': 'Anda tidak memiliki akses ke koleksi ini'}), 403
+        
+        # Initialize MST state using new system
+        mst_state = get_mst_state(current_user.id, collection_id)
+        mst_status = {
+            'stage': mst_state.current_stage,
+            'level': mst_state.current_level,
+            'is_complete': mst_state.test_completed
+        }
+        
+        # Get first module questions (L1 Medium)
+        questions = get_questions_for_module(collection_id, 1, "Medium")
+        
+        if not questions:
+            return jsonify({'success': False, 'message': 'Tidak ada soal tersedia untuk modul ini'}), 404
+        
+        # Format questions for frontend
+        question_data = []
+        for q in questions:
+            options = []
+            if q.options:
+                try:
+                    options = json.loads(q.options)
+                except:
+                    options = []
+            
+            question_data.append({
+                'id': q.id,
+                'technology_level': q.technology_level,
+                'difficulty': q.difficulty,
+                'soal': q.soal,
+                'options': options,
+                'question_type': q.question_type,
+                'explanation': q.explanation
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': 'MST test dimulai',
+            'mst_status': mst_status,
+            'current_module': {
+                'technology_level': 1,
+                'difficulty': 'Medium',
+                'level_name': TECHNOLOGY_LEVELS[1]
+            },
+            'questions': question_data,
+            'collection': {
+                'id': collection.id,
+                'name': collection.name,
+                'description': collection.description
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Terjadi kesalahan: {str(e)}'}), 500
+
+@app.route('/api/mst/submit-answers/<int:collection_id>', methods=['POST'])
+@login_required
+def submit_mst_answers(collection_id):
+    """Submit answers for current MST module and get next module"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'user_type') or current_user.user_type != 'siswa':
+        return jsonify({'success': False, 'message': 'Akses ditolak'}), 403
+    
+    try:
+        data = request.get_json()
+        if not data or 'answers' not in data:
+            return jsonify({'success': False, 'message': 'Data jawaban tidak valid'}), 400
+        
+        answers = data['answers']  # [{'question_id': 1, 'answer': 'A'}, ...]
+        
+        # Get current MST status using new system
+        mst_state = get_mst_state(current_user.id, collection_id)
+        current_stage = mst_state.current_stage
+        current_path = "LEGACY"  # Legacy path for backward compatibility
+        
+        # Process answers and calculate score
+        correct_count = 0
+        total_count = len(answers)
+        
+        for answer_data in answers:
+            question_id = answer_data['question_id']
+            user_answer = answer_data['answer']
+            
+            # Get question
+            question = Question.query.get(question_id)
+            if not question:
+                continue
+            
+            # Check if answer is correct
+            is_correct = (user_answer.strip().upper() == question.jawaban_benar.strip().upper())
+            if is_correct:
+                correct_count += 1
+            
+            # Save answer
+            existing_answer = SiswaAnswer.query.filter_by(
+                siswa_id=current_user.id,
+                question_id=question_id
+            ).first()
+            
+            if existing_answer:
+                existing_answer.siswa_answer = user_answer
+                existing_answer.is_correct = is_correct
+                existing_answer.technology_level = question.technology_level
+                existing_answer.difficulty = question.difficulty
+                existing_answer.stage = current_stage
+                existing_answer.answered_at = db.func.now()
+            else:
+                new_answer = SiswaAnswer(
+                    siswa_id=current_user.id,
+                    question_id=question_id,
+                    siswa_answer=user_answer,
+                    is_correct=is_correct,
+                    level=question.level,  # Keep for compatibility
+                    technology_level=question.technology_level,
+                    difficulty=question.difficulty,
+                    stage=current_stage
+                )
+                db.session.add(new_answer)
+        
+        # Calculate pass/fail (>50%)
+        score_percentage = (correct_count / total_count) * 100 if total_count > 0 else 0
+        passed = score_percentage > 50
+        
+        # Simple completion check - this appears to be legacy code
+        # The new MST system uses different endpoints and logic
+        diagnosis_text = f"Legacy Test Completed - Score: {score_percentage:.1f}%"
+        
+        return jsonify({
+            'success': True,
+            'test_complete': True,
+            'diagnosis': diagnosis_text,
+            'score': score_percentage,
+            'message': f'Legacy test completed with score: {score_percentage:.1f}%'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Terjadi kesalahan: {str(e)}'}), 500
+
+@app.route('/api/mst/status/<int:collection_id>', methods=['GET'])
+@login_required
+def get_mst_status(collection_id):
+    """Get current MST status for a student"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'user_type') or current_user.user_type != 'siswa':
+        return jsonify({'success': False, 'message': 'Akses ditolak'}), 403
+    
+    try:
+        # Get MST status using new system
+        mst_state = get_mst_state(current_user.id, collection_id)
+        mst_status = {
+            'stage': mst_state.current_stage,
+            'level': mst_state.current_level,
+            'questions_answered': mst_state.questions_answered or 0,
+            'questions_correct': mst_state.questions_correct or 0,
+            'test_completed': mst_state.test_completed,
+            'final_diagnosis': mst_state.final_diagnosis
+        }
+        
+        return jsonify({
+            'success': True,
+            'mst_status': mst_status,
+            'technology_levels': TECHNOLOGY_LEVELS
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Terjadi kesalahan: {str(e)}'}), 500
+
 # =========================================
 # ENDPOINT: GET_QUESTIONS (Dipanggil oleh result.html dan guru.html)
 # Mengambil semua data soal dari database
@@ -6584,6 +7854,7 @@ def get_questions_api():
                 "options": options,
                 "question_type": q.question_type,
                 "p": float(q.p),
+                "difficulty": q.difficulty if hasattr(q, 'difficulty') and q.difficulty else p_value_to_difficulty(float(q.p)),
                 "bobot": q.bobot,
                 "explanation": q.explanation,
                 "created_at": q.created_at.isoformat() if q.created_at else None,
@@ -6649,11 +7920,11 @@ def dashboard():
             
             # Format data koleksi
             for collection, guru in collections_data:
-                # Cek apakah koleksi baru
+                # Cek apakah koleksi baru (dibuat dalam 1 hari terakhir)
                 is_new = False
                 if collection.created_at:
                     delta = datetime.datetime.now() - collection.created_at
-                    is_new = delta.days < 7
+                    is_new = delta.days < 1
                 
                 collections.append({
                     'id': collection.id,
@@ -6973,8 +8244,9 @@ def export_result_excel():
             worksheet.write('A5', 'Koleksi Soal:', label_format)
             worksheet.write('B5', collection.name, data_format)
             
-            worksheet.write('D3', 'level Terakhir:', label_format)
-            worksheet.write('E3', result.current_level, data_format)
+            worksheet.write('D3', 'Level Terakhir:', label_format)
+            norm_level = normalize_level(result.current_level)
+            worksheet.write('E3', norm_level, data_format)
             
             worksheet.write('D4', 'Jawaban Benar:', label_format)
             worksheet.write('E4', result.correct, data_format)
@@ -6985,26 +8257,45 @@ def export_result_excel():
             total = result.correct + result.incorrect
             accuracy = f"{round((result.correct / total * 100), 2)}%" if total > 0 else "0%"
             
-            worksheet.write('G3', 'Total Soal:', label_format)
-            worksheet.write('H3', total, data_format)
+            # Tambahkan ringkas Nama Level (Taksonomi Teknologi) dan Basis Pengetahuan
+            worksheet.write('G3', 'Nama Level:', label_format)
+            try:
+                worksheet.write('H3', TECHNOLOGY_LEVELS.get(int(norm_level), str(norm_level)), data_format)
+            except Exception:
+                worksheet.write('H3', str(norm_level), data_format)
+
+            worksheet.write('G4', 'Basis Pengetahuan:', label_format)
+            worksheet.write('H4', get_technology_taxonomy_short(norm_level), data_format)
+
+            worksheet.write('G5', 'Total Soal:', label_format)
+            worksheet.write('H5', total, data_format)
             
-            worksheet.write('G4', 'Akurasi:', label_format)
-            worksheet.write('H4', accuracy, data_format)
+            worksheet.write('G6', 'Akurasi:', label_format)
+            worksheet.write('H6', accuracy, data_format)
             
-            worksheet.write('G5', 'Tanggal Pengerjaan:', label_format)
-            worksheet.write('H5', result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S'), data_format)
+            worksheet.write('G7', 'Tanggal Pengerjaan:', label_format)
+            worksheet.write('H7', result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S'), data_format)
+
+            # Status proses yang lebih spesifik (termasuk berhenti di Level X)
+            progress_status = "Belum Mulai"
+            if total > 0 and norm_level == 5:
+                progress_status = "Selesai (Level 5)"
+            elif total > 0 and 1 <= int(norm_level) < 5:
+                progress_status = f"Berhenti di Level {int(norm_level)}"
+            worksheet.write('G8', 'Status Proses:', label_format)
+            worksheet.write('H8', progress_status, data_format)
             
             # --- PERUBAHAN: Tambah keterangan level singkat ---
-            worksheet.write('A7', 'Keterangan Level:', label_format)
-            level_desc = get_level_description_short(result.current_level)
+            worksheet.write('A9', 'Keterangan Level:', label_format)
+            level_desc = get_level_description_short(norm_level)
             data_format_wrap = workbook.add_format({
                 'align': 'left',
                 'border': 1,
                 'text_wrap': True,
                 'valign': 'vcenter'
             })
-            worksheet.merge_range('B7:H7', level_desc, data_format_wrap)
-            worksheet.set_row(6, 40)  # Atur tinggi baris
+            worksheet.merge_range('B9:H9', level_desc, data_format_wrap)
+            worksheet.set_row(8, 40)  # Atur tinggi baris
             # --- PERUBAHAN SELESAI ---
             
             # Sesuaikan lebar kolom dengan spacing yang lebih baik
@@ -7025,12 +8316,15 @@ def export_result_excel():
                 # Buat dataframe untuk jawaban
                 answers_data = []
                 for answer in answers:
+                    ans_level = normalize_level(answer['level']) if 'level' in answer else None
                     answers_data.append({
                         'Soal': answer['question'],
                         'Jawaban Siswa': answer['user_answer'],
                         'Jawaban Benar': answer['correct_answer'],
                         'Status': 'Benar' if answer['is_correct'] else 'Salah',
-                        'level': answer['level'],
+                        'Level': ans_level,
+                        'Nama Level': TECHNOLOGY_LEVELS.get(int(ans_level), str(ans_level)),
+                        'Basis Pengetahuan': get_technology_taxonomy_short(ans_level),
                         'Waktu Menjawab': answer['answered_at']
                     })
                 
@@ -7060,11 +8354,23 @@ def export_result_excel():
                 worksheet2.set_column('C:C', 25)  # Jawaban Benar
                 worksheet2.set_column('D:D', 12)  # Status
                 worksheet2.set_column('E:E', 8)   # Level
-                worksheet2.set_column('F:F', 20)  # Waktu Menjawab
+                worksheet2.set_column('F:F', 24)  # Nama Level
+                worksheet2.set_column('G:G', 24)  # Basis Pengetahuan
+                worksheet2.set_column('H:H', 20)  # Waktu Menjawab
                 
                 # Set row height for data rows
                 for row in range(1, len(df_answers) + 1):
                     worksheet2.set_row(row, 25)
+            else:
+                # Tetap buat sheet Detail Jawaban dengan catatan jika belum ada jawaban tersimpan
+                df_empty = pd.DataFrame([{
+                    'Keterangan': 'Belum ada jawaban yang tersimpan untuk koleksi ini.'
+                }])
+                df_empty.to_excel(writer, sheet_name='Detail Jawaban', index=False)
+                worksheet2 = writer.sheets['Detail Jawaban']
+                for col_num, value in enumerate(df_empty.columns.values):
+                    worksheet2.write(0, col_num, value, header_format)
+                worksheet2.set_column('A:A', 60)
         
         # Kembali ke awal file
         output.seek(0)
@@ -7174,8 +8480,9 @@ def export_result_excel_teacher():
                 worksheet.write('B5', collection.name, data_format)
                 
                 # Result details
-                worksheet.write('D3', 'level Terakhir:', label_format)
-                worksheet.write('E3', result.current_level, data_format)
+                worksheet.write('D3', 'Level Terakhir:', label_format)
+                norm_level = normalize_level(result.current_level)
+                worksheet.write('E3', norm_level, data_format)
                 
                 worksheet.write('D4', 'Jawaban Benar:', label_format)
                 worksheet.write('E4', result.correct, data_format)
@@ -7187,26 +8494,44 @@ def export_result_excel_teacher():
                 total = result.correct + result.incorrect
                 accuracy = f"{round((result.correct / total * 100), 2)}%" if total > 0 else "0%"
                 
-                worksheet.write('G3', 'Total Soal:', label_format)
-                worksheet.write('H3', total, data_format)
+                # Tambah Nama Level dan Basis Pengetahuan
+                worksheet.write('G3', 'Nama Level:', label_format)
+                try:
+                    worksheet.write('H3', TECHNOLOGY_LEVELS.get(int(norm_level), str(norm_level)), data_format)
+                except Exception:
+                    worksheet.write('H3', str(norm_level), data_format)
+                worksheet.write('G4', 'Basis Pengetahuan:', label_format)
+                worksheet.write('H4', get_technology_taxonomy_short(norm_level), data_format)
+
+                worksheet.write('G5', 'Total Soal:', label_format)
+                worksheet.write('H5', total, data_format)
                 
-                worksheet.write('G4', 'Akurasi:', label_format)
-                worksheet.write('H4', accuracy, data_format)
+                worksheet.write('G6', 'Akurasi:', label_format)
+                worksheet.write('H6', accuracy, data_format)
                 
-                worksheet.write('G5', 'Tanggal Pengerjaan:', label_format)
-                worksheet.write('H5', result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S'), data_format)
+                worksheet.write('G7', 'Tanggal Pengerjaan:', label_format)
+                worksheet.write('H7', result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S'), data_format)
+
+                # Status proses yang lebih spesifik
+                progress_status = "Belum Mulai"
+                if total > 0 and norm_level == 5:
+                    progress_status = "Selesai (Level 5)"
+                elif total > 0 and 1 <= int(norm_level) < 5:
+                    progress_status = f"Berhenti di Level {int(norm_level)}"
+                worksheet.write('G8', 'Status Proses:', label_format)
+                worksheet.write('H8', progress_status, data_format)
                 
                 # --- PERUBAHAN: Tambah keterangan level singkat ---
-                worksheet.write('A7', 'Keterangan Level:', label_format)
-                level_desc = get_level_description_short(result.current_level)
+                worksheet.write('A9', 'Keterangan Level:', label_format)
+                level_desc = get_level_description_short(norm_level)
                 data_format_wrap = workbook.add_format({
                     'align': 'left',
                     'border': 1,
                     'text_wrap': True,
                     'valign': 'vcenter'
                 })
-                worksheet.merge_range('B7:H7', level_desc, data_format_wrap)
-                worksheet.set_row(6, 40)  # Atur tinggi baris
+                worksheet.merge_range('B9:H9', level_desc, data_format_wrap)
+                worksheet.set_row(8, 40)  # Atur tinggi baris
                 # --- PERUBAHAN SELESAI ---
                 
                 # Format columns
@@ -7227,12 +8552,15 @@ def export_result_excel_teacher():
                     # Create dataframe for answers
                     answers_data = []
                     for answer in answers:
+                        ans_level = normalize_level(answer['level']) if 'level' in answer else None
                         answers_data.append({
                             'Soal': answer['question'],
                             'Jawaban Siswa': answer['user_answer'],
                             'Jawaban Benar': answer['correct_answer'],
                             'Status': 'Benar' if answer['is_correct'] else 'Salah',
-                            'level': answer['level'],
+                            'Level': ans_level,
+                            'Nama Level': TECHNOLOGY_LEVELS.get(int(ans_level), str(ans_level)),
+                            'Basis Pengetahuan': get_technology_taxonomy_short(ans_level),
                             'Waktu Menjawab': answer['answered_at']
                         })
                     
@@ -7262,11 +8590,23 @@ def export_result_excel_teacher():
                         answer_sheet.set_column('C:C', 25)  # Jawaban Benar
                         answer_sheet.set_column('D:D', 12)  # Status
                         answer_sheet.set_column('E:E', 8)   # Level
-                        answer_sheet.set_column('F:F', 20)  # Waktu Menjawab
+                        answer_sheet.set_column('F:F', 24)  # Nama Level
+                        answer_sheet.set_column('G:G', 24)  # Basis Pengetahuan
+                        answer_sheet.set_column('H:H', 20)  # Waktu Menjawab
                         
                         # Set row height for data rows
                         for row in range(1, len(df_answers) + 1):
                             answer_sheet.set_row(row, 25)
+                else:
+                    # Buat sheet kosong dengan keterangan bila tidak ada jawaban
+                    df_empty = pd.DataFrame([{
+                        'Keterangan': 'Belum ada jawaban yang tersimpan untuk koleksi ini.'
+                    }])
+                    df_empty.to_excel(writer, sheet_name='Detail Jawaban', index=False)
+                    answer_sheet = writer.sheets['Detail Jawaban']
+                    for col_num, value in enumerate(df_empty.columns.values):
+                        answer_sheet.write(0, col_num, value, header_format)
+                    answer_sheet.set_column('A:A', 60)
             
             # Generate filename
             filename = f"Hasil_Tes_{student.nama}_{collection.name}_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx"
@@ -7298,10 +8638,10 @@ def export_result_excel_teacher():
                 worksheet = workbook.add_worksheet('Ringkasan Kelas')
                 
                 # Add title - disesuaikan untuk kolom baru
-                worksheet.merge_range('A1:K1', f"RINGKASAN HASIL TES KELAS {class_id} - {collection.name}", title_format)
+                worksheet.merge_range('A1:M1', f"RINGKASAN HASIL TES KELAS {class_id} - {collection.name}", title_format)
                 
-                # Set up headers for class summary - tambah Taksonomi Teknologi
-                headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Teknologi', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+                # Set up headers for class summary - gunakan Nama Level dan Basis Pengetahuan
+                headers = ['No', 'Nama', 'Kelas', 'Level', 'Nama Level', 'Keterangan Level', 'Basis Pengetahuan', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status', 'Tanggal Update']
                 for col, header in enumerate(headers):
                     worksheet.write(2, col, header, header_format)
                 
@@ -7312,8 +8652,9 @@ def export_result_excel_teacher():
                 
                 total_correct = 0
                 total_incorrect = 0
-                level_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0}
+                level_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
                 completed_count = 0
+                respondent_count = 0
                 
                 for student in students:
                     # Get student result
@@ -7328,16 +8669,19 @@ def export_result_excel_teacher():
                         incorrect = result.incorrect or 0
                         total = correct + incorrect
                         accuracy = round((correct / total * 100), 2) if total > 0 else 0
-                        current_level = result.current_level or 1
+                        current_level = normalize_level(result.current_level)
+                        if total <= 0:
+                            continue  # Skip students who haven't answered any question
                         
                         # Track level distribution
                         if current_level in level_distribution:
                             level_distribution[current_level] += 1
                         
                         # Track completion status
-                        is_completed = current_level in [5, 6, 7]
+                        is_completed = (current_level == 5)
                         if is_completed:
                             completed_count += 1
+                        respondent_count += 1
                             
                         # Update totals
                         total_correct += correct
@@ -7368,14 +8712,16 @@ def export_result_excel_teacher():
                         worksheet.write(row, 1, student.nama, data_format_teacher)
                         worksheet.write(row, 2, student.kelas, data_format_teacher)
                         worksheet.write(row, 3, current_level, num_format_teacher)
-                        # --- PERUBAHAN: Tambah kolom keterangan level dan Taksonomi Teknologi ---
-                        worksheet.write(row, 4, level_desc, description_format_teacher)
-                        worksheet.write(row, 5, get_technology_taxonomy_short(current_level), data_format_teacher)
-                        worksheet.write(row, 6, correct, num_format_teacher)
-                        worksheet.write(row, 7, incorrect, num_format_teacher)
-                        worksheet.write(row, 8, total, num_format_teacher)
-                        worksheet.write(row, 9, accuracy, num_format_teacher)
-                        worksheet.write(row, 10, "Selesai" if is_completed else "Sedang Mengerjakan" if total > 0 else "Belum Mulai", data_format_teacher)
+                        worksheet.write(row, 4, TECHNOLOGY_LEVELS.get(int(current_level), str(current_level)), data_format_teacher)
+                        worksheet.write(row, 5, level_desc, description_format_teacher)
+                        worksheet.write(row, 6, get_technology_taxonomy_short(current_level), data_format_teacher)
+                        worksheet.write(row, 7, correct, num_format_teacher)
+                        worksheet.write(row, 8, incorrect, num_format_teacher)
+                        worksheet.write(row, 9, total, num_format_teacher)
+                        worksheet.write(row, 10, accuracy, num_format_teacher)
+                        status_text = "Selesai" if is_completed else (f"Berhenti di Level {int(current_level)}" if total > 0 else "Belum Mulai")
+                        worksheet.write(row, 11, status_text, data_format_teacher)
+                        worksheet.write(row, 12, result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else '', data_format_teacher)
                         # --- PERUBAHAN SELESAI ---
                         
                         # Set row height for better readability
@@ -7386,24 +8732,23 @@ def export_result_excel_teacher():
                             'Nama': student.nama,
                             'Kelas': student.kelas,
                             'Level': current_level,
-                            # --- PERUBAHAN: Tambah keterangan level ke DataFrame ---
+                            'Nama Level': TECHNOLOGY_LEVELS.get(int(current_level), str(current_level)),
                             'Keterangan Level': level_desc,
-                            # --- PERUBAHAN SELESAI ---
                             'Jawaban Benar': correct,
                             'Jawaban Salah': incorrect,
                             'Total': total,
                             'Akurasi (%)': accuracy,
-                            'Status': "Selesai" if is_completed else "Sedang Mengerjakan" if total > 0 else "Belum Mulai"
+                            'Status': status_text,
+                            'Tanggal Update': result.updated_at.strftime('%d-%m-%Y %H:%M:%S') if result.updated_at else ''
                         })
                         
                         row += 1
                         student_number += 1
                 
                 # Add totals row
-                total_students = len(students)
                 total_answers = total_correct + total_incorrect
                 avg_accuracy = round((total_correct / total_answers * 100), 2) if total_answers > 0 else 0
-                completion_rate = round((completed_count / total_students * 100), 2) if total_students > 0 else 0
+                completion_rate = round((completed_count / respondent_count * 100), 2) if respondent_count > 0 else 0
                 
                 # Skip a row
                 row += 1
@@ -7411,47 +8756,46 @@ def export_result_excel_teacher():
                 # Summary row - sesuaikan posisi kolom untuk Taksonomi Teknologi
                 bold_format = workbook.add_format({'bold': True})
                 worksheet.write(row, 0, "SUMMARY", bold_format)
-                worksheet.write(row, 1, f"Total Siswa: {total_students}")
-                worksheet.write(row, 6, f"Total Benar: {total_correct}")
-                worksheet.write(row, 7, f"Total Salah: {total_incorrect}")
-                worksheet.write(row, 8, f"Total Jawaban: {total_answers}")
-                worksheet.write(row, 9, f"Akurasi Rata-rata: {avg_accuracy}%")
-                worksheet.write(row, 10, f"Penyelesaian: {completion_rate}%")
+                worksheet.write(row, 1, f"Total Responden: {respondent_count}")
+                worksheet.write(row, 7, f"Total Benar: {total_correct}")
+                worksheet.write(row, 8, f"Total Salah: {total_incorrect}")
+                worksheet.write(row, 9, f"Total Jawaban: {total_answers}")
+                worksheet.write(row, 10, f"Akurasi Rata-rata: {avg_accuracy}%")
+                worksheet.write(row, 11, f"Penyelesaian: {completion_rate}%")
                 
                 # Format columns dengan spacing yang lebih baik - tambah Taksonomi Teknologi
                 worksheet.set_column('A:A', 5)   # No
                 worksheet.set_column('B:B', 25)  # Nama
                 worksheet.set_column('C:C', 12)  # Kelas
                 worksheet.set_column('D:D', 8)   # Level
-                worksheet.set_column('E:E', 20)  # Keterangan Level (singkat)
-                worksheet.set_column('F:F', 18)  # Taksonomi Teknologi (format singkat)
-                worksheet.set_column('G:G', 15)  # Jawaban Benar
-                worksheet.set_column('H:H', 15)  # Jawaban Salah
-                worksheet.set_column('I:I', 10)  # Total
-                worksheet.set_column('J:J', 12)  # Akurasi (%)
-                worksheet.set_column('K:K', 18)  # Status
-                worksheet.set_column('G:G', 15)  # Jawaban Salah
-                worksheet.set_column('H:H', 10)  # Total
-                worksheet.set_column('I:I', 12)  # Akurasi (%)
-                worksheet.set_column('J:J', 18)  # Status
+                worksheet.set_column('E:E', 18)  # Nama Level
+                worksheet.set_column('F:F', 22)  # Keterangan Level (singkat)
+                worksheet.set_column('G:G', 20)  # Basis Pengetahuan (singkat)
+                worksheet.set_column('H:H', 15)  # Jawaban Benar
+                worksheet.set_column('I:I', 15)  # Jawaban Salah
+                worksheet.set_column('J:J', 10)  # Total
+                worksheet.set_column('K:K', 12)  # Akurasi (%)
+                worksheet.set_column('L:L', 18)  # Status
+                worksheet.set_column('M:M', 20)  # Tanggal Update
                 
                 # level Distribution Chart Sheet
                 level_sheet = workbook.add_worksheet('Distribusi Level')
                 
                 # Create level distribution data
                 level_data = []
-                for level, count in level_distribution.items():
+                for level in [1,2,3,4,5]:
+                    count = level_distribution.get(level, 0)
                     level_data.append({
                         'level': f"Level {level}",
                         'Jumlah Siswa': count,
-                        'Persentase': round((count / total_students * 100), 2) if total_students > 0 else 0,
+                        'Persentase': round((count / respondent_count * 100), 2) if respondent_count > 0 else 0,
                         'Keterangan': get_level_description_short(level),
-                        'Taksonomi Teknologi': get_technology_taxonomy(level)
+                        'Basis Pengetahuan': get_technology_taxonomy_short(level)
                     })
                 
                 # Write level distribution data
                 level_sheet.merge_range('A1:E1', f"DISTRIBUSI LEVEL - {collection.name}", title_format)
-                level_headers = ['Level', 'Jumlah Siswa', 'Persentase (%)', 'Keterangan', 'Taksonomi Teknologi']
+                level_headers = ['Level', 'Jumlah Siswa', 'Persentase (%)', 'Keterangan', 'Basis Pengetahuan']
                 for col, header in enumerate(level_headers):
                     level_sheet.write(2, col, header, header_format)
                 
@@ -7468,7 +8812,7 @@ def export_result_excel_teacher():
                     level_sheet.write(i + 3, 1, data['Jumlah Siswa'], num_format_teacher)
                     level_sheet.write(i + 3, 2, data['Persentase'], num_format_teacher)
                     level_sheet.write(i + 3, 3, data['Keterangan'], desc_format)
-                    level_sheet.write(i + 3, 4, data['Taksonomi Teknologi'], data_format_teacher)
+                    level_sheet.write(i + 3, 4, data['Basis Pengetahuan'], data_format_teacher)
                     level_sheet.set_row(i + 3, 25)  # Set row height
                 
                 # Format columns dengan spacing yang lebih baik
@@ -7481,17 +8825,17 @@ def export_result_excel_teacher():
                 # Create a chart for level distribution
                 chart = workbook.add_chart({'type': 'column'})
                 
-                # Add data series
+                # Add data series - force include Level 1..5 rows (3..7)
                 chart.add_series({
                     'name': 'Jumlah Siswa',
-                    'categories': ['Distribusi level', 3, 0, 9, 0],
-                    'values': ['Distribusi level', 3, 1, 9, 1],
+                    'categories': ['Distribusi Level', 3, 0, 7, 0],
+                    'values': ['Distribusi Level', 3, 1, 7, 1],
                     'data_labels': {'value': True}
                 })
                 
                 # Configure chart
-                chart.set_title({'name': 'Distribusi level'})
-                chart.set_x_axis({'name': 'level'})
+                chart.set_title({'name': 'Distribusi Level'})
+                chart.set_x_axis({'name': 'Level'})
                 chart.set_y_axis({'name': 'Jumlah Siswa'})
                 
                 # Insert chart
@@ -7506,10 +8850,10 @@ def export_result_excel_teacher():
                     class_sheet = writer.sheets['Data Lengkap']
                     class_sheet.set_column('A:A', 25)
                     class_sheet.set_column('B:B', 10)
-                    class_sheet.set_column('C:C', 10)
-                    class_sheet.set_column('D:D', 15)
-                    class_sheet.set_column('E:E', 15)
-                    class_sheet.set_column('F:F', 10)
+                    class_sheet.set_column('C:C', 14)
+                    class_sheet.set_column('D:D', 18)
+                    class_sheet.set_column('E:E', 22)
+                    class_sheet.set_column('F:F', 20)
                     class_sheet.set_column('G:G', 12)
                     class_sheet.set_column('H:H', 18)
             
@@ -7633,12 +8977,12 @@ def export_all_collection_data():
             summary_sheet.write('A6', 'Tanggal Dibuat:', label_format)
             summary_sheet.write('B6', collection.created_at.strftime('%d-%m-%Y %H:%M:%S') if collection.created_at else 'Unknown', data_format)
             
-            # Calculate overall statistics
-            total_students = len(students_query)
+            # Calculate overall statistics for respondents only
             total_correct = 0
             total_incorrect = 0
             completed_count = 0
-            level_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0}
+            level_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+            respondent_count = 0
             
             for student in students_query:
                 # Get result
@@ -7648,25 +8992,31 @@ def export_all_collection_data():
                 ).first()
                 
                 if result:
-                    total_correct += result.correct or 0
-                    total_incorrect += result.incorrect or 0
+                    correct = result.correct or 0
+                    incorrect = result.incorrect or 0
+                    total = correct + incorrect
+                    if total <= 0:
+                        continue  # Skip non-respondents
+                    total_correct += correct
+                    total_incorrect += incorrect
                     
                     # Track level distribution
-                    level = result.current_level or 1
+                    level = normalize_level(result.current_level)
                     if level in level_distribution:
                         level_distribution[level] += 1
                     
                     # Check if completed
-                    if level in [5, 6, 7]:
+                    if level == 5:
                         completed_count += 1
+                    respondent_count += 1
             
-            # Overall statistics
+            # Overall statistics (respondents only)
             total_answers = total_correct + total_incorrect
             avg_accuracy = (total_correct / total_answers * 100) if total_answers > 0 else 0
-            completion_rate = (completed_count / total_students * 100) if total_students > 0 else 0
+            completion_rate = (completed_count / respondent_count * 100) if respondent_count > 0 else 0
             
-            summary_sheet.write('D3', 'Total Siswa:', label_format)
-            summary_sheet.write('E3', total_students, num_format)
+            summary_sheet.write('D3', 'Total Responden:', label_format)
+            summary_sheet.write('E3', respondent_count, num_format)
             
             summary_sheet.write('D4', 'Jawaban Benar:', label_format)
             summary_sheet.write('E4', total_correct, num_format)
@@ -7684,7 +9034,7 @@ def export_all_collection_data():
             summary_sheet.write('H4', completion_rate / 100, percent_format)
             
             summary_sheet.write('G5', 'Siswa Selesai:', label_format)
-            summary_sheet.write('H5', f"{completed_count} / {total_students}", data_format)
+            summary_sheet.write('H5', f"{completed_count} / {respondent_count}", data_format)
             
             # level Distribution section
             summary_sheet.write('A9', 'Distribusi level:', heading_format)
@@ -7694,33 +9044,59 @@ def export_all_collection_data():
             summary_sheet.write('C10', 'Persentase', header_format)
             
             row = 11
-            for level, count in level_distribution.items():
-                percentage = (count / total_students * 100) if total_students > 0 else 0
-                
+            # Tulis baris distribusi secara eksplisit untuk Level 1..5 agar urutan konsisten
+            for level in [1, 2, 3, 4, 5]:
+                count = level_distribution.get(level, 0)
+                percentage = (count / respondent_count * 100) if respondent_count > 0 else 0
+
                 summary_sheet.write(f'A{row}', f"level {level}", data_format)
                 summary_sheet.write(f'B{row}', count, num_format)
                 summary_sheet.write(f'C{row}', percentage / 100, percent_format)
-                
+
                 row += 1
             
             # ===== KETERANGAN LEVEL SECTION =====
-            summary_sheet.write('A19', 'Keterangan Level Soal dan Taksonomi Teknologi:', heading_format)
+            summary_sheet.write('A19', 'Keterangan Level, Basis Pengetahuan, dan Indikator Soal:', heading_format)
             
             # Level descriptions with Technology taxonomy
             level_descriptions = [
-                ('Level 1', 'Stage I (Kotak 1) - Kesadaran Teknologi: Definisi, istilah, identifikasi teknologi dasar', 'Knowledge That'),
-                ('Level 2', 'Stage II (Kotak 2) - Literasi Teknologi: Klasifikasi, hubungan antar teknologi, penjelasan fungsi', 'Knowledge That'),
-                ('Level 3', 'Stage III (Kotak 3) - Kemampuan Teknologi: Aplikasi praktis, instruksi, puzzle urutan', 'Knowledge That + How'),
-                ('Level 4', 'Stage III (Kotak 4) - Kreativitas Teknologi (Dasar): Modifikasi, debugging, analisis error sederhana', 'Knowledge That + How'),
-                ('Level 5', 'Stage IV (Kotak 5) - Kemampuan Teknologi (Penguatan): Aplikasi lanjutan, puzzle assembly terbimbing', 'Knowledge That + How'),
-                ('Level 6', 'Stage IV (Kotak 6) - Kritik Teknologi: Evaluasi trade-off, menilai solusi, kritik teknologi', 'Knowledge That + How + Why'),
-                ('Level 7', 'Stage IV (Kotak 7) - Kreativitas + Kritik Teknologi (Final Tinggi): Merancang solusi baru, integrasi multi-konsep', 'Knowledge That + How + Why')
+                (
+                    'Level 1',
+                    'Kesadaran Teknologi: mengenali istilah, alat, dan fungsi dasar.',
+                    'Knowledge that',
+                    'Mengidentifikasi istilah/ikon/alat dasar; menyebutkan fungsi sederhana.'
+                ),
+                (
+                    'Level 2',
+                    'Literasi Teknologi: memahami konsep, prinsip dasar, dan konteks penggunaan.',
+                    'Knowledge that',
+                    'Menjelaskan konsep/prinsip; memberi contoh penggunaan; membaca diagram sederhana.'
+                ),
+                (
+                    'Level 3',
+                    'Kemampuan Teknologi: menerapkan alat/metode untuk memecahkan masalah.',
+                    'Knowledge that & how',
+                    'Menerapkan prosedur/alat untuk menyelesaikan tugas; menyusun langkah-langkah.'
+                ),
+                (
+                    'Level 4',
+                    'Kreativitas Teknologi: memodifikasi/merancang solusi baru yang bermanfaat.',
+                    'Knowledge that & how',
+                    'Merancang/memodifikasi solusi; menggabungkan beberapa alat/konsep; membuat variasi.'
+                ),
+                (
+                    'Level 5',
+                    'Kritik Teknologi: mengevaluasi dampak, efektivitas, etika, dan trade-off.',
+                    'Knowledge that, how & why',
+                    'Mengevaluasi alternatif/efektivitas; memberi alasan dan pertimbangan etis; membandingkan trade-off.'
+                )
             ]
             
             # Headers for level descriptions
             summary_sheet.write('A20', 'Level', header_format)
             summary_sheet.write('B20', 'Keterangan', header_format)
-            summary_sheet.write('C20', 'Taksonomi Teknologi', header_format)
+            summary_sheet.write('C20', 'Basis Pengetahuan', header_format)
+            summary_sheet.write('D20', 'Indikator Soal', header_format)
             
             # Create format for level descriptions with text wrapping
             description_format = workbook.add_format({
@@ -7731,12 +9107,16 @@ def export_all_collection_data():
             })
             
             row = 21
-            for level_name, description, technology_taxonomy in level_descriptions:
+            for level_name, description, technology_taxonomy, indicator in level_descriptions:
                 summary_sheet.write(f'A{row}', level_name, data_format)
                 summary_sheet.write(f'B{row}', description, description_format)
                 summary_sheet.write(f'C{row}', technology_taxonomy, description_format)
-                summary_sheet.set_row(row-1, 25)  # Set row height for better readability
+                summary_sheet.write(f'D{row}', indicator, description_format)
+                summary_sheet.set_row(row-1, 28)  # Sedikit lebih tinggi untuk indikator
                 row += 1
+
+            # Lebarkan kolom indikator agar teks rapi
+            summary_sheet.set_column('D:D', 45)
             
             # Format column widths with better spacing
             summary_sheet.set_column('A:A', 15)  # Level
@@ -7747,22 +9127,91 @@ def export_all_collection_data():
             summary_sheet.set_column('F:F', 3)
             summary_sheet.set_column('G:G', 22)
             summary_sheet.set_column('H:H', 18)
+
+            # ===== TOP SALAH QUESTIONS SECTION =====
+            # Hitung soal dengan jumlah salah terbanyak (top 5)
+            try:
+                questions = db.session.query(Question).join(
+                    CollectionQuestion,
+                    CollectionQuestion.question_id == Question.id
+                ).filter(
+                    CollectionQuestion.collection_id == collection_id
+                ).all()
+
+                top_wrong = []
+                for question in questions:
+                    answers = db.session.query(SiswaAnswer).filter_by(
+                        question_id=question.id
+                    ).all()
+                    incorrect_count = sum(1 for a in answers if not a.is_correct)
+                    total_ans = len(answers)
+                    accuracy_q = (1 - incorrect_count / total_ans) * 100 if total_ans > 0 else 0
+                    q_level = normalize_level(question.level)
+                    top_wrong.append({
+                        'Soal': question.soal,
+                        'Jumlah Salah': incorrect_count,
+                        'Total Jawaban': total_ans,
+                        'Akurasi (%)': round(accuracy_q, 2),
+                        'Level': q_level,
+                        'Nama Level': TECHNOLOGY_LEVELS.get(int(q_level), str(q_level))
+                    })
+
+                # Urutkan berdasarkan jumlah salah desc dan ambil 5 teratas
+                top_wrong.sort(key=lambda x: x['Jumlah Salah'], reverse=True)
+                top_wrong = top_wrong[:5]
+
+                start_row = row + 1  # rapatkan tanpa spasi berlebih di bawah tabel sebelumnya
+                summary_sheet.write(f'A{start_row}', 'Soal Paling Banyak Salah', heading_format)
+
+                header_row = start_row + 1
+                tw_headers = ['Soal', 'Jumlah Salah', 'Total Jawaban', 'Akurasi (%)', 'Level', 'Nama Level']
+                for col, header in enumerate(tw_headers):
+                    summary_sheet.write(header_row, col, header, header_format)
+
+                # Format wrap untuk teks soal
+                q_wrap_format = workbook.add_format({
+                    'align': 'left',
+                    'border': 1,
+                    'text_wrap': True,
+                    'valign': 'top'
+                })
+
+                data_row = header_row + 1
+                for item in top_wrong:
+                    summary_sheet.write(data_row, 0, item['Soal'], q_wrap_format)
+                    summary_sheet.write(data_row, 1, item['Jumlah Salah'], num_format)
+                    summary_sheet.write(data_row, 2, item['Total Jawaban'], num_format)
+                    summary_sheet.write(data_row, 3, item['Akurasi (%)'], num_format)
+                    summary_sheet.write(data_row, 4, item['Level'], num_format)
+                    summary_sheet.write(data_row, 5, item['Nama Level'], data_format)
+                    summary_sheet.set_row(data_row, 30)
+                    data_row += 1
+                # Lebarkan kolom agar rapi untuk tabel Top Wrong
+                summary_sheet.set_column('A:A', 60)  # Soal
+                summary_sheet.set_column('B:B', 16)  # Jumlah Salah
+                summary_sheet.set_column('C:C', 16)  # Total Jawaban
+                summary_sheet.set_column('D:D', 14)  # Akurasi (%)
+                summary_sheet.set_column('E:E', 10)  # Level
+                summary_sheet.set_column('F:F', 18)  # Nama Level
+            except Exception as e:
+                print(f"Error building top wrong questions section: {str(e)}")
             
             # ===== STUDENT RESULTS SHEET =====
             students_sheet = workbook.add_worksheet('Data Siswa')
             
             # Title - disesuaikan dengan jumlah kolom baru
-            students_sheet.merge_range('A1:K1', f"DATA SISWA - {collection.name}", title_format)
+            students_sheet.merge_range('A1:L1', f"DATA SISWA - {collection.name}", title_format)
             
             # Headers - tambah kolom Taksonomi Teknologi
-            headers = ['No', 'Nama', 'Kelas', 'Level', 'Keterangan Level', 'Taksonomi Teknologi', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+            headers = ['No', 'Nama', 'Kelas', 'Level', 'Nama Level', 'Keterangan Level', 'Basis Pengetahuan', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
             for col, header in enumerate(headers):
                 students_sheet.write(2, col, header, header_format)
             
-            # Student data
+            # Student data (respondents only); maintain continuous numbering
             student_data = []
             row = 3
-            for i, student in enumerate(students_query, 1):
+            no_counter = 1
+            for student in students_query:
                 # Get result
                 result = SiswaResult.query.filter_by(
                     siswa_id=student.id,
@@ -7773,28 +9222,28 @@ def export_all_collection_data():
                     correct = result.correct or 0
                     incorrect = result.incorrect or 0
                     total = correct + incorrect
+                    if total <= 0:
+                        continue  # Skip non-respondents
                     accuracy = (correct / total * 100) if total > 0 else 0
-                    current_level = result.current_level or 1
-                    is_completed = current_level in [5, 6, 7]
-                    status = "Selesai" if is_completed else "Sedang Mengerjakan" if total > 0 else "Belum Mulai"
+                    current_level = normalize_level(result.current_level) or 1
+                    is_completed = (current_level == 5)
+                    status = "Selesai" if is_completed else (f"Berhenti di Level {int(current_level)}" if total > 0 else "Belum Mulai")
                 else:
-                    correct = incorrect = total = accuracy = 0
-                    current_level = 1
-                    is_completed = False
-                    status = "Belum Mulai"
+                    continue  # Skip students without any result
                 
                 # Write to Excel - tambah kolom Taksonomi Teknologi
-                students_sheet.write(row, 0, i, num_format)
+                students_sheet.write(row, 0, no_counter, num_format)
                 students_sheet.write(row, 1, student.nama, data_format)
                 students_sheet.write(row, 2, student.kelas or "-", data_format)
                 students_sheet.write(row, 3, current_level, num_format)
-                students_sheet.write(row, 4, get_level_description_short(current_level), data_format)
-                students_sheet.write(row, 5, get_technology_taxonomy_short(current_level), data_format)
-                students_sheet.write(row, 6, correct, num_format)
-                students_sheet.write(row, 7, incorrect, num_format)
-                students_sheet.write(row, 8, total, num_format)
-                students_sheet.write(row, 9, accuracy, num_format)
-                students_sheet.write(row, 10, status, data_format)
+                students_sheet.write(row, 4, TECHNOLOGY_LEVELS.get(int(current_level), str(current_level)), data_format)
+                students_sheet.write(row, 5, get_level_description_short(current_level), data_format)
+                students_sheet.write(row, 6, get_technology_taxonomy_short(current_level), data_format)
+                students_sheet.write(row, 7, correct, num_format)
+                students_sheet.write(row, 8, incorrect, num_format)
+                students_sheet.write(row, 9, total, num_format)
+                students_sheet.write(row, 10, accuracy, num_format)
+                students_sheet.write(row, 11, status, data_format)
                 
                 # Set row height for better readability
                 students_sheet.set_row(row-1, 25)
@@ -7812,19 +9261,21 @@ def export_all_collection_data():
                 })
                 
                 row += 1
+                no_counter += 1
             
             # Format columns dengan spacing yang lebih baik - tambah kolom Taksonomi Bloom
             students_sheet.set_column('A:A', 5)   # No
             students_sheet.set_column('B:B', 25)  # Nama
             students_sheet.set_column('C:C', 12)  # Kelas
             students_sheet.set_column('D:D', 8)   # Level
-            students_sheet.set_column('E:E', 20)  # Keterangan Level (singkat)
-            students_sheet.set_column('F:F', 15)  # Taksonomi Bloom (format singkat)
-            students_sheet.set_column('G:G', 15)  # Jawaban Benar
-            students_sheet.set_column('H:H', 15)  # Jawaban Salah
-            students_sheet.set_column('I:I', 10)  # Total
-            students_sheet.set_column('J:J', 12)  # Akurasi (%)
-            students_sheet.set_column('K:K', 18)  # Status
+            students_sheet.set_column('E:E', 18)  # Nama Level
+            students_sheet.set_column('F:F', 22)  # Keterangan Level (singkat)
+            students_sheet.set_column('G:G', 20)  # Basis Pengetahuan
+            students_sheet.set_column('H:H', 15)  # Jawaban Benar
+            students_sheet.set_column('I:I', 15)  # Jawaban Salah
+            students_sheet.set_column('J:J', 10)  # Total
+            students_sheet.set_column('K:K', 12)  # Akurasi (%)
+            students_sheet.set_column('L:L', 18)  # Status
             
             # ===== CLASS SUMMARY SHEET =====
             # Group students by class
@@ -7842,14 +9293,14 @@ def export_all_collection_data():
             class_sheet.merge_range('A1:H1', f"RINGKASAN PER KELAS - {collection.name}", title_format)
             
             # Headers
-            class_headers = ['Kelas', 'Jumlah Siswa', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)', 'Siswa Selesai', 'Persentase Selesai (%)']
+            class_headers = ['Kelas', 'Jumlah Responden', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)', 'Siswa Selesai', 'Persentase Selesai (%)']
             for col, header in enumerate(class_headers):
                 class_sheet.write(2, col, header, header_format)
             
             # Class data
             row = 3
             for class_name, student_ids in classes.items():
-                student_count = len(student_ids)
+                respondents = 0
                 class_correct = 0
                 class_incorrect = 0
                 class_completed = 0
@@ -7862,24 +9313,30 @@ def export_all_collection_data():
                     ).first()
                     
                     if result:
-                        class_correct += result.correct or 0
-                        class_incorrect += result.incorrect or 0
-                        
-                        if result.current_level in [5, 6, 7]:
+                        corr = result.correct or 0
+                        inc = result.incorrect or 0
+                        tot = corr + inc
+                        if tot <= 0:
+                            continue
+                        class_correct += corr
+                        class_incorrect += inc
+                        lvl = normalize_level(result.current_level)
+                        if lvl == 5:
                             class_completed += 1
+                        respondents += 1
                 
                 class_total = class_correct + class_incorrect
                 class_accuracy = (class_correct / class_total * 100) if class_total > 0 else 0
-                completion_percentage = (class_completed / student_count * 100) if student_count > 0 else 0
+                completion_percentage = (class_completed / respondents * 100) if respondents > 0 else 0
                 
                 # Write to Excel
                 class_sheet.write(row, 0, class_name, data_format)
-                class_sheet.write(row, 1, student_count, num_format)
+                class_sheet.write(row, 1, respondents, num_format)
                 class_sheet.write(row, 2, class_correct, num_format)
                 class_sheet.write(row, 3, class_incorrect, num_format)
                 class_sheet.write(row, 4, class_total, num_format)
                 class_sheet.write(row, 5, class_accuracy, num_format)
-                class_sheet.write(row, 6, f"{class_completed} / {student_count}", data_format)
+                class_sheet.write(row, 6, f"{class_completed} / {respondents}", data_format)
                 class_sheet.write(row, 7, completion_percentage, num_format)
                 
                 row += 1
@@ -7908,10 +9365,10 @@ def export_all_collection_data():
                 question_sheet = workbook.add_worksheet('Analisis Soal')
                 
                 # Title - disesuaikan dengan kolom baru
-                question_sheet.merge_range('A1:G1', f"ANALISIS SOAL - {collection.name}", title_format)
+                question_sheet.merge_range('A1:H1', f"ANALISIS SOAL - {collection.name}", title_format)
                 
-                # Headers - tambah Taksonomi Teknologi
-                question_headers = ['Level', 'Taksonomi Teknologi', 'Soal', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)']
+                # Headers - tampilkan Nama Level dan Basis Pengetahuan
+                question_headers = ['Level', 'Nama Level', 'Basis Pengetahuan', 'Soal', 'Jawaban Benar', 'Jawaban Salah', 'Total Jawaban', 'Akurasi (%)']
                 for col, header in enumerate(question_headers):
                     question_sheet.write(2, col, header, header_format)
                 
@@ -7937,13 +9394,15 @@ def export_all_collection_data():
                     })
                     
                     # Write to Excel - tambah kolom Taksonomi Teknologi
-                    question_sheet.write(row, 0, question.level, num_format)
-                    question_sheet.write(row, 1, get_technology_taxonomy_short(question.level), data_format)
-                    question_sheet.write(row, 2, question.soal, question_format)
-                    question_sheet.write(row, 3, correct_count, num_format)
-                    question_sheet.write(row, 4, incorrect_count, num_format)
-                    question_sheet.write(row, 5, total_answers, num_format)
-                    question_sheet.write(row, 6, accuracy, num_format)
+                    q_level = normalize_level(question.level)
+                    question_sheet.write(row, 0, q_level, num_format)
+                    question_sheet.write(row, 1, TECHNOLOGY_LEVELS.get(int(q_level), str(q_level)), data_format)
+                    question_sheet.write(row, 2, get_technology_taxonomy_short(q_level), data_format)
+                    question_sheet.write(row, 3, question.soal, question_format)
+                    question_sheet.write(row, 4, correct_count, num_format)
+                    question_sheet.write(row, 5, incorrect_count, num_format)
+                    question_sheet.write(row, 6, total_answers, num_format)
+                    question_sheet.write(row, 7, accuracy, num_format)
                     
                     # Set row height for better readability
                     question_sheet.set_row(row-1, 30)
@@ -7952,12 +9411,13 @@ def export_all_collection_data():
                 
                 # Format columns dengan spacing yang lebih baik - tambah kolom Taksonomi Teknologi
                 question_sheet.set_column('A:A', 8)   # Level
-                question_sheet.set_column('B:B', 20)  # Taksonomi Teknologi (format singkat)
-                question_sheet.set_column('C:C', 45)  # Soal
-                question_sheet.set_column('D:D', 15)  # Jawaban Benar
-                question_sheet.set_column('E:E', 15)  # Jawaban Salah
-                question_sheet.set_column('F:F', 15)  # Total Jawaban
-                question_sheet.set_column('G:G', 15)  # Akurasi (%)
+                question_sheet.set_column('B:B', 18)  # Nama Level
+                question_sheet.set_column('C:C', 20)  # Basis Pengetahuan
+                question_sheet.set_column('D:D', 45)  # Soal
+                question_sheet.set_column('E:E', 15)  # Jawaban Benar
+                question_sheet.set_column('F:F', 15)  # Jawaban Salah
+                question_sheet.set_column('G:G', 15)  # Total Jawaban
+                question_sheet.set_column('H:H', 15)  # Akurasi (%)
                 
                 # Create charts worksheet
                 charts_sheet = workbook.add_worksheet('Grafik')
@@ -7969,15 +9429,17 @@ def export_all_collection_data():
                 level_chart = workbook.add_chart({'type': 'column'})
                 
                 # Configure the chart
+                # Data tabel Distribusi level di 'Ringkasan Koleksi' dimulai di baris 11 (1-based) s.d. 15
+                # XlsxWriter menggunakan indeks 0-based, jadi gunakan 10..14 agar Level 1 tidak terlewat
                 level_chart.add_series({
                     'name': 'Jumlah Siswa',
-                    'categories': ['Ringkasan Koleksi', 11, 0, 17, 0],
-                    'values': ['Ringkasan Koleksi', 11, 1, 17, 1],
+                    'categories': ['Ringkasan Koleksi', 10, 0, 14, 0],
+                    'values': ['Ringkasan Koleksi', 10, 1, 14, 1],
                     'data_labels': {'value': True}
                 })
                 
-                level_chart.set_title({'name': 'Distribusi level'})
-                level_chart.set_x_axis({'name': 'level'})
+                level_chart.set_title({'name': 'Distribusi Level'})
+                level_chart.set_x_axis({'name': 'Level'})
                 level_chart.set_y_axis({'name': 'Jumlah Siswa'})
                 
                 # Insert chart
@@ -8045,6 +9507,7 @@ def export_result_pdf():
         if not result:
             return jsonify({'success': False, 'message': 'Hasil tes tidak ditemukan'}), 404
         
+        mst_state = get_mst_state(user_id, collection_id)
         # Ambil jawaban siswa dan buat statistik
         answers = get_student_answer_history(user_id, collection_id)
         total = result.correct + result.incorrect
@@ -8087,7 +9550,8 @@ def export_result_pdf():
             accuracy=accuracy,
             recommendations=combined_recommendations,
             total_questions=total,
-            now=now
+            now=now,
+            mst_state=mst_state
         )
         
         # Fungsi untuk mengkonversi HTML ke PDF dengan xhtml2pdf yang ditingkatkan
@@ -8190,42 +9654,39 @@ def generate_ai_recommendations(student, result, collection_id):
         else:
             mastery_level = "rendah"
 
-        # Prompt AI untuk mendapatkan rekomendasi yang lebih alami seperti dari guru
+        # Prompt AI untuk analisis jawaban dan rekomendasi pembelajaran yang humanize
         prompt = f"""
-        Anda adalah seorang GURU AHLI yang memberikan rekomendasi belajar kepada siswa Anda berdasarkan hasil tes diagnostik.
-        Berikan rekomendasi yang KONKRET, PRAKTIS, dan MEMOTIVASI dengan NADA PERCAKAPAN LANGSUNG, seolah-olah Anda berbicara kepada siswa di kelas.
-        
-        DATA SISWA:
-        - Nama: {student.nama}
-        - Kelas: {student.kelas}
-        - Materi Tes: {collection_name}
-        - Level Pencapaian: {result.current_level} dari 7
-        - Tingkat Penguasaan: {mastery_level} ({mastery_percentage:.1f}%)
-        - Jawaban Benar: {result.correct}, Jawaban Salah: {result.incorrect}
-        
-        ANALISIS PERFORMA:
-        {performance_analysis}
-        
-        TUJUAN PEMBELAJARAN:
-        {chr(10).join([f"- {objective}" for objective in learning_objectives])}
-        
-        INSTRUKSI PENTING UNTUK REKOMENDASI:
-        1. Berikan 5-6 rekomendasi KONKRET untuk membantu siswa meningkatkan pemahaman
-        2. Gunakan BAHASA GURU yang JELAS dan PERSONAL (seperti "Kamu perlu..." atau "Coba lakukan...")
-        3. Setiap rekomendasi harus memiliki TINDAKAN SPESIFIK yang bisa langsung dilakukan
-        4. Untuk siswa dengan tingkat penguasaan {mastery_level}, fokuskan pada:
-           - {'Pemahaman konsep dasar dan latihan terstruktur' if mastery_level == 'rendah' else 'Pendalaman konsep dan aplikasi praktis' if mastery_level == 'sedang' else 'Pengembangan kreativitas dan penerapan tingkat lanjut'}
-        5. Hindari terminologi teknis yang sulit dipahami
-        6. Kaitkan setiap saran dengan tujuan pembelajaran spesifik
-        7. Setiap rekomendasi hanya 1-2 kalimat dengan format bullet point
-        
-        JANGAN GUNAKAN:
-        - Kata "domain", "level", atau "prompt"
-        - Huruf tebal, header, atau penanda format lainnya
-        - Format teknis seperti "**Domain Kognitif:**"
-        - Angka urutan pada rekomendasi (cukup gunakan bullet point)
+        Kamu adalah GURU yang baik dan peduli siswa. Berikan rekomendasi belajar yang SINGKAT, PRAKTIS, dan mudah dipahami.
 
-        Berikan rekomendasi dalam format bullet point sederhana ("• ").
+        PROFIL SISWA:
+        Nama: {student.nama}
+        Materi: {collection_name}
+        Level: {result.current_level} dari 7 level
+        Benar: {result.correct} soal | Salah: {result.incorrect} soal
+        Pemahaman: {mastery_level.upper()} ({mastery_percentage:.1f}%)
+
+        TUGASMU:
+        Berikan 3-4 saran belajar yang KONKRET dan SINGKAT. Maksimal 1-2 kalimat per saran.
+
+        GAYA BAHASA:
+        [OK] Gunakan "kamu" - akrab tapi sopan
+        [OK] Bahasa sehari-hari, tidak formal
+        [OK] Langsung to the point
+        [OK] Positif dan mendukung
+        [OK] Berikan alasan singkat kenapa penting
+
+        HINDARI:
+        [DITOLAK] Kalimat panjang dan bertele-tele
+        [DITOLAK] Bahasa formal ("direkomendasikan", "hendaknya")
+        [DITOLAK] Istilah teknis yang sulit
+        [DITOLAK] Bullet points atau numbering
+        [DITOLAK] Pengulangan yang tidak perlu
+
+        CONTOH YANG BAGUS:
+        "Kamu sudah bagus di bagian dasar. Sekarang fokus latihan soal aplikasi aja biar makin lancar."
+        "Coba buat ringkasan sendiri pakai kata-katamu. Ini bikin kamu lebih paham konsep dasarnya."
+
+        Buat rekomendasi yang sesuai dengan level pemahaman {student.nama} saat ini.
         """
 
         # Panggil AI untuk mendapatkan rekomendasi
@@ -8592,7 +10053,7 @@ def get_questions_context_for_recommendations(collection_id, current_level):
 
 def analyze_student_performance(student_id, result, collection_id):
     """
-    Analisis performa siswa yang lebih detail dengan fokus pada pencapaian tujuan pembelajaran
+    Analisis performa siswa dengan gaya percakapan guru yang hangat dan mendukung
     """
     try:
         # Ambil semua jawaban siswa untuk collection ini
@@ -8607,178 +10068,286 @@ def analyze_student_performance(student_id, result, collection_id):
         ).all()
         
         if not answers:
-            return "Belum ada data jawaban untuk analisis detail."
+            return "Belum bisa memberikan analisis detail karena data jawaban belum lengkap. Tapi gak apa-apa, nanti setelah kamu selesai mengerjakan beberapa soal lagi, aku bisa kasih feedback yang lebih spesifik."
         
-        # Analisis per level
+        total_questions = len(answers)
+        correct_answers = sum(1 for ans in answers if ans.is_correct)
+        accuracy_percentage = (correct_answers / total_questions * 100) if total_questions > 0 else 0
+        
+        # Analisis per level dengan bahasa yang lebih manusiawi
         level_performance = {}
         for answer in answers:
             if hasattr(answer, 'question') and answer.question and hasattr(answer.question, 'level'):
                 level = answer.question.level
                 if level not in level_performance:
-                    level_performance[level] = {'correct': 0, 'total': 0}
+                    level_performance[level] = {'correct': 0, 'total': 0, 'questions': []}
                 
                 level_performance[level]['total'] += 1
                 if answer.is_correct:
                     level_performance[level]['correct'] += 1
+                level_performance[level]['questions'].append({
+                    'question': answer.question.soal[:100] + "..." if len(answer.question.soal) > 100 else answer.question.soal,
+                    'correct': answer.is_correct
+                })
         
-        # Analisis per modul (jika informasi tersedia)
-        module_performance = {}
-        for answer in answers:
-            if (hasattr(answer, 'question') and answer.question and 
-                hasattr(answer.question, 'modul_reference') and 
-                answer.question.modul_reference):
-                    
-                module = answer.question.modul_reference
-                if module not in module_performance:
-                    module_performance[module] = {'correct': 0, 'total': 0}
-                
-                module_performance[module]['total'] += 1
-                if answer.is_correct:
-                    module_performance[module]['correct'] += 1
+        # Buat narasi analisis yang humanize
+        analysis_text = ""
         
-        # Format analisis
-        analysis_parts = []
+        # Pembuka yang hangat berdasarkan performa overall
+        if accuracy_percentage >= 80:
+            analysis_text += f"Wah, kamu sudah menunjukkan pemahaman yang sangat baik! Dari {total_questions} soal, kamu berhasil menjawab {correct_answers} soal dengan benar ({accuracy_percentage:.1f}%). Ini pencapaian yang patut dibanggakan."
+        elif accuracy_percentage >= 60:
+            analysis_text += f"Kemajuan yang cukup bagus nih! Kamu sudah bisa menjawab {correct_answers} dari {total_questions} soal dengan benar ({accuracy_percentage:.1f}%). Masih ada ruang untuk berkembang, tapi ini sudah langkah yang baik."
+        else:
+            analysis_text += f"Aku lihat kamu udah berusaha mengerjakan {total_questions} soal dan berhasil {correct_answers} soal ({accuracy_percentage:.1f}%). Jangan berkecil hati ya, yang penting kamu udah berani mencoba. Sekarang kita fokus untuk memperbaiki area yang masih kurang."
         
-        # Level performance
-        level_parts = []
+        # Analisis per tingkat kesulitan
+        analysis_text += "\n\nKalau dilihat dari tingkat kesulitannya:"
+        
+        strong_areas = []
+        improvement_areas = []
+        
+        level_descriptions = {
+            1: "soal-soal dasar (konsep fundamental)",
+            2: "soal pemahaman (mengerti konsep)",  
+            3: "soal aplikasi (menerapkan konsep)",
+            4: "soal problem solving (memecahkan masalah)",
+            5: "soal analisis (berpikir mendalam)",
+            6: "soal evaluasi (menilai dan membandingkan)",
+            7: "soal kreatif (menciptakan solusi baru)"
+        }
+        
         for level in sorted(level_performance.keys()):
             perf = level_performance[level]
             if perf['total'] > 0:
-                accuracy = round((perf['correct'] / perf['total'] * 100), 1)
-                level_parts.append(f"Level {level}: {perf['correct']}/{perf['total']} ({accuracy}%)")
+                accuracy = (perf['correct'] / perf['total'] * 100)
+                level_desc = level_descriptions.get(level, f"soal level {level}")
+                
+                if accuracy >= 75:
+                    strong_areas.append(f"{level_desc} ({perf['correct']}/{perf['total']})")
+                elif accuracy < 50:
+                    improvement_areas.append(f"{level_desc} ({perf['correct']}/{perf['total']})")
         
-        if level_parts:
-            analysis_parts.append("PERFORMA PER LEVEL: " + "; ".join(level_parts))
+        if strong_areas:
+            analysis_text += f"\n• Kamu sudah cukup kuat di: {', '.join(strong_areas)}"
         
-        # Module performance
-        if module_performance:
-            module_parts = []
-            for module, perf in module_performance.items():
-                if perf['total'] > 0:
-                    accuracy = round((perf['correct'] / perf['total'] * 100), 1)
-                    module_parts.append(f"{module}: {accuracy}%")
-            
-            if module_parts:
-                analysis_parts.append("PERFORMA PER MODUL: " + "; ".join(module_parts))
+        if improvement_areas:
+            analysis_text += f"\n• Area yang perlu lebih diasah: {', '.join(improvement_areas)}"
         
-        # Identifikasi area yang perlu diperkuat
-        weak_areas = []
+        # Identifikasi pola belajar dan saran spesifik
+        if len(level_performance) > 1:
+            # Cek apakah ada tren performa menurun di level tinggi
+            sorted_levels = sorted(level_performance.keys())
+            if len(sorted_levels) >= 3:
+                low_accuracy = sum(1 for level in sorted_levels[-2:] 
+                                 if (level_performance[level]['correct'] / level_performance[level]['total']) < 0.5)
+                if low_accuracy >= 1:
+                    analysis_text += "\n\nAku perhatiin nih, kamu mulai kesulitan di soal-soal yang lebih kompleks. Ini normal kok! Artinya kamu perlu sedikit lebih banyak latihan untuk soal yang butuh analisis mendalam."
+                    
+        # Tips berdasarkan pola kesalahan
+        if accuracy_percentage < 60:
+            analysis_text += "\n\nSaran dari aku: mulai dengan memperkuat konsep dasarnya dulu, baru nanti kita naik ke tingkat yang lebih tinggi. Seperti membangun rumah, fondasinya harus kuat dulu."
+        elif accuracy_percentage < 80:
+            analysis_text += "\n\nKamu udah punya dasar yang bagus, sekarang tinggal diasah lagi kemampuan aplikasi dan problem solvingnya. Coba perbanyak latihan soal dengan variasi yang berbeda-beda."
+        else:
+            analysis_text += "\n\nKemampuan kamu sudah sangat baik! Sekarang waktunya untuk mengeksplorasi hal-hal yang lebih menantang dan kreatif."
         
-        # Berdasarkan level
-        weak_levels = [level for level, perf in level_performance.items() 
-                      if perf['total'] > 0 and (perf['correct'] / perf['total']) < 0.6]
-        if weak_levels:
-            weak_areas.append(f"Level yang perlu dikuasai: {', '.join(map(str, weak_levels))}")
-        
-        # Berdasarkan modul
-        weak_modules = [module for module, perf in module_performance.items() 
-                       if perf['total'] > 0 and (perf['correct'] / perf['total']) < 0.6]
-        if weak_modules:
-            weak_areas.append(f"Modul yang perlu diperdalam: {', '.join(weak_modules)}")
-        
-        if weak_areas:
-            analysis_parts.append("AREA PENGEMBANGAN: " + "; ".join(weak_areas))
-        
-        # Jika tidak ada analisis yang dapat dibuat
-        if not analysis_parts:
-            return "Data belum cukup untuk analisis mendalam."
-            
-        return "\n".join(analysis_parts)
+        return analysis_text.strip()
         
     except Exception as e:
         print(f"Error analyzing student performance: {str(e)}")
         import traceback
         traceback.print_exc()
-        return "Tidak dapat menganalisis performa detail."
+        return "Maaf ya, ada kendala teknis saat menganalisis jawaban kamu. Tapi jangan khawatir, aku tetap bisa kasih saran belajar yang berguna berdasarkan hasil tes kamu."
 
 def parse_ai_recommendations_for_teacher(recommendations_text):
     """
-    Mengubah teks rekomendasi dari AI menjadi format bullet point yang bersih dan alami
+    Mengubah teks rekomendasi dari AI menjadi format narasi yang bersih untuk PDF
     """
-    recommendations = []
-    
-    # Bersihkan teks dan split berdasarkan baris
-    lines = recommendations_text.strip().split('\n')
-    
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-            
-        # Hapus format domain dan header
-        if any(header in line.lower() for header in ["domain", "**", "instruksi", "catatan:", "note:"]):
-            continue
-            
-        # Bersihkan bullet point dan format
-        clean_line = re.sub(r'^[\*\-\•\+\d\.\s]+', '', line).strip()
+    try:
+        # Bersihkan teks input
+        cleaned_text = recommendations_text.strip()
         
-        # Pastikan gaya bahasa guru yang personal
-        if len(clean_line) > 15:  # Minimal panjang yang masuk akal
-            # Pastikan dimulai dengan kata kerja atau kalimat personal
-            if not any(clean_line.lower().startswith(word) for word in ["coba", "lakukan", "buatlah", "kamu", "anda", "mulailah", "praktekkan", "gunakan"]):
-                clean_line = f"Coba {clean_line[0].lower()}{clean_line[1:]}"
+        if not cleaned_text:
+            return []
+        
+        # Hilangkan semua bullet points, numbering, dan format list
+        clean_patterns = [
+            r'^\s*[•◦▪▫–—\-\*\+]\s*',  # Bullet points
+            r'^\s*\d+\.\s*',            # Numbering (1., 2., etc.)
+            r'^\s*[a-zA-Z]\.\s*',       # Letter numbering (a., b., etc.)
+            r'^\s*[ivxlcdm]+\.\s*',     # Roman numerals
+            r'^[🔍💡📊[DITERIMA][DITOLAK]📈🎯📚💪🌟✨]\s*', # Emojis at start
+            r'^\s*[-*]\s*',             # Dashes
+            r'^\s*[[OK][DITOLAK]]\s*',           # Check marks
+        ]
+        
+        # Split by lines and clean each line
+        lines = cleaned_text.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
                 
-            recommendations.append(clean_line)
-    
-    # Jika rekomendasi terlalu sedikit, tambahkan dari default
-    if len(recommendations) < 3:
-        print("Warning: AI recommendations too few, adding default recommendations")
-    
-    return recommendations
+            # Skip section headers
+            if any(header in line.lower() for header in [
+                "bagian 1", "bagian 2", "analisis kondisi", "rekomendasi pembelajaran",
+                "tugasmu sebagai", "prinsip komunikasi", "hindari penggunaan",
+                "**", "###", "####"
+            ]):
+                continue
+            
+            # Clean the line from all patterns
+            cleaned_line = line
+            for pattern in clean_patterns:
+                cleaned_line = re.sub(pattern, '', cleaned_line, flags=re.IGNORECASE)
+            
+            cleaned_line = cleaned_line.strip()
+            
+            # Only keep meaningful content
+            if len(cleaned_line) > 15:
+                cleaned_lines.append(cleaned_line)
+        
+        # Join lines into paragraphs with proper spacing
+        if not cleaned_lines:
+            return [cleaned_text]  # Fallback to original
+        
+        # Group lines into paragraphs (assuming double line breaks separate paragraphs)
+        paragraphs = []
+        current_paragraph = []
+        
+        for line in cleaned_lines:
+            # Check if this line might be a new paragraph start
+            if (line[0].isupper() and len(current_paragraph) > 0 and 
+                any(end_marker in current_paragraph[-1] for end_marker in ['.', '!', '?', ':'])):
+                # Start new paragraph
+                if current_paragraph:
+                    paragraphs.append(' '.join(current_paragraph))
+                current_paragraph = [line]
+            else:
+                current_paragraph.append(line)
+        
+        # Add the last paragraph
+        if current_paragraph:
+            paragraphs.append(' '.join(current_paragraph))
+        
+        # Join paragraphs with double line breaks for PDF display
+        result = '\n\n'.join(paragraphs)
+        
+        # Final cleanup - remove any remaining artifacts
+        result = re.sub(r'\s+', ' ', result)  # Multiple spaces to single space
+        result = re.sub(r'\n\s+\n', '\n\n', result)  # Clean up paragraph breaks
+        
+        return [result] if result.strip() else [cleaned_text]
+        
+    except Exception as e:
+        print(f"Error parsing AI recommendations for PDF: {str(e)}")
+        # Return original text as fallback, but clean basic patterns
+        cleaned_basic = re.sub(r'^\s*[•\-\*\d+\.]\s*', '', recommendations_text, flags=re.MULTILINE)
+        return [cleaned_basic] if cleaned_basic.strip() else [recommendations_text]
 
 def get_teacher_style_recommendations(current_level, correct, incorrect, collection_name, learning_objectives=[], mastery_level="sedang"):
     """
-    Membuat rekomendasi dengan gaya guru berdasarkan tingkat penguasaan
+    Membuat rekomendasi pembelajaran dengan gaya guru yang humanize dan personal
     """
-    # Ekstrak kata kunci dari tujuan pembelajaran
-    keywords = []
+    total_questions = correct + incorrect
+    accuracy_percentage = (correct / total_questions * 100) if total_questions > 0 else 0
+    
+    # Ekstrak topik utama dari tujuan pembelajaran
+    main_topics = []
     for objective in learning_objectives:
-        words = re.findall(r'\b\w{3,}\b', objective.lower())
-        keywords.extend([w for w in words if w not in ["yang", "dan", "atau", "dengan", "untuk", "pada", "dari"]])
+        # Ambil kata kunci penting dari tujuan pembelajaran
+        words = re.findall(r'\b[a-zA-Z]{4,}\b', objective.lower())
+        main_topics.extend([w for w in words if w not in ["siswa", "dapat", "mampu", "memahami", "menjelaskan", "menggunakan", "menerapkan"]])
     
-    # Gunakan keywords yang paling sering muncul
+    # Gunakan topik yang paling relevan
     from collections import Counter
-    common_keywords = [word for word, count in Counter(keywords).most_common(5)] if keywords else []
-    keyword = common_keywords[0] if common_keywords else collection_name
+    relevant_topics = [topic for topic, count in Counter(main_topics).most_common(3)] if main_topics else [collection_name]
+    primary_topic = relevant_topics[0] if relevant_topics else collection_name
     
+    # Analisis kondisi belajar siswa
+    learning_condition = ""
+    if mastery_level == "rendah":
+        learning_condition = f"Kamu udah berusaha dengan baik! Dari {total_questions} soal, {correct} soal udah benar. Sekarang fokus perkuat dasarnya dulu ya."
+    elif mastery_level == "sedang":
+        learning_condition = f"Bagus! Kamu udah paham konsep dasar {collection_name}. Tinggal diasah lagi di beberapa area, pasti bisa naik level."
+    else:  # tinggi
+        learning_condition = f"Hebat! Kamu udah menguasai {collection_name} dengan baik. Sekarang saatnya tantangan yang lebih kreatif!"
+
     recommendations = []
     
     if mastery_level == "rendah":
         recommendations = [
-            f"Buatlah kartu belajar sederhana untuk konsep {keyword} dan latih pemahaman dasar setiap hari selama 15 menit.",
-            f"Coba rangkum materi {collection_name} dengan kata-katamu sendiri dan mintalah guru atau temanmu mengoreksinya.",
-            f"Latih pemahaman dasarmu dengan mengerjakan soal-soal tingkat awal secara bertahap dan catat bagian yang masih membingungkan.",
-            f"Gunakan video pembelajaran pendek untuk memahami konsep {keyword} dari sudut pandang yang berbeda.",
-            f"Bergabunglah dengan kelompok belajar untuk mendiskusikan materi yang masih sulit kamu pahami dan minta bantuan teman yang lebih paham."
+            f"Buat catatan visual pakai diagram atau mind map. Ini bikin kamu lebih mudah ingat konsep {primary_topic}.",
+            
+            f"Belajar 15 menit setiap hari aja dulu. Konsisten lebih penting daripada lama tapi jarang-jarang.",
+            
+            f"Jangan malu tanya ke teman atau guru kalau bingung. Kadang penjelasan orang lain bikin kita langsung paham.",
+            
+            f"Mulai dari soal mudah dulu, baru naik ke yang sulit. Kayak main game, harus step by step."
         ]
+        
     elif mastery_level == "sedang":
         recommendations = [
-            f"Buatlah peta konsep yang menghubungkan {keyword} dengan konsep-konsep terkait lainnya untuk memperdalam pemahamanmu.",
-            f"Coba kerjakan soal-soal dengan variasi tingkat kesulitan untuk meningkatkan kemampuan aplikasi konsep {collection_name}.",
-            f"Praktekkan penjelasan konsep {keyword} kepada temanmu untuk memastikan kamu benar-benar memahaminya.",
-            f"Gunakan contoh kasus nyata untuk mempraktekkan penerapan konsep yang sudah kamu pelajari dalam situasi berbeda.",
-            f"Identifikasi pola kesalahan yang kamu lakukan dalam tes, dan buatlah strategi khusus untuk memperbaikinya."
+            f"Coba hubungkan konsep {primary_topic} dengan kehidupan sehari-hari. Ini bikin pemahaman lebih dalam.",
+            
+            f"Tantang dirimu untuk jelasin materi ini ke teman yang belum paham. Kalau bisa jelasin, berarti kamu udah ngerti.",
+            
+            f"Variasikan jenis soal yang dikerjakan. Jangan monoton, cari yang lebih menantang.",
+            
+            f"Bikin jadwal review rutin setiap akhir minggu. Belajar perlu diulang-ulang, bukan cuma sekali lewat."
         ]
+        
     else:  # tinggi
         recommendations = [
-            f"Kembangkan proyek mini yang mengintegrasikan beberapa konsep dari {collection_name} untuk menguji pemahaman mendalam.",
-            f"Coba cari sumber belajar tambahan yang lebih menantang untuk memperluas wawasanmu tentang {keyword}.",
-            f"Buatlah tutorial atau materi belajar untuk membantu temanmu memahami konsep yang sudah kamu kuasai.",
-            f"Tantang dirimu dengan soal-soal pemecahan masalah kompleks yang membutuhkan analisis mendalam dan penerapan konsep.",
-            f"Diskusikan dengan guru tentang aplikasi lanjutan dari {collection_name} yang bisa kamu eksplorasi lebih jauh."
+            f"Saatnya eksplorasi {primary_topic} yang lebih mendalam. Cari artikel atau referensi tambahan.",
+            
+            f"Coba bikin project kecil yang nerapin beberapa konsep sekaligus. Misalnya presentasi atau infografis.",
+            
+            f"Jadilah mentor buat teman yang masih kesulitan. Ngajarin orang lain bikin pemahamanmu makin kuat.",
+            
+            f"Tantang dirimu dengan soal olimpiade atau kompetisi. Ini ngasah problem-solving skill yang berguna banget."
         ]
     
-    # Tambahkan satu rekomendasi motivasi
-    motivational = [
-        f"Ingat, kesalahan adalah bagian dari proses belajar. Terus berlatih dan kamu pasti akan menguasai {collection_name}!",
-        f"Percaya pada kemampuanmu! Dengan konsistensi dan latihan rutin, pemahamanmu tentang {collection_name} akan semakin meningkat.",
-        f"Tetap semangat dan jangan menyerah! Setiap langkah kecil dalam belajar {collection_name} akan membawamu pada pemahaman yang lebih baik."
+    # Tambahkan kata-kata motivasi dan dukungan yang personal
+    motivational_messages = [
+        f"Setiap orang punya kecepatan belajar yang beda, dan itu normal kok. Yang penting konsisten dan jangan malu tanya.",
+        
+        f"Aku percaya sama kemampuan kamu. Potensinya ada, tinggal diasah dengan cara yang tepat.",
+        
+        f"Jangan terlalu keras sama diri sendiri. Belajar itu proses, bukan hasil instan.",
+        
+        f"Kamu udah di jalur yang benar, cuma perlu penyesuaian strategi dikit aja. Tetap semangat!"
     ]
     
     import random
-    recommendations.append(random.choice(motivational))
+    selected_motivation = random.choice(motivational_messages)
     
-    return recommendations
+    # Format hasil akhir dengan gaya percakapan guru yang peduli (tanpa numbering untuk PDF)
+    result_parts = []
+    
+    # Tambahkan analisis kondisi
+    result_parts.append(learning_condition.strip())
+    
+    # Tambahkan intro rekomendasi
+    result_parts.append("Berdasarkan analisis hasil belajar kamu, berikut beberapa saran yang bisa membantu:")
+    
+    # Gabungkan semua rekomendasi menjadi paragraf narasi
+    for rec in recommendations:
+        result_parts.append(rec.strip())
+    
+    # Tambahkan motivasi
+    result_parts.append(selected_motivation.strip())
+    
+    # Tambahkan penutup
+    result_parts.append("Jika ada yang ingin didiskusikan atau butuh penjelasan lebih lanjut, jangan ragu untuk bertanya. Selalu ada dukungan untuk kemajuan belajarmu!")
+    
+    # Gabungkan semua bagian dengan paragraph breaks
+    final_result = '\n\n'.join(result_parts)
+    
+    return [final_result]  # Return sebagai list dengan satu item untuk kompatibilitas
 
 def get_contextual_default_recommendations(current_level, correct, incorrect, collection_name, 
                                            questions_context, learning_objectives, mastery_level="sedang"):
@@ -8859,6 +10428,95 @@ def get_contextual_default_recommendations(current_level, correct, incorrect, co
     return recommendations
 # =========================================
 # MAIN ENTRY POINT
+def generate_questions_with_gemini(prompt):
+    """
+    Generate soal menggunakan Gemini AI dan return hasil parsing
+    """
+    try:
+        print(f"[{datetime.datetime.now()}] Mengirim prompt ke Gemini AI ({len(prompt)} chars)...")
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+        print(f"[{datetime.datetime.now()}] Respons dari Gemini AI diterima.")
+        
+        # Parse questions menggunakan emergency parser
+        questions = emergency_json_parser(raw_text)
+        
+        # Apply MST distribution enforcement
+        final_questions = enforce_mst_distribution(questions)
+        
+        return final_questions
+        
+    except Exception as e:
+        print(f"Error generating questions with Gemini: {e}")
+        return []
+
+
+@app.route('/test-create-questions', methods=['GET'])
+def test_create_questions_api():
+    """Test endpoint untuk generate MST soal sesuai distribusi 94 soal (no login)"""
+    collection_name = "Test MST Collection"
+    description = "Pengenalan Aplikasi Microsoft Word - Materi mengenai pengenalan interface Microsoft Word dan fungsi dasar seperti membuat dokumen baru, menyimpan, dan format teks dasar."
+    
+    try:
+        # Generate mock module components for test
+        mock_components = {
+            'collection_name': collection_name,
+            'mata_pelajaran': 'Informatika',
+            'kelas': 'X',
+            'tujuan_pembelajaran': [description],
+            'kompetensi_awal': 'Siswa memahami penggunaan komputer dasar',
+            'pemahaman_bermakna': ['Pengenalan interface aplikasi']
+        }
+        
+        # Generate prompt
+        prompt = create_optimized_prompt_with_good_structure(mock_components)
+        
+        # Generate dengan Gemini
+        generated_questions = generate_questions_with_gemini(prompt)
+        
+        if not generated_questions:
+            return jsonify({
+                'success': False, 
+                'message': 'Gagal generate soal',
+                'prompt_used': prompt[:500] + "..." if len(prompt) > 500 else prompt
+            }), 500
+        
+        # Format response dengan distribusi detail per level
+        response_data = {
+            'success': True,
+            'message': f'Berhasil generate {len(generated_questions)} soal MST (target: 94 soal)',
+            'total_questions': len(generated_questions),
+            'target_questions': 94,
+            'questions': generated_questions,
+            'difficulty_distribution': {
+                'Easy': sum(1 for q in generated_questions if q.get('difficulty') == 'Easy'),
+                'Medium': sum(1 for q in generated_questions if q.get('difficulty') == 'Medium'), 
+                'Hard': sum(1 for q in generated_questions if q.get('difficulty') == 'Hard')
+            },
+            'level_distribution': {
+                f'L{i}': sum(1 for q in generated_questions if q.get('level') == i) for i in range(1, 6)
+            },
+            'expected_distribution': {
+                'L1': 'E:5, M:5',
+                'L2': 'E:12, H:8', 
+                'L3': 'E:5, M:8, H:7',
+                'L4': 'E:4, M:11, H:7',
+                'L5': 'E:11, M:7, H:4',
+                'Total': '94 soal (10+20+20+22+22)'
+            },
+            'prompt_used': prompt[:500] + "..." if len(prompt) > 500 else prompt
+        }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}',
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 # =========================================
 if __name__ == '__main__':  
     with app.app_context():
