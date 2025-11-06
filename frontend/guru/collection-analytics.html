@@ -689,6 +689,7 @@
               <thead>
                 <tr>
                   <th>Level</th>
+                  <th>Kesulitan</th>
                   <th>Soal</th>
                   <th>Jawaban Siswa</th>
                   <th>Status</th>
@@ -1688,7 +1689,7 @@
 
       // Answer history
       const historyTableBody = document.getElementById('modal-answer-history');
-      historyTableBody.innerHTML = '<tr><td colspan="5" class="text-center">Memuat riwayat jawaban...</td></tr>';
+  historyTableBody.innerHTML = '<tr><td colspan="6" class="text-center">Memuat riwayat jawaban...</td></tr>';
 
       try {
           const response = await fetch(`${window.location.origin}/api/siswa/results/${collectionId}?user_id=${studentId}`);
@@ -1704,7 +1705,7 @@
           });
 
           if (answerHistory.length === 0) {
-            historyTableBody.innerHTML = '<tr><td colspan="5" class="text-center">Belum ada riwayat jawaban</td></tr>';
+            historyTableBody.innerHTML = '<tr><td colspan="6" class="text-center">Belum ada riwayat jawaban</td></tr>';
           } else {
             historyTableBody.innerHTML = answerHistory.map(answer => {
               const questionText = answer.question.length > 30
@@ -1728,9 +1729,22 @@
               const level = answer.stage || 0;
               const levelClass = LEVEL_COLORS[level] || DEFAULT_LEVEL_COLOR;
 
+              // Tambahkan info kesulitan berdasarkan question_id atau field jawaban
+              const qid = (answer.question_id !== undefined && answer.question_id !== null)
+                ? answer.question_id
+                : (answer.id_question !== undefined ? answer.id_question : null);
+              let difficultyText = '-';
+              if (qid !== null) {
+                difficultyText = getQuestionDifficulty(qid);
+              } else if (answer.difficulty) {
+                difficultyText = answer.difficulty;
+              }
+              const difficultyBadge = difficultyBadgeHtml(difficultyText);
+
               return `
                 <tr>
                   <td><span class="badge ${levelClass}">L${level > 0 ? level : '?'}</span></td>
+                  <td>${difficultyBadge}</td>
                   <td title="${escapeHtml(answer.question)}">${escapeHtml(questionText)}</td>
                   <td>${escapeHtml(answer.user_answer)}</td>
                   <td>${answer.is_correct ?
@@ -1997,6 +2011,26 @@
           "'": '&#039;'
       };
       return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    // Helper: get question difficulty by question_id, fallback to '-' if unknown
+    function getQuestionDifficulty(questionId) {
+      try {
+        if (!questionId) return '-';
+        const q = (Array.isArray(questionsData) ? questionsData : []).find(q => q && q.id === questionId);
+        const diff = q && (q.difficulty || q.difficulty_text);
+        return diff || '-';
+      } catch (e) { return '-'; }
+    }
+
+    // Helper: render difficulty as a Bootstrap badge
+    function difficultyBadgeHtml(diff) {
+      const d = String(diff || '').toLowerCase();
+      if (d === 'easy' || d === 'mudah') return '<span class="badge bg-success">Mudah</span>';
+      if (d === 'medium' || d === 'sedang') return '<span class="badge bg-warning text-dark">Sedang</span>';
+      if (d === 'hard' || d === 'sulit') return '<span class="badge bg-danger">Sulit</span>';
+      if (!d || d === '-' ) return '<span class="badge bg-secondary">-</span>';
+      return `<span class="badge bg-secondary">${escapeHtml(diff)}</span>`;
     }
 
     // Prevent aria-hidden focus warnings by managing modal focus lifecycle
