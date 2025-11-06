@@ -6223,6 +6223,52 @@ def convert_text_to_dataframe_improved(text):
         return pd.DataFrame()
     
 # =========================================
+# VALIDATION MATRIX HELPERS (requirements per stage/difficulty)
+# =========================================
+
+def get_required_validation_pairs():
+    """Return required pairs of (technology_level -> list[difficulty]) for MST routing.
+    Based on system design:
+      - L1: Medium
+      - L2: Hard, Easy
+      - L3: Hard, Medium
+      - L4: Hard, Medium, Easy
+      - L5: Hard, Medium, Easy
+    """
+    return {
+        1: ['Medium'],
+        2: ['Hard', 'Easy'],
+        3: ['Hard', 'Medium'],
+        4: ['Hard', 'Medium', 'Easy'],
+        5: ['Hard', 'Medium', 'Easy'],
+    }
+
+def check_validation_matrix(collection_id):
+    """Check that the collection has at least one validated question for each required (level, difficulty) pair.
+    Returns: (ready: bool, missing: list[str]) where items are like 'L3-Hard'.
+    """
+    required = get_required_validation_pairs()
+    missing = []
+    try:
+        for lvl, diffs in required.items():
+            for diff in diffs:
+                count = db.session.query(Question).join(
+                    CollectionQuestion, CollectionQuestion.question_id == Question.id
+                ).filter(
+                    CollectionQuestion.collection_id == int(collection_id),
+                    Question.technology_level == int(lvl),
+                    Question.difficulty == diff,
+                    Question.is_validated == True
+                ).count()
+                if count == 0:
+                    missing.append(f"L{lvl}-{diff}")
+    except Exception as e:
+        print(f"[ValidationMatrix] Error checking matrix: {e}")
+        # Conservative: treat as missing all to block until fixed
+        return False, ['internal-error']
+    return (len(missing) == 0), missing
+
+# =========================================
 # GET QUESTION (per level)
 # =========================================
 @app.route('/get_question', methods=['GET'])
@@ -6262,6 +6308,16 @@ def get_question():
             
         # Get atau create MST state
         mst_state = get_mst_state(siswa_id, collection_id)
+        
+        # Cek pra-syarat: minimal 1 soal tervalidasi untuk setiap kombinasi level & kesulitan
+        ready, missing = check_validation_matrix(collection_id)
+        if not ready:
+            missing_str = ", ".join(missing) if isinstance(missing, list) else "-"
+            return jsonify({
+                "status": "blocked",
+                "message": "Tes belum dapat dimulai. Guru perlu memvalidasi minimal 1 soal untuk setiap kombinasi Level & Kesulitan (contoh: L1-Medium, L2-Easy, L2-Hard, ...). Yang belum tersedia: " + missing_str,
+                "missing": missing
+            }), 200
         
         # Cek apakah test sudah selesai
         if mst_state.test_completed:
@@ -7333,6 +7389,29 @@ def add_student_to_collection(collection_id):
 
         siswa_id = data['siswa_id']
 
+        # 2b. Cegah penambahan siswa jika belum terpenuhi matriks validasi minimal (level x kesulitan)
+        ready, missing = check_validation_matrix(collection_id)
+        if not ready:
+            missing_str = ", ".join(missing) if isinstance(missing, list) else "-"
+            return jsonify({
+                'success': False,
+                'message': 'Validasi minimal 1 soal untuk setiap kombinasi Level & Kesulitan diperlukan sebelum menambahkan siswa. Kombinasi yang belum tersedia: ' + missing_str,
+                'missing': missing
+            }), 200
+
+        # 2b. Cegah penambahan siswa jika BELUM ada soal tervalidasi di koleksi ini
+        validated_count = db.session.query(Question).join(
+            CollectionQuestion, CollectionQuestion.question_id == Question.id
+        ).filter(
+            CollectionQuestion.collection_id == collection_id,
+            Question.is_validated == True
+        ).count()
+        if validated_count == 0:
+            return jsonify({
+                'success': False,
+                'message': 'Validasi soal terlebih dahulu sebelum menambahkan siswa ke koleksi ini.'
+            }), 200
+
         # 3. Cek keberadaan siswa
         siswa = Siswa.query.get(siswa_id)
         if not siswa:
@@ -7509,6 +7588,16 @@ def add_students_by_class(collection_id):
             }), 400
 
         class_name = data['class_name']
+
+        # 2b. Cegah penambahan siswa jika BELUM ada soal tervalidasi di koleksi ini
+        ready, missing = check_validation_matrix(collection_id)
+        if not ready:
+            missing_str = ", ".join(missing) if isinstance(missing, list) else "-"
+            return jsonify({
+                'success': False,
+                'message': 'Validasi minimal 1 soal untuk setiap kombinasi Level & Kesulitan diperlukan sebelum menambahkan siswa berdasarkan kelas. Kombinasi yang belum tersedia: ' + missing_str,
+                'missing': missing
+            }), 200
 
         # 3. Dapatkan semua siswa di kelas tersebut yang belum terdaftar di koleksi ini
         students_to_add = Siswa.query.filter(

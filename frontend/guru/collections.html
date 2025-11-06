@@ -1325,9 +1325,55 @@
             });
 
             document.getElementById('manageStudentsBtn').addEventListener('click', () => {
-                if (currentCollection) {
-                    showManageStudentsModal();
-                }
+                if (!currentCollection) return;
+                // Cek matriks validasi: minimal 1 soal tervalidasi untuk setiap kombinasi Level & Kesulitan
+                try {
+                    const required = {
+                        1: ['Medium'],
+                        2: ['Hard','Easy'],
+                        3: ['Hard','Medium'],
+                        4: ['Hard','Medium','Easy'],
+                        5: ['Hard','Medium','Easy']
+                    };
+                    const items = Object.values(questionsCache || {});
+                    // Helper ambil difficulty text yang konsisten
+                    const getDiff = (q) => {
+                        const d = (q && (q.difficulty || q.difficulty_text)) || '';
+                        if (!d && typeof q?.p === 'number') {
+                            // fallback dari p jika perlu
+                            if (q.p >= 0 && q.p < 0.33) return 'Hard';
+                            if (q.p < 0.66) return 'Medium';
+                            return 'Easy';
+                        }
+                        return String(d).charAt(0).toUpperCase() + String(d).slice(1).toLowerCase();
+                    };
+                    const validatedPairs = new Set();
+                    items.forEach(q => {
+                        if (!q || q.is_validated !== true) return;
+                        const lvl = parseInt(q.technology_level || q.level || 0, 10);
+                        const diff = getDiff(q);
+                        if (lvl >= 1 && lvl <= 5 && ['Easy','Medium','Hard'].includes(diff)) {
+                            validatedPairs.add(`L${lvl}-${diff}`);
+                        }
+                    });
+                    const missing = [];
+                    Object.entries(required).forEach(([lvl, diffs]) => {
+                        diffs.forEach(d => {
+                            const key = `L${lvl}-${d}`;
+                            if (!validatedPairs.has(key)) missing.push(key);
+                        });
+                    });
+                    if (missing.length > 0) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Validasi Diperlukan',
+                            html: `Sebelum menambahkan siswa, validasi minimal 1 soal untuk setiap kombinasi Level & Kesulitan.<br><br><strong>Belum tersedia:</strong><br>${missing.join(', ')}`,
+                            confirmButtonText: 'Mengerti'
+                        });
+                        return;
+                    }
+                } catch (e) { /* noop - fallback izinkan modal, backend tetap guard */ }
+                showManageStudentsModal();
             });
 
             // Stage filter event listener

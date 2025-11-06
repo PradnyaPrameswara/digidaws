@@ -29,6 +29,8 @@
             --light-text-color: #6c757d;
             --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             --border-radius: 15px;
+            /* Tinggi navbar (di-update via JS agar tidak menutupi konten) */
+            --nav-offset: 72px;
         }
 
         body {
@@ -147,7 +149,8 @@
             border-radius: var(--border-radius);
             box-shadow: var(--card-shadow);
             padding: 2rem;
-            margin-top: 80px;
+            /* Jarak dari navbar agar konten tidak tertutup (dinamis) */
+            margin-top: calc(var(--nav-offset, 72px) + 16px);
         }
 
         .quiz-header h1 {
@@ -292,8 +295,8 @@
             }
             .quiz-container {
                 padding: 1.25rem;
-                /* Beri jarak di atas untuk navbar fixed agar konten tidak tertutup */
-                margin: 4.5rem 0.75rem 1rem; /* 4.5rem ≈ 72px */
+                /* Beri jarak di atas untuk navbar fixed agar konten tidak tertutup (dinamis) */
+                margin: calc(var(--nav-offset, 72px) + 12px) 0.75rem 1rem;
                 max-width: 100%;
             }
             .quiz-header h1 {
@@ -380,6 +383,18 @@
     <!-- SweetAlert2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        // Hitung tinggi navbar fixed-top dan set variabel CSS agar konten tidak tertutup
+        function updateNavOffset() {
+            try {
+                const nav = document.querySelector('.navbar.fixed-top');
+                const h = nav ? Math.ceil(nav.getBoundingClientRect().height) : 72;
+                document.documentElement.style.setProperty('--nav-offset', h + 'px');
+            } catch (e) { /* noop */ }
+        }
+        window.addEventListener('load', updateNavOffset);
+        window.addEventListener('resize', () => { updateNavOffset(); });
+        window.addEventListener('orientationchange', () => { updateNavOffset(); });
+
         // --- KONFIGURASI & VARIABEL GLOBAL ---
         const userId = "{{ current_user.id }}";
         const urlParams = new URLSearchParams(window.location.search);
@@ -417,15 +432,30 @@
                 const url = `${window.location.origin}/get_question?user_id=${userId}&collection_id=${collectionId}`;
                 const response = await fetch(url);
                 if (!response.ok) {
+                    // Coba ambil pesan error dari body jika tersedia
+                    let msg = `Gagal memuat soal (Status: ${response.status})`;
+                    try {
+                        const text = await response.text();
+                        try {
+                            const j = JSON.parse(text);
+                            if (j && j.message) msg = j.message;
+                        } catch (_) {
+                            if (text) msg = text;
+                        }
+                    } catch (_) {}
                     if (response.status === 403) {
-                        throw new Error(`Anda tidak memiliki izin untuk mengakses tes ini (Status: ${response.status})`);
+                        throw new Error(msg || `Anda tidak memiliki izin untuk mengakses tes ini (Status: ${response.status})`);
                     }
-                    throw new Error(`Gagal memuat soal (Status: ${response.status})`);
+                    throw new Error(msg);
                 }
                 
                 const data = await response.json();
                 currentQuestion = data;
 
+                if (data.status === "blocked") {
+                    showError(data.message || "Tes belum dapat dimulai. Mohon hubungi guru.");
+                    return;
+                }
                 if (data.status === "game over" || data.status === "win") {
                     showFinalResult(data.message);
                     return;
