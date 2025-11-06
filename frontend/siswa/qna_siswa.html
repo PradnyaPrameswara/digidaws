@@ -19,10 +19,12 @@
 
     <style>
         :root {
-            --primary-color: #667eea;
-            --primary-darker: #5a6fd8;
+            /* Gunakan biru Bootstrap untuk konsistensi tombol & indikator */
+            --primary-color: #0d6efd; /* primary */
+            --primary-darker: #0b5ed7; /* hover */
             --secondary-color: #f8f9fa;
-            --background-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            /* Ubah latar menjadi biru solid */
+            --background-gradient: #0d6efd;
             --text-color: #212529;
             --light-text-color: #6c757d;
             --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
@@ -171,9 +173,9 @@
         /* PERBAIKAN: Style untuk memperjelas teks soal */
         #question {
             font-size: 1.5rem; /* Ukuran font soal diperbesar */
-            font-weight: 500;
+            font-weight: 700; /* Tebalkan soal */
             line-height: 1.6;
-            margin-bottom: 1.5rem; /* Jarak ekstra di bawah soal */
+            margin-bottom: 0.5rem; /* Perkecil jarak di bawah soal agar tidak berlebihan */
             color: var(--text-color); /* Lebih gelap agar mudah dibaca */
         }
 
@@ -182,7 +184,10 @@
             border: 2px solid #e9ecef;
             border-left: 6px solid var(--primary-color);
             border-radius: 12px;
-            padding: 1rem 1.25rem;
+            /* Perbesar kolom soal */
+            padding: 1.5rem 1.75rem;
+            /* Kurangi min-height agar ruang kosong tidak berlebihan pada soal pendek */
+            min-height: clamp(110px, 14vh, 180px);
             background: #fff;
         }
         .question-header {
@@ -193,6 +198,9 @@
             font-weight: 500;
             color: var(--text-color); /* Lebih gelap agar mudah dibaca */
             white-space: pre-wrap; /* dukung baris baru pada soal */
+            text-align: center; /* PUSATKAN TEKS SOAL */
+            word-break: break-word; /* cegah overflow pada kata sangat panjang */
+            overflow-wrap: anywhere; /* dukung pemenggalan fleksibel di mobile */
         }
 
         /* Option Button Styles */
@@ -271,12 +279,21 @@
         }
 
         @media (max-width: 768px) {
+            /* Pastikan halaman dapat discroll di mobile */
+            html, body {
+                height: auto;
+                min-height: 100%;
+                overflow-x: hidden;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch; /* momentum scroll iOS */
+            }
             body {
                 padding: 0.75rem 0;
             }
             .quiz-container {
                 padding: 1.25rem;
-                margin: 0 0.75rem;
+                /* Beri jarak di atas untuk navbar fixed agar konten tidak tertutup */
+                margin: 4.5rem 0.75rem 1rem; /* 4.5rem ≈ 72px */
                 max-width: 100%;
             }
             .quiz-header h1 {
@@ -285,10 +302,15 @@
             .quiz-status {
                 font-size: 0.75rem;
             }
-            #question-area h3 {
-                /* PERBAIKAN: Diperbesar sedikit di mobile */
-                font-size: 1.2rem; 
-                padding: 0.5rem;
+            /* Skala ulang ukuran teks soal agar tetap nyaman dibaca di layar kecil */
+            #question {
+                font-size: 1.2rem;
+                line-height: 1.55;
+            }
+            /* Kolom soal tetap lebih besar namun proporsional di mobile */
+            .question-panel {
+                padding: 1.25rem 1.25rem;
+                min-height: 110px;
             }
             .option-btn {
                 padding: 0.5rem 0.75rem;
@@ -297,6 +319,10 @@
                 width: 24px;
                 height: 24px;
                 margin-right: 0.5rem;
+            }
+            .option-text {
+                font-size: 0.95rem;
+                line-height: 1.4;
             }
         }
     </style>

@@ -636,6 +636,64 @@
                 min-width: 0;
             }
         }
+
+        /* Global responsive helpers */
+        img, video {
+            max-width: 100%;
+            height: auto;
+        }
+        .text-wrap,
+        .question-text,
+        .collection-card .card-title,
+        .collection-card .card-text {
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+        }
+        .option-badge { white-space: normal; }
+
+        /* Extra mobile-first enhancements */
+        @media (max-width: 576px) {
+            body { padding-top: 56px; }
+            .main-navbar .navbar-brand { font-size: 1rem; }
+            .page-title { font-size: 1.25rem; }
+            .page-subtitle { font-size: 0.9rem; }
+            .collection-card .card-body { padding: 16px; }
+            .student-list { max-height: 220px; }
+            .action-buttons { width: 100%; gap: 6px; }
+            .btn-group-modern { width: 100%; }
+            .btn-group-modern .btn,
+            .action-buttons .btn,
+            .btn-sm-modern { width: 100%; }
+            .question-number { min-width: 22px; height: 22px; font-size: 0.8rem; }
+            .question-card { margin-bottom: 12px; }
+            /* Make modals full-screen on small devices */
+            .modal-dialog { margin: 0; }
+            .modal-content { border-radius: 0; }
+        }
+
+        /* Justify text for question content */
+        .question-text {
+            text-align: justify;
+            text-justify: inter-word;
+        }
+        /* Fallback: justify common question text containers inside question cards */
+        .question-card .card-body .question-text,
+        .question-card .card-body p.question,
+        .question-card .card-body p.soal {
+            text-align: justify;
+            text-justify: inter-word;
+        }
+
+        /* Footer */
+        .site-footer {
+            background: #ffffff;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .site-footer a { color: #0d6efd; }
+        .site-footer a:hover { text-decoration: underline; }
+        @media (max-width: 576px) {
+            .site-footer .row > [class^="col-"] { margin-top: 6px; margin-bottom: 6px; }
+        }
     </style>
 </head>
 
@@ -885,6 +943,24 @@
         </div>
     </div>
 
+    <!-- Footer sama seperti Dashboard Guru -->
+    <footer class="bg-light mt-5 py-4 border-top">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8">
+                    <h6 class="text-primary"><i class="bi bi-gear"></i> Sistem MST Adaptive - Dashboard Guru</h6>
+                    <p class="text-muted mb-0">
+                        <small>Multistage Adaptive Testing dengan 5 Level Taksonomi Teknologi.
+                        Sistem ini menggunakan alur percabangan kompleks untuk diagnosis kemampuan yang lebih akurat.</small>
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <!-- Tombol/tautan footer mengikuti dashboard (kosong sesuai permintaan) -->
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <div class="modal fade" id="editQuestionModal" tabindex="-1" aria-labelledby="editQuestionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
             <div class="modal-content">
@@ -1118,6 +1194,13 @@
 
             // Inisialisasi dropdown kelas
             populateClassSelect();
+
+            // Mobile enhancements
+            setupMobileEnhancements();
+
+            // Set footer year
+            const fy = document.getElementById('footerYear');
+            if (fy) fy.textContent = new Date().getFullYear();
         });
 
         // Loading Animation Helpers
@@ -1183,6 +1266,25 @@
             toastElement.addEventListener('hidden.bs.toast', () => {
                 toastElement.remove();
             });
+        }
+
+        // Improve mobile UX: collapse navbar after click and constrain tooltips
+        function setupMobileEnhancements() {
+            try {
+                const navbar = document.getElementById('mainNavbar');
+                document.addEventListener('click', (e) => {
+                    const link = e.target.closest('.navbar-nav .nav-link');
+                    if (!link) return;
+                    if (navbar && navbar.classList.contains('show')) {
+                        const bsCollapse = bootstrap.Collapse.getInstance(navbar) || new bootstrap.Collapse(navbar, { toggle: false });
+                        bsCollapse.hide();
+                    }
+                });
+
+                // Ensure tooltips render within body to avoid overflow on mobile
+                const tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                tooltipEls.forEach(el => el.setAttribute('data-bs-container', 'body'));
+            } catch (e) { /* noop */ }
         }
 
         function smoothScrollTo(element, offset = 100) {

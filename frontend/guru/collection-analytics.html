@@ -131,6 +131,56 @@
       border-radius: 50%;
       margin-right: 8px;
     }
+
+    /* Level Journey (MST 5 Tahap) */
+    .level-journey {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding: 4px 2px;
+    }
+    .journey-node {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-weight: 700;
+      color: #fff;
+      background: #6c757d; /* pending */
+      flex: 0 0 auto;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .journey-node.achieved { background: #198754; }
+    .journey-node.current { background: #0d6efd; }
+
+    .journey-line {
+      flex: 1 1 24px;
+      height: 6px;
+      border-radius: 3px;
+      background: #dee2e6; /* pending */
+      min-width: 24px;
+    }
+    .journey-line.achieved { background: #198754; }
+    .journey-line.current { background: linear-gradient(90deg, #198754 0%, #0d6efd 100%); }
+
+    .level-journey-labels {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: #6c757d;
+      margin-top: 6px;
+    }
+
+    @media (max-width: 576px) {
+      .journey-node { width: 32px; height: 32px; font-size: 0.85rem; }
+      .journey-line { min-width: 20px; }
+    }
   </style>
   <style>
     /* Logo in navbar */
@@ -652,16 +702,14 @@
           </div>
 
           <h5 class="mb-3 mt-4">Perjalanan Level (MST 5 Tahap)</h5>
-            <div class="progress level-progress" style="height: 30px;">
-              <div class="progress-bar bg-success" role="progressbar" style="width: 20%" aria-valuenow="1" aria-valuemin="0" aria-valuemax="100"><span class="level-label">L1</span></div>
-              <div class="progress-bar bg-info" role="progressbar" style="width: 20%" aria-valuenow="2" aria-valuemin="0" aria-valuemax="100"><span class="level-label">L2</span></div>
-              <div class="progress-bar bg-warning" role="progressbar" style="width: 20%" aria-valuenow="3" aria-valuemin="0" aria-valuemax="100"><span class="level-label">L3</span></div>
-              <div class="progress-bar bg-danger" role="progressbar" style="width: 20%" aria-valuenow="4" aria-valuemin="0" aria-valuemax="100"><span class="level-label">L4</span></div>
-              <div class="progress-bar bg-dark" role="progressbar" style="width: 20%" aria-valuenow="5" aria-valuemin="0" aria-valuemax="100"><span class="level-label">L5</span></div>
+          <div class="mt-2 mb-3">
+            <div id="levelJourneyViz" class="level-journey" aria-label="Perjalanan Level (jawaban benar saja)">
+              <!-- diisi via JS -->
             </div>
-          <div class="text-center mt-2 mb-4">
-            <!-- PERBAIKAN: Hapus bg-primary agar class dinamis bisa diterapkan -->
-            <span class="badge" id="modal-current-level-indicator">Level Tercapai: <span id="modal-current-level">-</span></span>
+            <!-- Label default L1-L5 dihilangkan karena kita hanya menampilkan level yang benar saja -->
+            <div class="text-center mt-2">
+              <span class="badge bg-primary" id="levelJourneyAchieved">Level Tercapai: -</span>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -768,6 +816,8 @@
     let questionsData = []; // Menyimpan data dari /api/collections/.../questions
     let chartInstances = {};
     let selectedClasses = {}; // Untuk menyimpan kelas yang dipilih
+    let lastStageByStudent = {}; // user_id -> { stage: number, answered_at: string }
+    let correctPathByStudent = {}; // user_id -> { levels: number[], highest: number|null }
 
     // --- Definisi Label dan Warna untuk 5 Tahap MST ---
     const MST_STAGES = ['L1', 'L2', 'L3', 'L4', 'L5'];
@@ -831,6 +881,7 @@
       document.getElementById('refreshDataBtn').addEventListener('click', refreshData);
       setupFilterListeners();
       setupExportFunctionality();
+      setupModalFocusManagement();
     });
 
     // Initialize analytics
@@ -924,7 +975,10 @@
                 return;
             }
             
-            const allAnswers = result.answers;
+    const allAnswers = result.answers;
+    // Reset maps
+    lastStageByStudent = {};
+    correctPathByStudent = {};
             
             questionsData.forEach(question => {
                 const answersForThisQ = allAnswers.filter(a => a.question_id === question.id);
@@ -936,7 +990,65 @@
                 question.accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
             });
 
-            console.log("Statistik Soal Diperbarui:", questionsData);
+      // Hitung level terakhir yang dijawab oleh setiap siswa (berdasarkan waktu jawaban terbaru)
+      allAnswers.forEach(a => {
+        const uid = a.user_id ?? a.student_id; // dukung kedua nama properti
+        if (!uid) return;
+        // Normalisasi stage/level
+        let raw = a.stage ?? a.technology_level ?? null;
+        if (typeof raw === 'string') {
+          const m = raw.match(/\d+/);
+          raw = m ? parseInt(m[0], 10) : NaN;
+        }
+        let lvl = parseInt(raw, 10);
+        if (!lvl || isNaN(lvl)) return;
+        lvl = Math.max(1, Math.min(5, lvl));
+
+        // Ambil waktu
+        let ts = 0;
+        if (a.answered_at) {
+          try { ts = new Date(a.answered_at).getTime(); } catch (_) { ts = 0; }
+        }
+
+        const cur = lastStageByStudent[uid];
+        if (!cur || (ts && ts >= (cur.ts ?? 0))) {
+          lastStageByStudent[uid] = { stage: lvl, answered_at: a.answered_at || null, ts };
+        }
+      });
+
+      // Hitung jalur level BENAR per siswa
+      const correctSets = {};
+      allAnswers.forEach(a => {
+        if (!a || !a.is_correct) return;
+        const uid = a.user_id ?? a.student_id;
+        if (!uid) return;
+        let raw = a.stage ?? a.technology_level ?? null;
+        if (typeof raw === 'string') {
+          const m = raw.match(/\d+/);
+          raw = m ? parseInt(m[0], 10) : parseInt(raw, 10);
+        }
+        let lvl = parseInt(raw, 10);
+        if (!lvl || isNaN(lvl)) {
+          // fallback ke questionsData
+          if (a.question_id && Array.isArray(questionsData)) {
+            const q = questionsData.find(q => q.id === a.question_id);
+            if (q && q.technology_level) lvl = parseInt(q.technology_level, 10);
+          }
+        }
+        if (!lvl || isNaN(lvl)) return;
+        lvl = Math.max(1, Math.min(5, lvl));
+        if (!correctSets[uid]) correctSets[uid] = new Set();
+        correctSets[uid].add(lvl);
+      });
+
+      Object.keys(correctSets).forEach(uid => {
+        const levels = Array.from(correctSets[uid]).sort((a,b) => a - b);
+        correctPathByStudent[uid] = { levels, highest: levels.length ? levels[levels.length - 1] : null };
+      });
+
+      console.log("Statistik Soal Diperbarui:", questionsData);
+      console.log("Level terakhir per siswa:", lastStageByStudent);
+      console.log("Jalur benar per siswa:", correctPathByStudent);
 
         } catch (error) {
             console.error("Error menghitung statistik soal:", error);
@@ -1351,29 +1463,26 @@
         const accuracy = result.accuracy || 0; 
         const currentLevelRaw = parseInt(result.current_level ?? 1);
         const currentLevel = Math.max(1, Math.min(5, (isNaN(currentLevelRaw) ? 1 : currentLevelRaw)));
-        // PERBAIKAN: Terapkan class warna dinamis + clamp 1..5
-        const levelClass = LEVEL_COLORS[currentLevel] || DEFAULT_LEVEL_COLOR;
+        // PERBAIKAN: Status = daftar level yang BENAR dilalui (contoh: "L1, L2, L3")
+        const correctInfo = correctPathByStudent[student.student_id] || { levels: [] };
+        const statusText = (correctInfo.levels && correctInfo.levels.length > 0)
+          ? correctInfo.levels.map(l => `L${l}`).join(', ')
+          : (student.status === 'belum_mengerjakan' ? 'Belum Mulai' : 'Belum Ada Jawaban Benar');
 
-        let statusBadge = '';
-        // PERBAIKAN: Gunakan 'student.status' DAN warnai hijau jika sudah menjawab
-    if (student.status === 'sudah_mengerjakan') {
-      statusBadge = `<span class="badge" style="background-color: ${MST_COLOR_ANSWERED}; color: white;">Selesai (L5)</span>`;
-    } else if (student.status === 'sedang_mengerjakan') {
-      // Sesuaikan wording dan clamp level ke 1..5
-      statusBadge = `<span class="badge" style="background-color: ${MST_COLOR_ANSWERED}; color: white;">Berhenti di L${currentLevel}</span>`;
-        } else if (student.status === 'belum_mengerjakan') {
-            statusBadge = `<span class="badge" style="background-color: ${MST_COLOR_NOT_STARTED}; color: white;">Belum Mulai</span>`;
-        } else {
-            statusBadge = `<span class="badge bg-danger">${student.status || 'Error'}</span>`;
-        }
+        // PERBAIKAN: Kolom Level menampilkan badge untuk setiap level yang BENAR dilalui
+        const levelBadgesHtml = (correctInfo.levels && correctInfo.levels.length > 0)
+          ? correctInfo.levels.map(l => {
+              const cls = LEVEL_COLORS[l] || DEFAULT_LEVEL_COLOR;
+              return `<span class="badge ${cls} me-1">L${l}</span>`;
+            }).join('')
+          : '<span class="text-muted">-</span>';
 
         return `
           <tr class="student-row" data-id="${student.student_id}">
             <td>${escapeHtml(student.student_name || '-')}</td>
             <td>${escapeHtml(student.student_class || '-')}</td>
-            <td>${statusBadge}</td>
-            <!-- PERBAIKAN: Terapkan class warna dinamis -->
-            <td><span class="badge ${levelClass}">L${currentLevel}</span></td>
+            <td>${statusText}</td>
+            <td>${levelBadgesHtml}</td>
             <td><span class="badge badge-correct">${result.correct || 0}</span></td>
             <td><span class="badge badge-incorrect">${result.incorrect || 0}</span></td>
             <td>${accuracy}%</td>
@@ -1535,7 +1644,7 @@
         return;
       }
       
-      const modal = new bootstrap.Modal(document.getElementById('studentDetailModal'));
+  const modal = new bootstrap.Modal(document.getElementById('studentDetailModal'), { focus: true, keyboard: true });
       modal.show();
       
       document.getElementById('modal-student-name').textContent = student.student_name || '-';
@@ -1545,30 +1654,31 @@
   const studentLevel = Math.max(1, Math.min(5, (isNaN(studentLevelRaw) ? 1 : studentLevelRaw)));
   const levelClass = LEVEL_COLORS[studentLevel] || DEFAULT_LEVEL_COLOR;
 
-      // PERBAIKAN: Terapkan class dinamis ke badge
+      // Tunda penentuan Level Tercapai sampai riwayat jawaban dimuat (hindari nilai yang menyesatkan)
       const levelBadge = document.getElementById('modal-student-level');
-      levelBadge.textContent = `L${studentLevel}`; 
-      levelBadge.className = `badge ${levelClass}`; 
-
-      const indicatorBadge = document.getElementById('modal-current-level');
-      indicatorBadge.textContent = `L${studentLevel}`;
-      const indicatorParent = document.getElementById('modal-current-level-indicator');
-      indicatorParent.className = `badge ${levelClass}`;
+      if (levelBadge) {
+        levelBadge.textContent = '-';
+        levelBadge.className = 'badge bg-secondary';
+      }
+      // Set placeholder for achieved badge; will be updated after fetching answer history
+      const prelimAchieved = document.getElementById('levelJourneyAchieved');
+      if (prelimAchieved) {
+        prelimAchieved.textContent = 'Level Tercapai: -';
+        prelimAchieved.className = 'badge bg-secondary';
+      }
 
       document.getElementById('modalExportBtn').setAttribute('data-student-id', studentId);
 
-      // Status
+      // Status: tampilkan Berhenti di Lx sesuai soal terakhir yang dijawab
       let statusText = '';
-    if (student.status === 'sudah_mengerjakan') {
-      statusText = `<span class="badge" style="background-color: ${MST_COLOR_ANSWERED}; color: white;">Selesai (L5)</span>`;
-    } else if (student.status === 'sedang_mengerjakan') {
-      // Sesuaikan wording dan clamp level ke 1..5
-      statusText = `<span class="badge" style="background-color: ${MST_COLOR_ANSWERED}; color: white;">Berhenti di L${studentLevel}</span>`;
-        } else if (student.status === 'belum_mengerjakan') {
-            statusText = `<span class="badge" style="background-color: ${MST_COLOR_NOT_STARTED}; color: white;">Belum Mulai</span>`;
-        } else {
-            statusText = `<span class="badge bg-danger">${student.status || 'Error'}</span>`;
-        }
+      if (student.status === 'belum_mengerjakan') {
+        statusText = `<span class="badge" style="background-color: ${MST_COLOR_NOT_STARTED}; color: white;">Belum Mulai</span>`;
+      } else {
+        // Tentukan dari peta global bila tersedia; akan dipertegas lagi setelah fetch history
+        const lastInfo = lastStageByStudent[student.student_id];
+        const lastStage = lastInfo?.stage || studentLevel;
+        statusText = `<span class="badge" style="background-color: ${MST_COLOR_ANSWERED}; color: white;">Berhenti di L${lastStage}</span>`;
+      }
       document.getElementById('modal-student-status').innerHTML = statusText;
 
       // Statistics
@@ -1630,6 +1740,50 @@
                 </tr>
               `;
             }).join('');
+          }
+
+          // Render Level Journey (berdasarkan jawaban benar saja)
+          try {
+            const { pathLevels, highest } = computeStudentLevelJourney(answerHistory);
+            renderLevelJourney(document.getElementById('levelJourneyViz'), pathLevels, highest);
+            const badge = document.getElementById('levelJourneyAchieved');
+            if (badge) {
+              if (highest) {
+                badge.textContent = `Level Tercapai: L${highest}`;
+                const lvlClass = LEVEL_COLORS[highest] || DEFAULT_LEVEL_COLOR;
+                badge.className = `badge ${lvlClass}`;
+              } else {
+                badge.textContent = 'Level Tercapai: -';
+                badge.className = 'badge bg-secondary';
+              }
+            }
+
+            // Sinkronkan juga badge "Level Tercapai" di bagian header modal
+            const headerLevelBadge = document.getElementById('modal-student-level');
+            if (headerLevelBadge) {
+              if (highest) {
+                const lvlClass = LEVEL_COLORS[highest] || DEFAULT_LEVEL_COLOR;
+                headerLevelBadge.textContent = `L${highest}`;
+                headerLevelBadge.className = `badge ${lvlClass}`;
+              } else {
+                headerLevelBadge.textContent = '-';
+                headerLevelBadge.className = 'badge bg-secondary';
+              }
+            }
+
+            // Perbarui status: Berhenti di level BENAR terakhir (highest correct), atau tampilkan info default
+            const modalStatus = document.getElementById('modal-student-status');
+            if (modalStatus) {
+              if (highest) {
+                modalStatus.innerHTML = `<span class="badge" style="background-color: ${MST_COLOR_ANSWERED}; color: white;">Berhenti di L${highest}</span>`;
+              } else if (!answerHistory.length && student.status === 'belum_mengerjakan') {
+                modalStatus.innerHTML = `<span class="badge" style="background-color: ${MST_COLOR_NOT_STARTED}; color: white;">Belum Mulai</span>`;
+              } else {
+                modalStatus.innerHTML = `<span class="badge bg-secondary">Belum Ada Jawaban Benar</span>`;
+              }
+            }
+          } catch (e) {
+            console.warn('Gagal merender perjalanan level:', e);
           }
       } catch (error) {
           console.error("Gagal fetch detail jawaban:", error);
@@ -1843,6 +1997,60 @@
           "'": '&#039;'
       };
       return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    // Prevent aria-hidden focus warnings by managing modal focus lifecycle
+    function setupModalFocusManagement() {
+      try {
+        const modalEl = document.getElementById('studentDetailModal');
+        if (!modalEl) return;
+
+        // Track which element opened the modal to restore focus later
+        document.addEventListener('click', function (e) {
+          const trigger = e.target.closest('.view-student-btn');
+          if (trigger) {
+            document.querySelectorAll('[data-opened-student-modal]')
+              .forEach(el => el.removeAttribute('data-opened-student-modal'));
+            trigger.setAttribute('data-opened-student-modal', 'true');
+          }
+        });
+
+        // Before hiding, blur any focused element inside the modal
+        modalEl.addEventListener('hide.bs.modal', function () {
+          const active = document.activeElement;
+          if (active && modalEl.contains(active)) {
+            try { active.blur(); } catch (_) {}
+          }
+        });
+
+        // After hidden, mark modal inert and restore focus to opener (or body)
+        modalEl.addEventListener('hidden.bs.modal', function () {
+          modalEl.setAttribute('inert', '');
+          const opener = document.querySelector('[data-opened-student-modal="true"]');
+          if (opener && typeof opener.focus === 'function') {
+            opener.focus();
+            opener.removeAttribute('data-opened-student-modal');
+          } else {
+            try { document.body.focus(); } catch (_) {}
+          }
+        });
+
+        // When shown, remove inert and ensure focus is inside
+        modalEl.addEventListener('show.bs.modal', function () {
+          modalEl.removeAttribute('inert');
+        });
+
+        modalEl.addEventListener('shown.bs.modal', function () {
+          const closeBtn = modalEl.querySelector('.btn-close');
+          if (closeBtn && typeof closeBtn.focus === 'function') {
+            try { closeBtn.focus(); } catch (_) {}
+          } else if (typeof modalEl.focus === 'function') {
+            try { modalEl.focus(); } catch (_) {}
+          }
+        });
+      } catch (err) {
+        console.warn('setupModalFocusManagement failed:', err);
+      }
     }
 
 
@@ -2098,6 +2306,54 @@
           timer: 2000
         });
       }, 1000);
+    }
+
+    // --- Level Journey Helpers ---
+    function computeStudentLevelJourney(answerHistory) {
+      // Kumpulkan semua level yang dijawab BENAR (tidak harus berurutan)
+      const correctLevelsSet = new Set();
+      (answerHistory || []).forEach(ans => {
+        if (!ans || !ans.is_correct) return;
+        // Ambil level dari ans.stage yang bisa berupa 'L2' atau 2, fallback ke questionsData
+        let raw = ans.stage ?? ans.technology_level ?? 0;
+        if (typeof raw === 'string') {
+          const m = raw.match(/\d+/);
+          raw = m ? parseInt(m[0], 10) : parseInt(raw, 10);
+        }
+        let lvl = parseInt(raw, 10);
+        if (!lvl || isNaN(lvl)) {
+          if (ans.question_id && Array.isArray(questionsData)) {
+            const q = questionsData.find(q => q.id === ans.question_id);
+            if (q && q.technology_level) lvl = parseInt(q.technology_level, 10);
+          }
+        }
+        if (!lvl || isNaN(lvl)) return;
+        lvl = Math.max(1, Math.min(5, lvl));
+        correctLevelsSet.add(lvl);
+      });
+
+      const pathLevels = Array.from(correctLevelsSet).sort((a,b) => a - b);
+      const highest = pathLevels.length ? pathLevels[pathLevels.length - 1] : null;
+      return { pathLevels, highest };
+    }
+
+    function renderLevelJourney(container, pathLevels, highest) {
+      if (!container) return;
+      // Jika tidak ada capaian
+      if (!pathLevels || pathLevels.length === 0) {
+        container.innerHTML = '<div class="text-muted small">Belum ada jawaban benar.</div>';
+        return;
+      }
+      // Tampilkan HANYA level yang benar saja, berurutan naik
+      const parts = [];
+      pathLevels.forEach((lvl, idx) => {
+        const stateClass = lvl === highest ? 'current' : 'achieved';
+        parts.push(`<div class="journey-node ${stateClass}">L${lvl}</div>`);
+        if (idx < pathLevels.length - 1) {
+          parts.push('<div class="journey-line achieved"></div>');
+        }
+      });
+      container.innerHTML = parts.join('');
     }
   </script>
 </body>
