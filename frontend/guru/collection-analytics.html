@@ -1249,30 +1249,30 @@
       updateClassComparisonChart(studentsData);
     }
 
-    // Initialize level distribution chart (MST 5 Tahap)
+  // Initialize level distribution chart (MST 5 Tahap)
     function initlevelDistributionChart() {
         const ctx = document.getElementById('levelDistributionChart')?.getContext('2d');
         if (!ctx) return; 
 
-        const stageData = calculateStageData(studentsData);
+    const stageData = calculateStageData(studentsData);
 
         chartInstances.levelDistribution = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: MST_LABELS,
                 datasets: [
-                    {
-                        label: 'Belum Mengerjakan',
-                        data: MST_STAGES.map(stage => stageData[stage].notStarted),
-                        backgroundColor: MST_COLOR_NOT_STARTED, // Abu-abu
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Sudah Mengerjakan (Selesai/Berhenti)',
-                        data: MST_STAGES.map(stage => stageData[stage].answered),
-                        backgroundColor: MST_COLOR_ANSWERED, // Hijau
-                        borderWidth: 1
-                    }
+          {
+            label: 'Tercapai',
+            data: MST_STAGES.map(stage => stageData[stage].achieved),
+            backgroundColor: MST_COLOR_ANSWERED, // Hijau (tercapai)
+            borderWidth: 1
+          },
+          {
+            label: 'Belum Tercapai',
+            data: MST_STAGES.map(stage => stageData[stage].notAchieved),
+            backgroundColor: MST_COLOR_NOT_STARTED, // Abu-abu (belum tercapai)
+            borderWidth: 1
+          }
                 ]
             },
             options: {
@@ -1308,7 +1308,7 @@
         chartInstances.levelDistribution.stageData = stageData;
     }
     
-    // Chart kedua di tab "Analisis Level"
+  // Chart kedua di tab "Analisis Level"
     function initlevelDistributionChart2() {
         const ctx = document.getElementById('levelDistributionChart2')?.getContext('2d'); 
         if (!ctx) {
@@ -1316,25 +1316,25 @@
             return; 
         }
         
-        const stageData = calculateStageData(studentsData);
+    const stageData = calculateStageData(studentsData);
 
         chartInstances.levelDistribution2 = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: MST_LABELS,
                 datasets: [ 
-                    {
-                        label: 'Belum Mengerjakan',
-                        data: MST_STAGES.map(stage => stageData[stage].notStarted),
-                        backgroundColor: MST_COLOR_NOT_STARTED,
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Sudah Mengerjakan (Selesai/Berhenti)',
-                        data: MST_STAGES.map(stage => stageData[stage].answered),
-                        backgroundColor: MST_COLOR_ANSWERED,
-                        borderWidth: 1
-                    }
+          {
+            label: 'Tercapai',
+            data: MST_STAGES.map(stage => stageData[stage].achieved),
+            backgroundColor: MST_COLOR_ANSWERED,
+            borderWidth: 1
+          },
+          {
+            label: 'Belum Tercapai',
+            data: MST_STAGES.map(stage => stageData[stage].notAchieved),
+            backgroundColor: MST_COLOR_NOT_STARTED,
+            borderWidth: 1
+          }
                 ]
             },
             options: { // Opsi sama dengan chart pertama
@@ -1362,31 +1362,40 @@
         chartInstances.levelDistribution2.stageData = stageData;
     }
 
-    // Helper untuk menghitung data stage
-    function calculateStageData(filteredStudents) {
-        const stageData = {};
-        MST_STAGES.forEach(stage => {
-            stageData[stage] = { answered: 0, notStarted: 0 };
-        });
+  // Helper untuk menghitung data stage berbasis pencapaian level benar (bukan hanya level akhir)
+  // Setiap siswa yang telah menjawab benar di suatu level akan dihitung sebagai 'Tercapai' untuk level tersebut.
+  // 'Belum Tercapai' = siswa yang telah mulai tes namun belum memiliki jawaban benar di level itu.
+  // Siswa yang sama akan muncul di beberapa level jika perjalanan mereka melewati beberapa tahap.
+  function calculateStageData(filteredStudents) {
+    const stageData = {};
+    MST_STAGES.forEach(stage => {
+      stageData[stage] = { achieved: 0, notAchieved: 0 };
+    });
 
-        filteredStudents.forEach(student => {
-            const currentLevel = parseInt(student.result?.current_level || 1);
-            const validLevel = Math.max(1, Math.min(5, currentLevel));
-            const stage = `L${validLevel}`; 
+    filteredStudents.forEach(student => {
+      const correctInfo = correctPathByStudent[student.student_id] || { levels: [] };
+      const achievedSet = new Set(correctInfo.levels || []);
+      const hasStarted = (student.status === 'sudah_mengerjakan' || student.status === 'sedang_mengerjakan');
 
-            if (stageData[stage]) {
-                if (student.status === 'sudah_mengerjakan' || student.status === 'sedang_mengerjakan') {
-                    stageData[stage].answered++;
-                } else { // 'belum_mengerjakan' atau status error
-                    stageData[stage].notStarted++; 
-                }
-            } else {
-                console.warn(`Invalid stage derived in calculate: ${stage} for level ${currentLevel}`);
-            }
-        });
-        console.log("Calculated Stage Data (Answered/NotStarted):", stageData);
-        return stageData;
-    }
+      MST_STAGES.forEach(stageCode => {
+        const levelNum = parseInt(stageCode.replace('L',''), 10);
+        if (achievedSet.has(levelNum)) {
+          stageData[stageCode].achieved += 1;
+        } else if (hasStarted) {
+          // Siswa sudah mulai tapi belum mencapai level ini
+          stageData[stageCode].notAchieved += 1;
+        } else {
+          // Siswa belum mulai sama sekali: hanya relevan untuk L1 agar tidak mendistorsi level tinggi
+          if (levelNum === 1) {
+            stageData[stageCode].notAchieved += 1;
+          }
+        }
+      });
+    });
+
+    console.log("Calculated Stage Data (Achieved/NotAchieved):", stageData);
+    return stageData;
+  }
 
     // Fungsi `renderlevelJourneyTable` (dikosongkan)
      function renderlevelJourneyTable() {
@@ -1939,11 +1948,11 @@
     function updatelevelDistributionChart(filteredStudents) {
       if (!chartInstances.levelDistribution) return;
 
-      const stageData = calculateStageData(filteredStudents);
+  const stageData = calculateStageData(filteredStudents);
 
-      // Update chart datasets
-       chartInstances.levelDistribution.data.datasets[0].data = MST_STAGES.map(stage => stageData[stage].notStarted);
-       chartInstances.levelDistribution.data.datasets[1].data = MST_STAGES.map(stage => stageData[stage].answered);
+  // Update chart datasets (index 0 = Tercapai, 1 = Belum Tercapai)
+  chartInstances.levelDistribution.data.datasets[0].data = MST_STAGES.map(stage => stageData[stage].achieved);
+  chartInstances.levelDistribution.data.datasets[1].data = MST_STAGES.map(stage => stageData[stage].notAchieved);
 
       chartInstances.levelDistribution.stageData = stageData;
       chartInstances.levelDistribution.update();
@@ -1952,9 +1961,9 @@
     // Update chart kedua di tab "Analisis Level"
     function updatelevelDistributionChart2(filteredStudents) {
       if (!chartInstances.levelDistribution2) return;
-      const stageData = calculateStageData(filteredStudents);
-      chartInstances.levelDistribution2.data.datasets[0].data = MST_STAGES.map(stage => stageData[stage].notStarted);
-      chartInstances.levelDistribution2.data.datasets[1].data = MST_STAGES.map(stage => stageData[stage].answered);
+  const stageData = calculateStageData(filteredStudents);
+  chartInstances.levelDistribution2.data.datasets[0].data = MST_STAGES.map(stage => stageData[stage].achieved);
+  chartInstances.levelDistribution2.data.datasets[1].data = MST_STAGES.map(stage => stageData[stage].notAchieved);
       chartInstances.levelDistribution2.stageData = stageData;
       chartInstances.levelDistribution2.update();
     }
