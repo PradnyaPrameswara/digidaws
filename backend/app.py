@@ -9338,6 +9338,42 @@ def export_all_collection_data():
                 'align': 'left',
                 'valign': 'vcenter'
             })
+            # Helper: derive highest level achieved based on correct answers (first occurrence logic mirrors Data Siswa sheet)
+            def derive_highest_correct_level(siswa_id, collection_id, fallback_level):
+                """Return highest level (1-5) achieved via correct answers; fallback to provided level if none."""
+                try:
+                    correct_rows = SiswaAnswer.query.filter_by(
+                        siswa_id=siswa_id,
+                        collection_id=collection_id,
+                        is_correct=True
+                    ).all()
+                except Exception:
+                    return fallback_level if fallback_level else 1
+                highest = None
+                for ca in correct_rows:
+                    lvl_num = None
+                    if getattr(ca, 'stage', None):
+                        try:
+                            lvl_num = int(ca.stage)
+                        except Exception:
+                            lvl_num = None
+                    if not lvl_num and getattr(ca, 'level', None):
+                        name_lower = str(ca.level).lower()
+                        if 'aware' in name_lower: lvl_num = 1
+                        elif 'liter' in name_lower: lvl_num = 2
+                        elif 'capab' in name_lower: lvl_num = 3
+                        elif 'creat' in name_lower: lvl_num = 4
+                        elif 'critic' in name_lower: lvl_num = 5
+                    if not lvl_num and getattr(ca, 'question', None) and getattr(ca.question, 'technology_level', None):
+                        try:
+                            lvl_num = int(ca.question.technology_level)
+                        except Exception:
+                            lvl_num = None
+                    if lvl_num:
+                        lvl_num = max(1, min(5, int(lvl_num)))
+                        if highest is None or lvl_num > highest:
+                            highest = lvl_num
+                return highest if highest else (fallback_level if fallback_level else 1)
             
             # ===== COLLECTION SUMMARY SHEET =====
             summary_sheet = workbook.add_worksheet('Ringkasan Koleksi')
@@ -9367,30 +9403,27 @@ def export_all_collection_data():
             respondent_count = 0
             
             for student in students_query:
-                # Get result
                 result = SiswaResult.query.filter_by(
                     siswa_id=student.id,
                     collection_id=collection_id
                 ).first()
-                
-                if result:
-                    correct = result.correct or 0
-                    incorrect = result.incorrect or 0
-                    total = correct + incorrect
-                    if total <= 0:
-                        continue  # Skip non-respondents
-                    total_correct += correct
-                    total_incorrect += incorrect
-                    
-                    # Track level distribution
-                    level = normalize_level(result.current_level)
-                    if level in level_distribution:
-                        level_distribution[level] += 1
-                    
-                    # Check if completed
-                    if level == 5:
-                        completed_count += 1
-                    respondent_count += 1
+                if not result:
+                    continue
+                correct = result.correct or 0
+                incorrect = result.incorrect or 0
+                total = correct + incorrect
+                if total <= 0:
+                    continue  # Skip non-respondents
+                total_correct += correct
+                total_incorrect += incorrect
+                # Compute highest achieved level (correct-only) fallback to stored current_level
+                stored_level = normalize_level(result.current_level) or 1
+                level = derive_highest_correct_level(student.id, collection_id, stored_level)
+                if level in level_distribution:
+                    level_distribution[level] += 1
+                if level == 5:
+                    completed_count += 1
+                respondent_count += 1
             
             # Overall statistics (respondents only)
             total_answers = total_correct + total_incorrect
@@ -9730,32 +9763,28 @@ def export_all_collection_data():
                 class_correct = 0
                 class_incorrect = 0
                 class_completed = 0
-                
-                # Calculate stats for this class
                 for student_id in student_ids:
                     result = SiswaResult.query.filter_by(
                         siswa_id=student_id,
                         collection_id=collection_id
                     ).first()
-                    
-                    if result:
-                        corr = result.correct or 0
-                        inc = result.incorrect or 0
-                        tot = corr + inc
-                        if tot <= 0:
-                            continue
-                        class_correct += corr
-                        class_incorrect += inc
-                        lvl = normalize_level(result.current_level)
-                        if lvl == 5:
-                            class_completed += 1
-                        respondents += 1
-                
+                    if not result:
+                        continue
+                    corr = result.correct or 0
+                    inc = result.incorrect or 0
+                    tot = corr + inc
+                    if tot <= 0:
+                        continue
+                    class_correct += corr
+                    class_incorrect += inc
+                    stored_level = normalize_level(result.current_level) or 1
+                    lvl = derive_highest_correct_level(student_id, collection_id, stored_level)
+                    if lvl == 5:
+                        class_completed += 1
+                    respondents += 1
                 class_total = class_correct + class_incorrect
                 class_accuracy = (class_correct / class_total * 100) if class_total > 0 else 0
                 completion_percentage = (class_completed / respondents * 100) if respondents > 0 else 0
-                
-                # Write to Excel
                 class_sheet.write(row, 0, class_name, data_format)
                 class_sheet.write(row, 1, respondents, num_format)
                 class_sheet.write(row, 2, class_correct, num_format)
@@ -9764,7 +9793,6 @@ def export_all_collection_data():
                 class_sheet.write(row, 5, class_accuracy, num_format)
                 class_sheet.write(row, 6, f"{class_completed} / {respondents}", data_format)
                 class_sheet.write(row, 7, completion_percentage, num_format)
-                
                 row += 1
             
             # Format columns with better spacing
