@@ -905,6 +905,19 @@
                                         <h6 class="mb-2">Siswa dengan Akses:</h6>
                                         <div id="assignedStudentBadges" class="d-flex flex-wrap gap-1"></div>
                                     </div>
+                                    <hr class="my-3">
+                                    <div class="mt-2">
+                                        <h6 class="mb-2"><i class="bi bi-grid"></i> Kesiapan Koleksi</h6>
+                                        <div class="small text-muted mb-2">Minimal 1 soal tervalidasi untuk setiap kombinasi Level × Kesulitan</div>
+                                        <div id="validationReadiness" class="mb-2"></div>
+                                        <div class="progress" style="height: 8px;">
+                                            <div id="validationProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <div class="d-flex justify-content-between mt-1 small">
+                                            <span id="validationStatusText" class="fw-semibold text-muted">Memuat...</span>
+                                            <span id="validationPercentText" class="fw-semibold">0%</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1943,6 +1956,18 @@
                                             <small class="text-muted">Siswa</small>
                                         </div>
                                     </div>
+                                    <div class="col-12 mt-1">
+                                        <div class="p-2 bg-light rounded-3 border">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="text-muted">Kesiapan Validasi</small>
+                                                <small id="readinessPercent-${col.id}" class="fw-semibold">-</small>
+                                            </div>
+                                            <div class="progress" style="height:5px;">
+                                                <div id="readinessBar-${col.id}" class="progress-bar bg-secondary" role="progressbar" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                            </div>
+                                            <small id="readinessText-${col.id}" class="text-muted d-block mt-1" style="min-height:14px;">Memuat...</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1969,6 +1994,38 @@
                     </div>
                 </div>
             `).join('');
+
+            // Setelah render, load readiness asynchronously
+            collections.forEach(c => fetchCollectionReadiness(c.id));
+        }
+
+        async function fetchCollectionReadiness(collectionId) {
+            try {
+                const percentEl = document.getElementById(`readinessPercent-${collectionId}`);
+                const barEl = document.getElementById(`readinessBar-${collectionId}`);
+                const textEl = document.getElementById(`readinessText-${collectionId}`);
+                if (textEl) textEl.textContent = 'Memuat...';
+                const resp = await fetch(getApiUrl(`/api/collections/${collectionId}/validation-matrix`));
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                if (!data.success) throw new Error(data.message || 'Gagal');
+                const pct = Math.max(0, Math.min(100, parseFloat(data.readiness_percent || 0)));
+                if (percentEl) percentEl.textContent = pct + '%';
+                if (barEl) {
+                    barEl.style.width = pct + '%';
+                    barEl.setAttribute('aria-valuenow', String(pct));
+                    barEl.classList.remove('bg-secondary','bg-warning','bg-success','bg-danger');
+                    if (pct >= 80 && data.ready) barEl.classList.add('bg-success');
+                    else if (pct >= 40) barEl.classList.add('bg-warning');
+                    else barEl.classList.add('bg-danger');
+                }
+                if (textEl) textEl.textContent = data.ready ? 'Lengkap (11/11)' : (data.missing_pairs ? `Kurang: ${data.missing_pairs.slice(0,5).join(', ')}${data.missing_pairs.length>5?'…':''}` : 'Belum lengkap');
+            } catch (e) {
+                const textEl = document.getElementById(`readinessText-${collectionId}`);
+                const percentEl = document.getElementById(`readinessPercent-${collectionId}`);
+                if (textEl) textEl.textContent = 'Error';
+                if (percentEl) percentEl.textContent = '-';
+            }
         }
 
         document.addEventListener('click', function(e) {
@@ -2519,6 +2576,9 @@
                 // Panggil loadAssignedStudents setelah questionsCache terisi
                 await loadAssignedStudents(collectionId);
 
+                // Ambil dan render kesiapan matriks validasi Level × Kesulitan
+                await loadValidationReadiness(collectionId);
+
                 // Reset stage filter to "all" when loading a new collection
                 const stageFilter = document.getElementById('levelFilter');
                 if (stageFilter) {
@@ -2592,6 +2652,78 @@
                     <i class="bi bi-x-circle ms-1 text-danger remove-student" style="cursor: pointer;"></i>
                 </span>
             `).join('');
+        }
+
+        async function loadValidationReadiness(collectionId) {
+            try {
+                const readinessContainer = document.getElementById('validationReadiness');
+                const statusText = document.getElementById('validationStatusText');
+                const percentText = document.getElementById('validationPercentText');
+                const bar = document.getElementById('validationProgressBar');
+                if (readinessContainer) {
+                    readinessContainer.innerHTML = '<div class="text-muted small">Memuat kesiapan...</div>';
+                }
+
+                const resp = await fetch(getApiUrl(`/api/collections/${collectionId}/validation-matrix`));
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+
+                // Fallback if api not available
+                if (!data || data.success === false) {
+                    throw new Error(data?.message || 'Gagal memuat kesiapan');
+                }
+
+                const required = {
+                    1: ['Medium'],
+                    2: ['Hard','Easy'],
+                    3: ['Hard','Medium'],
+                    4: ['Hard','Medium','Easy'],
+                    5: ['Hard','Medium','Easy']
+                };
+                const validated = new Set(data.validated_pairs || []);
+                const missing = new Set(data.missing_pairs || []);
+
+                // Build compact grid
+                let html = '<div class="table-responsive"><table class="table table-sm align-middle mb-2"><thead><tr><th class="text-muted small">Level</th><th class="text-center small">Easy</th><th class="text-center small">Medium</th><th class="text-center small">Hard</th></tr></thead><tbody>';
+                const difficultyOrder = ['Easy','Medium','Hard'];
+                for (let lvl = 1; lvl <= 5; lvl++) {
+                    html += `<tr><th class="small">L${lvl}</th>`;
+                    for (const diff of difficultyOrder) {
+                        const key = `L${lvl}-${diff}`;
+                        const isRequired = (required[lvl] || []).includes(diff);
+                        if (!isRequired) {
+                            html += '<td class="text-center text-muted">-</td>';
+                        } else if (validated.has(key)) {
+                            html += '<td class="text-center"><span class="badge bg-success"><i class="bi bi-check-lg"></i></span></td>';
+                        } else if (missing.has(key)) {
+                            html += '<td class="text-center"><span class="badge bg-warning text-dark" title="Belum ada"><i class="bi bi-dash-lg"></i></span></td>';
+                        } else {
+                            html += '<td class="text-center"><span class="badge bg-secondary" title="Belum dicek">?</span></td>';
+                        }
+                    }
+                    html += '</tr>';
+                }
+                html += '</tbody></table></div>';
+                if (readinessContainer) readinessContainer.innerHTML = html;
+
+                const pct = Math.max(0, Math.min(100, parseFloat(data.readiness_percent || 0)));
+                if (bar) {
+                    bar.style.width = pct + '%';
+                    bar.setAttribute('aria-valuenow', String(pct));
+                    bar.classList.toggle('bg-success', pct === 100);
+                    bar.classList.toggle('bg-warning', pct > 0 && pct < 100);
+                }
+                if (percentText) percentText.textContent = pct + '%';
+                if (statusText) statusText.textContent = data.ready ? 'Siap digunakan' : 'Belum siap';
+                if (statusText) statusText.className = 'fw-semibold ' + (data.ready ? 'text-success' : 'text-warning');
+            } catch (e) {
+                const readinessContainer = document.getElementById('validationReadiness');
+                if (readinessContainer) {
+                    readinessContainer.innerHTML = `<div class="text-danger small">${(e && e.message) || 'Gagal memuat kesiapan'}</div>`;
+                }
+                const statusText = document.getElementById('validationStatusText');
+                if (statusText) statusText.textContent = 'Gagal memuat';
+            }
         }
 
 

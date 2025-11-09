@@ -6268,6 +6268,71 @@ def check_validation_matrix(collection_id):
         return False, ['internal-error']
     return (len(missing) == 0), missing
 
+def get_validation_matrix_details(collection_id):
+    """Return detailed validation matrix status for a collection.
+    Provides which required pairs are validated, which are missing and readiness percent.
+    """
+    required = get_required_validation_pairs()
+    validated_pairs = []
+    missing_pairs = []
+    total_required = sum(len(diffs) for diffs in required.values())
+    try:
+        for lvl, diffs in required.items():
+            for diff in diffs:
+                count = db.session.query(Question).join(
+                    CollectionQuestion, CollectionQuestion.question_id == Question.id
+                ).filter(
+                    CollectionQuestion.collection_id == int(collection_id),
+                    Question.technology_level == int(lvl),
+                    Question.difficulty == diff,
+                    Question.is_validated == True
+                ).count()
+                pair_key = f"L{lvl}-{diff}"
+                if count > 0:
+                    validated_pairs.append(pair_key)
+                else:
+                    missing_pairs.append(pair_key)
+    except Exception as e:
+        print(f"[ValidationMatrix] Error building details: {e}")
+        return {
+            'success': False,
+            'error': 'internal-error',
+            'ready': False,
+            'validated_pairs': [],
+            'missing_pairs': ['internal-error'],
+            'readiness_percent': 0.0,
+            'total_required': total_required
+        }
+    readiness_percent = (len(validated_pairs) / total_required * 100.0) if total_required else 0.0
+    return {
+        'success': True,
+        'ready': len(missing_pairs) == 0,
+        'validated_pairs': validated_pairs,
+        'missing_pairs': missing_pairs,
+        'readiness_percent': round(readiness_percent, 2),
+        'total_required': total_required
+    }
+
+@app.route('/api/collections/<int:collection_id>/validation-matrix', methods=['GET'])
+def api_validation_matrix(collection_id):
+    """API endpoint exposing validation matrix readiness for a collection."""
+    try:
+        # Basic auth guard: only logged in users; if guru restrict to own collection
+        if not current_user.is_authenticated:
+            return jsonify({'success': False, 'message': 'Unauthenticated'}), 401
+        # Ensure collection exists
+        collection = QuestionCollection.query.get(collection_id)
+        if not collection:
+            return jsonify({'success': False, 'message': 'Collection tidak ditemukan'}), 404
+        # If guru, ensure owner
+        if getattr(current_user, 'role', None) == 'guru' and collection.guru_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Akses ditolak untuk koleksi ini'}), 403
+        details = get_validation_matrix_details(collection_id)
+        return jsonify(details), 200 if details.get('success') else 500
+    except Exception as e:
+        print(f"[ValidationMatrix] Fatal error endpoint: {e}")
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
+
 # =========================================
 # GET QUESTION (per level)
 # =========================================
@@ -8387,18 +8452,79 @@ def export_result_excel():
             worksheet.write('G8', 'Status Proses:', label_format)
             worksheet.write('H8', progress_status, data_format)
             
-            # --- PERUBAHAN: Tambah keterangan level singkat ---
+            # Keterangan Level: tampilkan urutan level yang dilalui (benar) dan lintasan detail dengan kesulitannya
             worksheet.write('A9', 'Keterangan Level:', label_format)
-            level_desc = get_level_description_short(norm_level)
             data_format_wrap = workbook.add_format({
                 'align': 'left',
                 'border': 1,
                 'text_wrap': True,
                 'valign': 'vcenter'
             })
-            worksheet.merge_range('B9:H9', level_desc, data_format_wrap)
-            worksheet.set_row(8, 40)  # Atur tinggi baris
-            # --- PERUBAHAN SELESAI ---
+
+            # Build achieved levels (from correct answers) and detailed path with difficulties
+            def build_individual_level_paths(siswa_id, collection_id):
+                try:
+                    answer_rows = SiswaAnswer.query.filter_by(
+                        siswa_id=siswa_id,
+                        collection_id=collection_id
+                    ).order_by(SiswaAnswer.answered_at.asc()).all()
+                except Exception:
+                    return '-', '-'
+
+                # Achieved levels from correct answers
+                achieved_levels = set()
+                # First-appearance path per level with difficulty
+                path_parts = []
+                seen_levels = set()
+                for ar in answer_rows:
+                    lvl_num = None
+                    if getattr(ar, 'stage', None):
+                        try: lvl_num = int(ar.stage)
+                        except Exception: lvl_num = None
+                    if not lvl_num and getattr(ar, 'level', None):
+                        name_lower = str(ar.level).lower()
+                        if 'aware' in name_lower: lvl_num = 1
+                        elif 'liter' in name_lower: lvl_num = 2
+                        elif 'capab' in name_lower: lvl_num = 3
+                        elif 'creat' in name_lower: lvl_num = 4
+                        elif 'critic' in name_lower: lvl_num = 5
+                    if not lvl_num and getattr(ar, 'question', None) and getattr(ar.question, 'technology_level', None):
+                        try: lvl_num = int(ar.question.technology_level)
+                        except Exception: lvl_num = None
+                    if not lvl_num:
+                        continue
+                    lvl_num = max(1, min(5, int(lvl_num)))
+                    if getattr(ar, 'is_correct', False):
+                        achieved_levels.add(lvl_num)
+
+                    if lvl_num in seen_levels:
+                        continue
+                    # Difficulty derivation
+                    diff_txt = None
+                    if hasattr(ar, 'difficulty') and getattr(ar, 'difficulty'):
+                        diff_txt = str(getattr(ar, 'difficulty')).strip().capitalize()
+                    if not diff_txt and hasattr(ar, 'p') and isinstance(getattr(ar, 'p'), (int, float)):
+                        p_val = getattr(ar, 'p')
+                        diff_txt = 'Hard' if p_val < 0.33 else ('Medium' if p_val < 0.66 else 'Easy')
+                    if not diff_txt and getattr(ar, 'question', None) and getattr(ar.question, 'difficulty', None):
+                        diff_txt = str(ar.question.difficulty).strip().capitalize()
+                    if not diff_txt:
+                        diff_txt = '?'
+                    path_parts.append(f"L{lvl_num} {diff_txt}")
+                    seen_levels.add(lvl_num)
+
+                achieved_text = ', '.join([f"L{n}" for n in sorted(achieved_levels)]) if achieved_levels else '-'
+                path_text = ', '.join(path_parts) if path_parts else '-'
+                return achieved_text, path_text
+
+            achieved_levels_text, path_text = build_individual_level_paths(user_id, collection_id)
+
+            # Tulis dua baris: 1) Level yang Dilalui 2) Jalur Level + Kesulitan
+            worksheet.merge_range('B9:H9', f"Level yang Dilalui: {achieved_levels_text}", data_format_wrap)
+            worksheet.write('A10', 'Lintasan Level:', label_format)
+            worksheet.merge_range('B10:H10', path_text, data_format_wrap)
+            worksheet.set_row(8, 30)
+            worksheet.set_row(9, 30)
             
             # Sesuaikan lebar kolom dengan spacing yang lebih baik
             worksheet.set_column('A:A', 18)  # Label kolom
@@ -8583,7 +8709,36 @@ def export_result_excel_teacher():
                 
                 # Result details
                 worksheet.write('D3', 'Level Terakhir:', label_format)
-                norm_level = normalize_level(result.current_level)
+                # Gunakan level tertinggi yang TERCAPAI (jawaban benar) bila ada
+                try:
+                    highest_correct = None
+                    correct_rows = SiswaAnswer.query.filter_by(siswa_id=user_id, collection_id=collection_id, is_correct=True).all()
+                    levels_found = []
+                    for ca in correct_rows:
+                        lvl_num = None
+                        # Prioritaskan stage numerik
+                        if ca.stage:
+                            try: lvl_num = int(ca.stage)
+                            except Exception: lvl_num = None
+                        # Fallback dari teks level
+                        if not lvl_num and ca.level:
+                            name_lower = str(ca.level).lower()
+                            if 'aware' in name_lower: lvl_num = 1
+                            elif 'liter' in name_lower: lvl_num = 2
+                            elif 'capab' in name_lower: lvl_num = 3
+                            elif 'creat' in name_lower: lvl_num = 4
+                            elif 'critic' in name_lower: lvl_num = 5
+                        # Fallback dari question.technology_level
+                        if not lvl_num and getattr(ca, 'question', None) and getattr(ca.question, 'technology_level', None):
+                            try: lvl_num = int(ca.question.technology_level)
+                            except Exception: pass
+                        if lvl_num:
+                            levels_found.append(max(1, min(5, int(lvl_num))))
+                    if levels_found:
+                        highest_correct = max(levels_found)
+                except Exception:
+                    highest_correct = None
+                norm_level = highest_correct if highest_correct else normalize_level(result.current_level)
                 worksheet.write('E3', norm_level, data_format)
                 
                 worksheet.write('D4', 'Jawaban Benar:', label_format)
@@ -8742,8 +8897,8 @@ def export_result_excel_teacher():
                 # Add title - disesuaikan untuk kolom baru
                 worksheet.merge_range('A1:M1', f"RINGKASAN HASIL TES KELAS {class_id} - {collection.name}", title_format)
                 
-                # Set up headers for class summary - gunakan Nama Level dan Basis Pengetahuan
-                headers = ['No', 'Nama', 'Kelas', 'Level', 'Nama Level', 'Keterangan Level', 'Basis Pengetahuan', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status', 'Tanggal Update']
+                # Set up headers for class summary - ganti 'Level' menjadi 'Level yang Dilalui'
+                headers = ['No', 'Nama', 'Kelas', 'Level yang Dilalui', 'Nama Level', 'Keterangan Level', 'Basis Pengetahuan', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status', 'Tanggal Update']
                 for col, header in enumerate(headers):
                     worksheet.write(2, col, header, header_format)
                 
@@ -8771,7 +8926,35 @@ def export_result_excel_teacher():
                         incorrect = result.incorrect or 0
                         total = correct + incorrect
                         accuracy = round((correct / total * 100), 2) if total > 0 else 0
+                        # Gunakan level tertinggi yang TERCAPAI (jawaban benar) bila ada; fallback ke current_level
                         current_level = normalize_level(result.current_level)
+                        try:
+                            highest_correct = None
+                            correct_rows = SiswaAnswer.query.filter_by(siswa_id=student.id, collection_id=collection_id, is_correct=True).all()
+                            levels_found = []
+                            for ca in correct_rows:
+                                lvl_num = None
+                                if ca.stage:
+                                    try: lvl_num = int(ca.stage)
+                                    except Exception: lvl_num = None
+                                if not lvl_num and ca.level:
+                                    name_lower = str(ca.level).lower()
+                                    if 'aware' in name_lower: lvl_num = 1
+                                    elif 'liter' in name_lower: lvl_num = 2
+                                    elif 'capab' in name_lower: lvl_num = 3
+                                    elif 'creat' in name_lower: lvl_num = 4
+                                    elif 'critic' in name_lower: lvl_num = 5
+                                if not lvl_num and getattr(ca, 'question', None) and getattr(ca.question, 'technology_level', None):
+                                    try: lvl_num = int(ca.question.technology_level)
+                                    except Exception: pass
+                                if lvl_num:
+                                    levels_found.append(max(1, min(5, int(lvl_num))))
+                            if levels_found:
+                                highest_correct = max(levels_found)
+                            if highest_correct:
+                                current_level = int(highest_correct)
+                        except Exception:
+                            pass
                         if total <= 0:
                             continue  # Skip students who haven't answered any question
                         
@@ -8789,9 +8972,105 @@ def export_result_excel_teacher():
                         total_correct += correct
                         total_incorrect += incorrect
                         
-                        # --- PERUBAHAN: Tambah keterangan level singkat ---
-                        level_desc = get_level_description_short(current_level)
-                        # --- PERUBAHAN SELESAI ---
+                        # Bangun alur level & kesulitan yang dikerjakan siswa (sequence unik per level tercapai)
+                        def build_level_path(siswa_id, collection_id):
+                            try:
+                                answer_rows = SiswaAnswer.query.filter_by(
+                                    siswa_id=siswa_id,
+                                    collection_id=collection_id
+                                ).order_by(SiswaAnswer.answered_at.asc()).all()
+                            except Exception:
+                                return "-"
+                            path_parts = []
+                            seen_levels = set()
+                            for ar in answer_rows:
+                                # Derive level number (similar logic used earlier)
+                                lvl_num = None
+                                if getattr(ar, 'stage', None):
+                                    try:
+                                        lvl_num = int(ar.stage)
+                                    except Exception:
+                                        lvl_num = None
+                                if not lvl_num and getattr(ar, 'level', None):
+                                    name_lower = str(ar.level).lower()
+                                    if 'aware' in name_lower: lvl_num = 1
+                                    elif 'liter' in name_lower: lvl_num = 2
+                                    elif 'capab' in name_lower: lvl_num = 3
+                                    elif 'creat' in name_lower: lvl_num = 4
+                                    elif 'critic' in name_lower: lvl_num = 5
+                                if not lvl_num and getattr(ar, 'question', None) and getattr(ar.question, 'technology_level', None):
+                                    try:
+                                        lvl_num = int(ar.question.technology_level)
+                                    except Exception:
+                                        lvl_num = None
+                                if not lvl_num:
+                                    continue
+                                lvl_num = max(1, min(5, int(lvl_num)))
+                                if lvl_num in seen_levels:
+                                    continue  # hanya catat pertama kali level muncul
+                                # Derive difficulty text
+                                diff_txt = None
+                                # Prefer explicit difficulty field if exists
+                                if hasattr(ar, 'difficulty') and getattr(ar, 'difficulty'):
+                                    diff_txt = str(getattr(ar, 'difficulty')).strip().capitalize()
+                                # Fallback to p numeric
+                                if not diff_txt and hasattr(ar, 'p') and isinstance(getattr(ar, 'p'), (int, float)):
+                                    p_val = getattr(ar, 'p')
+                                    if p_val < 0.33:
+                                        diff_txt = 'Hard'
+                                    elif p_val < 0.66:
+                                        diff_txt = 'Medium'
+                                    else:
+                                        diff_txt = 'Easy'
+                                # Fallback to question.difficulty
+                                if not diff_txt and getattr(ar, 'question', None) and getattr(ar.question, 'difficulty', None):
+                                    diff_txt = str(ar.question.difficulty).strip().capitalize()
+                                if not diff_txt:
+                                    diff_txt = '?'  # unknown
+                                path_parts.append(f"L{lvl_num} {diff_txt}")
+                                seen_levels.add(lvl_num)
+                            return ", "+" ".join(path_parts) if path_parts else "-"
+
+                        level_path = build_level_path(student.id, collection_id)
+
+                        # Bangun daftar Level yang Dilalui sesuai pencapaian (berdasarkan jawaban benar)
+                        def build_achieved_levels(siswa_id, collection_id):
+                            try:
+                                correct_rows = SiswaAnswer.query.filter_by(
+                                    siswa_id=siswa_id,
+                                    collection_id=collection_id,
+                                    is_correct=True
+                                ).all()
+                            except Exception:
+                                return "-"
+                            levels = set()
+                            for cr in correct_rows:
+                                lvl = None
+                                if getattr(cr, 'stage', None):
+                                    try:
+                                        lvl = int(cr.stage)
+                                    except Exception:
+                                        lvl = None
+                                if not lvl and getattr(cr, 'level', None):
+                                    name_lower = str(cr.level).lower()
+                                    if 'aware' in name_lower: lvl = 1
+                                    elif 'liter' in name_lower: lvl = 2
+                                    elif 'capab' in name_lower: lvl = 3
+                                    elif 'creat' in name_lower: lvl = 4
+                                    elif 'critic' in name_lower: lvl = 5
+                                if not lvl and getattr(cr, 'question', None) and getattr(cr.question, 'technology_level', None):
+                                    try:
+                                        lvl = int(cr.question.technology_level)
+                                    except Exception:
+                                        lvl = None
+                                if lvl:
+                                    levels.add(max(1, min(5, int(lvl))))
+                            if not levels:
+                                return '-'
+                            ordered = sorted(levels)
+                            return ", ".join([f"L{n}" for n in ordered])
+
+                        levels_dilalui = build_achieved_levels(student.id, collection_id)
                         
                         # Write row data dengan format yang rapi
                         data_format_teacher = workbook.add_format({
@@ -8813,9 +9092,9 @@ def export_result_excel_teacher():
                         worksheet.write(row, 0, student_number, num_format_teacher)
                         worksheet.write(row, 1, student.nama, data_format_teacher)
                         worksheet.write(row, 2, student.kelas, data_format_teacher)
-                        worksheet.write(row, 3, current_level, num_format_teacher)
+                        worksheet.write(row, 3, levels_dilalui, data_format_teacher)
                         worksheet.write(row, 4, TECHNOLOGY_LEVELS.get(int(current_level), str(current_level)), data_format_teacher)
-                        worksheet.write(row, 5, level_desc, description_format_teacher)
+                        worksheet.write(row, 5, level_path, description_format_teacher)
                         worksheet.write(row, 6, get_technology_taxonomy_short(current_level), data_format_teacher)
                         worksheet.write(row, 7, correct, num_format_teacher)
                         worksheet.write(row, 8, incorrect, num_format_teacher)
@@ -8833,9 +9112,10 @@ def export_result_excel_teacher():
                         class_data.append({
                             'Nama': student.nama,
                             'Kelas': student.kelas,
-                            'Level': current_level,
+                            'Level yang Dilalui': levels_dilalui,
                             'Nama Level': TECHNOLOGY_LEVELS.get(int(current_level), str(current_level)),
-                            'Keterangan Level': level_desc,
+                            'Keterangan Level': level_path,
+                            'Basis Pengetahuan': get_technology_taxonomy_short(current_level),
                             'Jawaban Benar': correct,
                             'Jawaban Salah': incorrect,
                             'Total': total,
@@ -8869,10 +9149,10 @@ def export_result_excel_teacher():
                 worksheet.set_column('A:A', 5)   # No
                 worksheet.set_column('B:B', 25)  # Nama
                 worksheet.set_column('C:C', 12)  # Kelas
-                worksheet.set_column('D:D', 8)   # Level
+                worksheet.set_column('D:D', 18)  # Level yang Dilalui
                 worksheet.set_column('E:E', 18)  # Nama Level
-                worksheet.set_column('F:F', 22)  # Keterangan Level (singkat)
-                worksheet.set_column('G:G', 20)  # Basis Pengetahuan (singkat)
+                worksheet.set_column('F:F', 26)  # Keterangan Level (singkat)
+                worksheet.set_column('G:G', 24)  # Basis Pengetahuan (singkat)
                 worksheet.set_column('H:H', 15)  # Jawaban Benar
                 worksheet.set_column('I:I', 15)  # Jawaban Salah
                 worksheet.set_column('J:J', 10)  # Total
@@ -8952,7 +9232,7 @@ def export_result_excel_teacher():
                     class_sheet = writer.sheets['Data Lengkap']
                     class_sheet.set_column('A:A', 25)
                     class_sheet.set_column('B:B', 10)
-                    class_sheet.set_column('C:C', 14)
+                    class_sheet.set_column('C:C', 18)  # Level yang Dilalui (teks)
                     class_sheet.set_column('D:D', 18)
                     class_sheet.set_column('E:E', 22)
                     class_sheet.set_column('F:F', 20)
@@ -9138,97 +9418,37 @@ def export_all_collection_data():
             summary_sheet.write('G5', 'Siswa Selesai:', label_format)
             summary_sheet.write('H5', f"{completed_count} / {respondent_count}", data_format)
             
-            # level Distribution section
-            summary_sheet.write('A9', 'Distribusi level:', heading_format)
+            # Distribusi level + penjelasan alur level
+            summary_sheet.write('A9', 'Distribusi Level & Penjelasan Alur', heading_format)
             
-            summary_sheet.write('A10', 'level', header_format)
+            summary_sheet.write('A10', 'Level', header_format)
             summary_sheet.write('B10', 'Jumlah Siswa', header_format)
             summary_sheet.write('C10', 'Persentase', header_format)
+            summary_sheet.write('D10', 'Penjelasan Alur', header_format)
             
             row = 11
-            # Tulis baris distribusi secara eksplisit untuk Level 1..5 agar urutan konsisten
+            level_explanations = {
+                1: 'L1 (Awareness): mulai mengenali istilah/alat dasar dan fungsi sederhana.',
+                2: 'L2 (Literacy): memahami konsep/prinsip dasar dan konteks penggunaan.',
+                3: 'L3 (Capability): mampu menerapkan alat/prosedur untuk menyelesaikan masalah.',
+                4: 'L4 (Creativity): memodifikasi/merancang solusi baru yang lebih efektif/kreatif.',
+                5: 'L5 (Criticism): mengevaluasi dampak, efektivitas, etika, dan trade-off solusi.'
+            }
+            # Tulis baris distribusi eksplisit L1..L5 disertai penjelasan alur
             for level in [1, 2, 3, 4, 5]:
                 count = level_distribution.get(level, 0)
                 percentage = (count / respondent_count * 100) if respondent_count > 0 else 0
 
-                summary_sheet.write(f'A{row}', f"level {level}", data_format)
+                summary_sheet.write(f'A{row}', f"Level {level}", data_format)
                 summary_sheet.write(f'B{row}', count, num_format)
                 summary_sheet.write(f'C{row}', percentage / 100, percent_format)
-
-                row += 1
-            
-            # ===== KETERANGAN LEVEL SECTION =====
-            summary_sheet.write('A19', 'Keterangan Level, Basis Pengetahuan, dan Indikator Soal:', heading_format)
-            
-            # Level descriptions with Technology taxonomy
-            level_descriptions = [
-                (
-                    'Level 1',
-                    'Kesadaran Teknologi: mengenali istilah, alat, dan fungsi dasar.',
-                    'Knowledge that',
-                    'Mengidentifikasi istilah/ikon/alat dasar; menyebutkan fungsi sederhana.'
-                ),
-                (
-                    'Level 2',
-                    'Literasi Teknologi: memahami konsep, prinsip dasar, dan konteks penggunaan.',
-                    'Knowledge that',
-                    'Menjelaskan konsep/prinsip; memberi contoh penggunaan; membaca diagram sederhana.'
-                ),
-                (
-                    'Level 3',
-                    'Kemampuan Teknologi: menerapkan alat/metode untuk memecahkan masalah.',
-                    'Knowledge that & how',
-                    'Menerapkan prosedur/alat untuk menyelesaikan tugas; menyusun langkah-langkah.'
-                ),
-                (
-                    'Level 4',
-                    'Kreativitas Teknologi: memodifikasi/merancang solusi baru yang bermanfaat.',
-                    'Knowledge that & how',
-                    'Merancang/memodifikasi solusi; menggabungkan beberapa alat/konsep; membuat variasi.'
-                ),
-                (
-                    'Level 5',
-                    'Kritik Teknologi: mengevaluasi dampak, efektivitas, etika, dan trade-off.',
-                    'Knowledge that, how & why',
-                    'Mengevaluasi alternatif/efektivitas; memberi alasan dan pertimbangan etis; membandingkan trade-off.'
-                )
-            ]
-            
-            # Headers for level descriptions
-            summary_sheet.write('A20', 'Level', header_format)
-            summary_sheet.write('B20', 'Keterangan', header_format)
-            summary_sheet.write('C20', 'Basis Pengetahuan', header_format)
-            summary_sheet.write('D20', 'Indikator Soal', header_format)
-            
-            # Create format for level descriptions with text wrapping
-            description_format = workbook.add_format({
-                'align': 'left',
-                'border': 1,
-                'text_wrap': True,
-                'valign': 'top'
-            })
-            
-            row = 21
-            for level_name, description, technology_taxonomy, indicator in level_descriptions:
-                summary_sheet.write(f'A{row}', level_name, data_format)
-                summary_sheet.write(f'B{row}', description, description_format)
-                summary_sheet.write(f'C{row}', technology_taxonomy, description_format)
-                summary_sheet.write(f'D{row}', indicator, description_format)
-                summary_sheet.set_row(row-1, 28)  # Sedikit lebih tinggi untuk indikator
+                summary_sheet.write(f'D{row}', level_explanations.get(level, ''), data_format)
                 row += 1
 
-            # Lebarkan kolom indikator agar teks rapi
-            summary_sheet.set_column('D:D', 45)
+            # Lebarkan kolom D agar penjelasan rapi
+            summary_sheet.set_column('D:D', 60)
             
-            # Format column widths with better spacing
-            summary_sheet.set_column('A:A', 15)  # Level
-            summary_sheet.set_column('B:B', 50)  # Keterangan
-            summary_sheet.set_column('C:C', 30)  # Taksonomi Teknologi
-            summary_sheet.set_column('D:D', 20)
-            summary_sheet.set_column('E:E', 15)
-            summary_sheet.set_column('F:F', 3)
-            summary_sheet.set_column('G:G', 22)
-            summary_sheet.set_column('H:H', 18)
+            # (Bagian tabel Keterangan Level & Basis Pengetahuan dihapus sesuai permintaan)
 
             # ===== TOP SALAH QUESTIONS SECTION =====
             # Hitung soal dengan jumlah salah terbanyak (top 5)
@@ -9262,7 +9482,8 @@ def export_all_collection_data():
                 top_wrong.sort(key=lambda x: x['Jumlah Salah'], reverse=True)
                 top_wrong = top_wrong[:5]
 
-                start_row = row + 1  # rapatkan tanpa spasi berlebih di bawah tabel sebelumnya
+                # Mulai tabel Top Wrong pada baris 19 untuk konsistensi tata letak
+                start_row = 19
                 summary_sheet.write(f'A{start_row}', 'Soal Paling Banyak Salah', heading_format)
 
                 header_row = start_row + 1
@@ -9297,15 +9518,21 @@ def export_all_collection_data():
                 summary_sheet.set_column('F:F', 18)  # Nama Level
             except Exception as e:
                 print(f"Error building top wrong questions section: {str(e)}")
+
+            # Atur lebar kolom sesuai permintaan untuk sheet Ringkasan Koleksi
+            # B = 17.00 (~160px), D = 65.89 (~600px), G = 18.11 (~170px)
+            summary_sheet.set_column('B:B', 17.00)
+            summary_sheet.set_column('D:D', 65.89)
+            summary_sheet.set_column('G:G', 18.11)
             
             # ===== STUDENT RESULTS SHEET =====
             students_sheet = workbook.add_worksheet('Data Siswa')
             
-            # Title - disesuaikan dengan jumlah kolom baru
+            # Title - disesuaikan dengan jumlah kolom baru (12 kolom)
             students_sheet.merge_range('A1:L1', f"DATA SISWA - {collection.name}", title_format)
             
-            # Headers - tambah kolom Taksonomi Teknologi
-            headers = ['No', 'Nama', 'Kelas', 'Level', 'Nama Level', 'Keterangan Level', 'Basis Pengetahuan', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+            # Headers - hapus 'Nama Level' sesuai permintaan; gunakan 'Level Soal Benar' & 'Level Soal Salah'
+            headers = ['No', 'Nama', 'Kelas', 'Level Soal Benar', 'Level Soal Salah', 'Keterangan Level', 'Basis Pengetahuan', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
             for col, header in enumerate(headers):
                 students_sheet.write(2, col, header, header_format)
             
@@ -9333,14 +9560,115 @@ def export_all_collection_data():
                 else:
                     continue  # Skip students without any result
                 
-                # Write to Excel - tambah kolom Taksonomi Teknologi
+                # Bangun lintasan level yang dilalui (jawaban benar) dengan kesulitan (pertama kali per level)
+                def build_correct_level_path(siswa_id, collection_id):
+                    try:
+                        answer_rows = SiswaAnswer.query.filter_by(
+                            siswa_id=siswa_id,
+                            collection_id=collection_id,
+                            is_correct=True
+                        ).order_by(SiswaAnswer.answered_at.asc()).all()
+                    except Exception:
+                        return '-'
+                    path_parts = []
+                    seen_levels = set()
+                    for ar in answer_rows:
+                        lvl_num = None
+                        if getattr(ar, 'stage', None):
+                            try:
+                                lvl_num = int(ar.stage)
+                            except Exception:
+                                lvl_num = None
+                        if not lvl_num and getattr(ar, 'level', None):
+                            name_lower = str(ar.level).lower()
+                            if 'aware' in name_lower: lvl_num = 1
+                            elif 'liter' in name_lower: lvl_num = 2
+                            elif 'capab' in name_lower: lvl_num = 3
+                            elif 'creat' in name_lower: lvl_num = 4
+                            elif 'critic' in name_lower: lvl_num = 5
+                        if not lvl_num and getattr(ar, 'question', None) and getattr(ar.question, 'technology_level', None):
+                            try:
+                                lvl_num = int(ar.question.technology_level)
+                            except Exception:
+                                lvl_num = None
+                        if not lvl_num:
+                            continue
+                        lvl_num = max(1, min(5, int(lvl_num)))
+                        if lvl_num in seen_levels:
+                            continue  # hanya catat pertama kali level benar
+                        # Derive difficulty
+                        diff_txt = None
+                        if hasattr(ar, 'difficulty') and getattr(ar, 'difficulty'):
+                            diff_txt = str(getattr(ar, 'difficulty')).strip().upper()
+                        if not diff_txt and hasattr(ar, 'p') and isinstance(getattr(ar, 'p'), (int, float)):
+                            p_val = getattr(ar, 'p')
+                            diff_txt = 'HARD' if p_val < 0.33 else ('MEDIUM' if p_val < 0.66 else 'EASY')
+                        if not diff_txt and getattr(ar, 'question', None) and getattr(ar.question, 'difficulty', None):
+                            diff_txt = str(ar.question.difficulty).strip().upper()
+                        if not diff_txt:
+                            diff_txt = '?'  # unknown
+                        path_parts.append(f"L{lvl_num} {diff_txt}")
+                        seen_levels.add(lvl_num)
+                    return ', '.join(path_parts) if path_parts else '-'
+
+                level_path_correct = build_correct_level_path(student.id, collection_id)
+
+                # Bangun lintasan level soal SALAH (pertama kali per level salah)
+                def build_incorrect_level_path(siswa_id, collection_id):
+                    try:
+                        answer_rows = SiswaAnswer.query.filter_by(
+                            siswa_id=siswa_id,
+                            collection_id=collection_id,
+                            is_correct=False
+                        ).order_by(SiswaAnswer.answered_at.asc()).all()
+                    except Exception:
+                        return '-'
+                    path_parts = []
+                    seen_levels = set()
+                    for ar in answer_rows:
+                        lvl_num = None
+                        if getattr(ar, 'stage', None):
+                            try: lvl_num = int(ar.stage)
+                            except Exception: lvl_num = None
+                        if not lvl_num and getattr(ar, 'level', None):
+                            name_lower = str(ar.level).lower()
+                            if 'aware' in name_lower: lvl_num = 1
+                            elif 'liter' in name_lower: lvl_num = 2
+                            elif 'capab' in name_lower: lvl_num = 3
+                            elif 'creat' in name_lower: lvl_num = 4
+                            elif 'critic' in name_lower: lvl_num = 5
+                        if not lvl_num and getattr(ar, 'question', None) and getattr(ar.question, 'technology_level', None):
+                            try: lvl_num = int(ar.question.technology_level)
+                            except Exception: lvl_num = None
+                        if not lvl_num:
+                            continue
+                        lvl_num = max(1, min(5, int(lvl_num)))
+                        if lvl_num in seen_levels:
+                            continue
+                        diff_txt = None
+                        if hasattr(ar, 'difficulty') and getattr(ar, 'difficulty'):
+                            diff_txt = str(getattr(ar, 'difficulty')).strip().upper()
+                        if not diff_txt and hasattr(ar, 'p') and isinstance(getattr(ar, 'p'), (int, float)):
+                            p_val = getattr(ar, 'p')
+                            diff_txt = 'HARD' if p_val < 0.33 else ('MEDIUM' if p_val < 0.66 else 'EASY')
+                        if not diff_txt and getattr(ar, 'question', None) and getattr(ar.question, 'difficulty', None):
+                            diff_txt = str(ar.question.difficulty).strip().upper()
+                        if not diff_txt:
+                            diff_txt = '?'
+                        path_parts.append(f"L{lvl_num} {diff_txt}")
+                        seen_levels.add(lvl_num)
+                    return ', '.join(path_parts) if path_parts else '-'
+
+                level_path_incorrect = build_incorrect_level_path(student.id, collection_id)
+
+                # Write to Excel - kolom ke-3 sekarang berisi lintasan level dilalui
                 students_sheet.write(row, 0, no_counter, num_format)
                 students_sheet.write(row, 1, student.nama, data_format)
-                students_sheet.write(row, 2, student.kelas or "-", data_format)
-                students_sheet.write(row, 3, current_level, num_format)
-                students_sheet.write(row, 4, TECHNOLOGY_LEVELS.get(int(current_level), str(current_level)), data_format)
-                students_sheet.write(row, 5, get_level_description_short(current_level), data_format)
-                students_sheet.write(row, 6, get_technology_taxonomy_short(current_level), data_format)
+                students_sheet.write(row, 2, student.kelas or '-', data_format)
+                students_sheet.write(row, 3, level_path_correct, data_format)
+                students_sheet.write(row, 4, level_path_incorrect, data_format)
+                students_sheet.write(row, 5, get_level_description_short(current_level), data_format)  # Keterangan Level
+                students_sheet.write(row, 6, get_technology_taxonomy_short(current_level), data_format)  # Basis Pengetahuan
                 students_sheet.write(row, 7, correct, num_format)
                 students_sheet.write(row, 8, incorrect, num_format)
                 students_sheet.write(row, 9, total, num_format)
@@ -9353,8 +9681,12 @@ def export_all_collection_data():
                 # Add to data for pandas DataFrame
                 student_data.append({
                     'Nama': student.nama,
-                    'Kelas': student.kelas or "-",
-                    'level': current_level,
+                    'Kelas': student.kelas or '-',
+                    'Level Soal Benar': level_path_correct,
+                    'Level Soal Salah': level_path_incorrect,
+                    'Keterangan Level': get_level_description_short(current_level),
+                    'Basis Pengetahuan': get_technology_taxonomy_short(current_level),
+                    'Level Akhir': current_level,
                     'Jawaban Benar': correct,
                     'Jawaban Salah': incorrect,
                     'Total': total,
@@ -9369,9 +9701,10 @@ def export_all_collection_data():
             students_sheet.set_column('A:A', 5)   # No
             students_sheet.set_column('B:B', 25)  # Nama
             students_sheet.set_column('C:C', 12)  # Kelas
-            students_sheet.set_column('D:D', 8)   # Level
-            students_sheet.set_column('E:E', 18)  # Nama Level
-            students_sheet.set_column('F:F', 22)  # Keterangan Level (singkat)
+            # Set lebar kolom sesuai permintaan; total sekarang 12 kolom (A-L)
+            students_sheet.set_column('D:D', 41.44)  # Level Soal Benar
+            students_sheet.set_column('E:E', 41.44)  # Level Soal Salah
+            students_sheet.set_column('F:F', 22)  # Keterangan Level
             students_sheet.set_column('G:G', 20)  # Basis Pengetahuan
             students_sheet.set_column('H:H', 15)  # Jawaban Benar
             students_sheet.set_column('I:I', 15)  # Jawaban Salah
