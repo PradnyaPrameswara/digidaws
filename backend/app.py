@@ -6601,13 +6601,26 @@ def submit_answer():
                 mst_state.current_level = next_level_difficulty # Simpan difficulty untuk stage berikutnya
                 mst_state.questions_answered = 0  # Reset counter untuk stage baru
                 mst_state.questions_correct = 0   # Reset counter untuk stage baru
+
                 try:
-                    db.session.commit() # Commit semua perubahan (jawaban + state MST baru)
+                    # === SOLUSI TAMBAHAN: UPDATE SiswaResult SEKARANG ===
+                    student_result = SiswaResult.query.filter_by(
+                        siswa_id=siswa_id,
+                        collection_id=collection_id_int
+                    ).first()
+
+                    if student_result:
+                        # Update level siswa saat ini ke stage yang baru
+                        student_result.current_level = next_stage 
+                        print(f"[MST] SiswaResult diupdate: current_level={next_stage}")
+                    # === SOLUSI TAMBAHAN SELESAI ===
+
+                    db.session.commit() # Commit semua perubahan (jawaban + state MST + state SiswaResult)
                     print("[MST] Commit Berhasil - Lanjut ke stage berikutnya")
                 except Exception as e_commit_next:
-                     print(f"[MST] Error commit saat lanjut stage: {str(e_commit_next)}")
-                     db.session.rollback()
-                     return jsonify({"status": "error", "message": f"Error lanjut stage: {str(e_commit_next)}"}), 500
+                 print(f"[MST] Error commit saat lanjut stage: {str(e_commit_next)}")
+                 db.session.rollback()
+                 return jsonify({"status": "error", "message": f"Error lanjut stage: {str(e_commit_next)}"}), 500
 
                 return jsonify({
                     "status": "continue",
