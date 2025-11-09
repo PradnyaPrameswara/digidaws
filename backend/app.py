@@ -9528,11 +9528,11 @@ def export_all_collection_data():
             # ===== STUDENT RESULTS SHEET =====
             students_sheet = workbook.add_worksheet('Data Siswa')
             
-            # Title - disesuaikan dengan jumlah kolom baru (12 kolom)
-            students_sheet.merge_range('A1:L1', f"DATA SISWA - {collection.name}", title_format)
+            # Title - disesuaikan dengan jumlah kolom baru (9 kolom)
+            students_sheet.merge_range('A1:I1', f"DATA SISWA - {collection.name}", title_format)
             
-            # Headers - hapus 'Nama Level' sesuai permintaan; gunakan 'Level Soal Benar' & 'Level Soal Salah'
-            headers = ['No', 'Nama', 'Kelas', 'Level Soal Benar', 'Level Soal Salah', 'Keterangan Level', 'Basis Pengetahuan', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)', 'Status']
+            # Headers - hilangkan kolom Status juga
+            headers = ['No', 'Nama', 'Kelas', 'Level Soal Benar', 'Level Soal Salah', 'Jawaban Benar', 'Jawaban Salah', 'Total', 'Akurasi (%)']
             for col, header in enumerate(headers):
                 students_sheet.write(2, col, header, header_format)
             
@@ -9667,13 +9667,10 @@ def export_all_collection_data():
                 students_sheet.write(row, 2, student.kelas or '-', data_format)
                 students_sheet.write(row, 3, level_path_correct, data_format)
                 students_sheet.write(row, 4, level_path_incorrect, data_format)
-                students_sheet.write(row, 5, get_level_description_short(current_level), data_format)  # Keterangan Level
-                students_sheet.write(row, 6, get_technology_taxonomy_short(current_level), data_format)  # Basis Pengetahuan
-                students_sheet.write(row, 7, correct, num_format)
-                students_sheet.write(row, 8, incorrect, num_format)
-                students_sheet.write(row, 9, total, num_format)
-                students_sheet.write(row, 10, accuracy, num_format)
-                students_sheet.write(row, 11, status, data_format)
+                students_sheet.write(row, 5, correct, num_format)
+                students_sheet.write(row, 6, incorrect, num_format)
+                students_sheet.write(row, 7, total, num_format)
+                students_sheet.write(row, 8, accuracy, num_format)
                 
                 # Set row height for better readability
                 students_sheet.set_row(row-1, 25)
@@ -9684,14 +9681,11 @@ def export_all_collection_data():
                     'Kelas': student.kelas or '-',
                     'Level Soal Benar': level_path_correct,
                     'Level Soal Salah': level_path_incorrect,
-                    'Keterangan Level': get_level_description_short(current_level),
-                    'Basis Pengetahuan': get_technology_taxonomy_short(current_level),
                     'Level Akhir': current_level,
                     'Jawaban Benar': correct,
                     'Jawaban Salah': incorrect,
                     'Total': total,
-                    'Akurasi (%)': accuracy,
-                    'Status': status
+                    'Akurasi (%)': accuracy
                 })
                 
                 row += 1
@@ -9701,16 +9695,13 @@ def export_all_collection_data():
             students_sheet.set_column('A:A', 5)   # No
             students_sheet.set_column('B:B', 25)  # Nama
             students_sheet.set_column('C:C', 12)  # Kelas
-            # Set lebar kolom sesuai permintaan; total sekarang 12 kolom (A-L)
+            # Set lebar kolom sesuai permintaan; total sekarang 9 kolom (A-I)
             students_sheet.set_column('D:D', 41.44)  # Level Soal Benar
             students_sheet.set_column('E:E', 41.44)  # Level Soal Salah
-            students_sheet.set_column('F:F', 22)  # Keterangan Level
-            students_sheet.set_column('G:G', 20)  # Basis Pengetahuan
-            students_sheet.set_column('H:H', 15)  # Jawaban Benar
-            students_sheet.set_column('I:I', 15)  # Jawaban Salah
-            students_sheet.set_column('J:J', 10)  # Total
-            students_sheet.set_column('K:K', 12)  # Akurasi (%)
-            students_sheet.set_column('L:L', 18)  # Status
+            students_sheet.set_column('F:F', 15)  # Jawaban Benar
+            students_sheet.set_column('G:G', 15)  # Jawaban Salah
+            students_sheet.set_column('H:H', 10)  # Total
+            students_sheet.set_column('I:I', 12)  # Akurasi (%)
             
             # ===== CLASS SUMMARY SHEET =====
             # Group students by class
