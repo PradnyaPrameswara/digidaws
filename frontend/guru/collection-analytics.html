@@ -1344,19 +1344,28 @@
                     x: { stacked: true, title: { display: true, text: 'Distribusi Level (MST 5 Tahap)' } },
                     y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Jumlah Siswa' } }
                 },
-                plugins: {
-                    legend: { position: 'bottom' },
-                    tooltip: {
-                        mode: 'index',
-                        callbacks: {
-                            label: function(context) {
-                                const datasetLabel = context.dataset.label || '';
-                                const value = context.raw || 0;
-                                return `${datasetLabel}: ${value} siswa`;
-                            }
-                        }
-                    }
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            mode: 'index',
+            callbacks: {
+              label: function(context) {
+                const datasetLabel = context.dataset.label || '';
+                const value = context.raw || 0;
+                const stageKey = MST_STAGES[context.dataIndex];
+                const sd = chartInstances.levelDistribution2.stageData[stageKey];
+                const names = datasetLabel === 'Tercapai' ? sd.achievedNames : sd.notAchievedNames;
+                let list = '';
+                if (Array.isArray(names) && names.length) {
+                  const shown = names.slice(0,5).join(', ');
+                  const more = names.length > 5 ? `, +${names.length-5} lainnya` : '';
+                  list = ` (${shown}${more})`;
                 }
+                return `${datasetLabel}: ${value} siswa${list}`;
+              }
+            }
+          }
+        }
             }
         });
         chartInstances.levelDistribution2.stageData = stageData;
@@ -1369,31 +1378,31 @@
   function calculateStageData(filteredStudents) {
     const stageData = {};
     MST_STAGES.forEach(stage => {
-      stageData[stage] = { achieved: 0, notAchieved: 0 };
+      stageData[stage] = { achieved: 0, notAchieved: 0, achievedNames: [], notAchievedNames: [] };
     });
 
     filteredStudents.forEach(student => {
       const correctInfo = correctPathByStudent[student.student_id] || { levels: [] };
       const achievedSet = new Set(correctInfo.levels || []);
       const hasStarted = (student.status === 'sudah_mengerjakan' || student.status === 'sedang_mengerjakan');
+      const studentName = student.student_name || 'Siswa';
 
       MST_STAGES.forEach(stageCode => {
         const levelNum = parseInt(stageCode.replace('L',''), 10);
         if (achievedSet.has(levelNum)) {
           stageData[stageCode].achieved += 1;
+          stageData[stageCode].achievedNames.push(studentName);
         } else if (hasStarted) {
-          // Siswa sudah mulai tapi belum mencapai level ini
           stageData[stageCode].notAchieved += 1;
-        } else {
-          // Siswa belum mulai sama sekali: hanya relevan untuk L1 agar tidak mendistorsi level tinggi
-          if (levelNum === 1) {
-            stageData[stageCode].notAchieved += 1;
-          }
+          stageData[stageCode].notAchievedNames.push(studentName);
+        } else if (levelNum === 1) {
+          stageData[stageCode].notAchieved += 1;
+          stageData[stageCode].notAchievedNames.push(studentName);
         }
       });
     });
 
-    console.log("Calculated Stage Data (Achieved/NotAchieved):", stageData);
+    console.log("Calculated Stage Data (Achieved/NotAchieved + Names):", stageData);
     return stageData;
   }
 
@@ -1603,45 +1612,29 @@
 
     // --- FUNGSI INI DIPERBAIKI ---
     // Update level distribution statistics - UPDATED FOR 5 STAGES
-    function updateLevelDistributionStats(filteredStudents = studentsData) {
-        const levelCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        
-        // PERBAIKAN: Hitung berdasarkan level siswa yang terfilter
-        filteredStudents.forEach(s => {
-            // PERBAIKAN: Gunakan student.result.current_level
-            const level = parseInt(s.result?.current_level || 1);
-            const validLevel = Math.max(1, Math.min(5, level));
-            
-            // Hanya hitung siswa yang sudah menjawab
-            if (s.status === 'sudah_mengerjakan' || s.status === 'sedang_mengerjakan') {
-                levelCounts[validLevel]++;
-            }
-        });
+  function updateLevelDistributionStats(filteredStudents = studentsData) {
+    // Gunakan stageData pencapaian agar selaras dengan grafik
+    const stageData = calculateStageData(filteredStudents);
+    const totalAnsweredStudents = filteredStudents.filter(s => s.status === 'sudah_mengerjakan' || s.status === 'sedang_mengerjakan').length;
+    const percentages = {1:0,2:0,3:0,4:0,5:0};
+    [1,2,3,4,5].forEach(lvl => {
+      const key = `L${lvl}`;
+      const achieved = stageData[key].achieved;
+      percentages[lvl] = totalAnsweredStudents > 0 ? Math.round((achieved / totalAnsweredStudents) * 100) : 0;
+    });
 
-        // Hitung total siswa yang sudah menjawab (bukan total siswa)
-        const totalAnsweredStudents = filteredStudents.filter(s => s.status === 'sudah_mengerjakan' || s.status === 'sedang_mengerjakan').length;
-        
-        const percentages = {
-            1: totalAnsweredStudents > 0 ? Math.round((levelCounts[1] / totalAnsweredStudents) * 100) : 0,
-            2: totalAnsweredStudents > 0 ? Math.round((levelCounts[2] / totalAnsweredStudents) * 100) : 0,
-            3: totalAnsweredStudents > 0 ? Math.round((levelCounts[3] / totalAnsweredStudents) * 100) : 0,
-            4: totalAnsweredStudents > 0 ? Math.round((levelCounts[4] / totalAnsweredStudents) * 100) : 0,
-            5: totalAnsweredStudents > 0 ? Math.round((levelCounts[5] / totalAnsweredStudents) * 100) : 0
-        };
-
-        // Update UI (Kartu Statistik di tab Analisis Level)
-        const l1 = document.getElementById('level-1-percentage');
-        const l2 = document.getElementById('level-2-percentage');
-        const l3 = document.getElementById('level-3-percentage');
-        const l4 = document.getElementById('level-4-percentage');
-        const l5 = document.getElementById('level-5-percentage');
-
-        if(l1) l1.textContent = percentages[1] + '%';
-        if(l2) l2.textContent = percentages[2] + '%';
-        if(l3) l3.textContent = percentages[3] + '%';
-        if(l4) l4.textContent = percentages[4] + '%';
-        if(l5) l5.textContent = percentages[5] + '%';
-    }
+    // Update kartu statistik
+    const l1 = document.getElementById('level-1-percentage');
+    const l2 = document.getElementById('level-2-percentage');
+    const l3 = document.getElementById('level-3-percentage');
+    const l4 = document.getElementById('level-4-percentage');
+    const l5 = document.getElementById('level-5-percentage');
+    if(l1) l1.textContent = percentages[1] + '%';
+    if(l2) l2.textContent = percentages[2] + '%';
+    if(l3) l3.textContent = percentages[3] + '%';
+    if(l4) l4.textContent = percentages[4] + '%';
+    if(l5) l5.textContent = percentages[5] + '%';
+  }
     // --- AKHIR FUNGSI YANG DIPERBAIKI ---
 
 
