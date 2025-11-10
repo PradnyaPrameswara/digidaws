@@ -967,7 +967,8 @@
     // --- FUNGSI BARU: Menghitung statistik per soal ---
     async function calculateQuestionStats() {
         try {
-            const response = await fetch(`${window.location.origin}/api/collection-analytics/answers?collection_id=${collectionId}`);
+            // Ambil semua jawaban: minta page besar untuk menghindari kehilangan data karena pagination default (50)
+            const response = await fetch(`${window.location.origin}/api/collection-analytics/answers?collection_id=${collectionId}&page=1&per_page=10000`);
             if (!response.ok) throw new Error("Gagal mengambil data jawaban mentah");
             
             const result = await response.json();
@@ -1012,7 +1013,7 @@
         const uid = a.user_id ?? a.student_id; // dukung kedua nama properti
         if (!uid) return;
         // Normalisasi stage/level
-        let raw = a.stage ?? a.technology_level ?? null;
+        let raw = (a.level !== undefined && a.level !== null) ? a.level : (a.stage ?? a.technology_level ?? null);
         if (typeof raw === 'string') {
           const m = raw.match(/\d+/);
           raw = m ? parseInt(m[0], 10) : NaN;
@@ -1039,7 +1040,7 @@
         if (!a || !isAnswerCorrect(a.is_correct)) return;
         const uid = a.user_id ?? a.student_id;
         if (!uid) return;
-        let raw = a.stage ?? a.technology_level ?? null;
+        let raw = (a.level !== undefined && a.level !== null) ? a.level : (a.stage ?? a.technology_level ?? null);
         if (typeof raw === 'string') {
           const m = raw.match(/\d+/);
           raw = m ? parseInt(m[0], 10) : parseInt(raw, 10);
