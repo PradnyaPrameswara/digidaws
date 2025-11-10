@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Register - DIGIDAWS</title>
     
     <!-- Favicon -->
@@ -10,12 +10,15 @@
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        html { height: -webkit-fill-available; }
         body {
             background-color: #f8f9fa;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            min-height: -webkit-fill-available; /* iOS Safari */
+            padding-bottom: env(safe-area-inset-bottom); /* iOS safe area */
         }
         .register-container {
             background: white;
@@ -24,6 +27,9 @@
             padding: 2.5rem;
             width: 100%;
             max-width: 500px;
+            position: relative; /* ensure above any accidental overlay */
+            z-index: 2;
+            isolation: isolate; /* create new stacking context */
         }
         .register-header {
             text-align: center;
@@ -45,6 +51,13 @@
             border-radius: 10px;
             font-weight: 600;
             width: 100%;
+            position: relative;
+            z-index: 3;
+            appearance: none;
+            -webkit-appearance: none;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            touch-action: manipulation;
+            pointer-events: auto;
         }
         .role-selector {
             display: flex;

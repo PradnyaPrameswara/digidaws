@@ -1012,12 +1012,26 @@
 
                                 <div class="row g-2">
                                     <div class="col-md-6">
-                                        <label for="editP" class="form-label">Tingkat Kesulitan (p)</label>
-                                        <input type="number" class="form-control" id="editP" name="p" step="0.01" min="0" max="1" required>
+                                        <label for="editDifficulty" class="form-label">Tingkat Kesulitan (MST)</label>
+                                        <select class="form-select" id="editDifficulty" name="difficulty" required>
+                                            <option value="" disabled selected hidden>Pilih Kesulitan</option>
+                                            <option value="Easy">Easy</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="Hard">Hard</option>
+                                        </select>
+                                        <div class="form-text">Gunakan Easy/Medium/Hard sesuai alur MST saat ini.</div>
                                     </div>
                                     <div class="col-md-6">
-                                        <label for="editVersion" class="form-label">Versi Saat Ini</label>
-                                        <input type="text" class="form-control" id="editVersion" name="version" readonly>
+                                        <label for="editTechnologyLevel" class="form-label">Stage/Level (L1–L5)</label>
+                                        <select class="form-select" id="editTechnologyLevel" name="technology_level" required>
+                                            <option value="" disabled selected hidden>Pilih Level</option>
+                                            <option value="1">L1 — Awareness</option>
+                                            <option value="2">L2 — Literacy</option>
+                                            <option value="3">L3 — Capability</option>
+                                            <option value="4">L4 — Creativity</option>
+                                            <option value="5">L5 — Criticism</option>
+                                        </select>
+                                        <div class="form-text">Pilih level taksonomi teknologi untuk soal ini.</div>
                                     </div>
                                 </div>
                             </form>
@@ -2065,8 +2079,14 @@
             form.questionId.value = question.id;
             form.soal.value = question.soal;
             form.explanation.value = question.explanation || '';
-            form.p.value = question.p;
-            form.version.value = question.version || '1';
+            // Prefill new MST fields
+            const diffSel = form.querySelector('#editDifficulty');
+            const lvlSel = form.querySelector('#editTechnologyLevel');
+            if (diffSel) diffSel.value = (question.difficulty || question.difficulty_text || '').trim() || '';
+            if (lvlSel) {
+                const lvl = parseInt(question.technology_level || question.level || 0, 10);
+                lvlSel.value = (lvl >= 1 && lvl <= 5) ? String(lvl) : '';
+            }
 
             if (question.is_validated) {
                 validateButtonModal.classList.add('btn-validated');
@@ -2194,7 +2214,8 @@
                 }},
                 { name: 'jawaban_benar', label: 'Jawaban Benar' },
                 { name: 'explanation', label: 'Penjelasan' },
-                { name: 'p', label: 'Tingkat Kesulitan' }
+                { name: 'difficulty', label: 'Tingkat Kesulitan (MST)' },
+                { name: 'technology_level', label: 'Stage/Level (L1–L5)' }
             ];
 
             return fields.map(({ name, label, format }) => {
@@ -2246,14 +2267,28 @@
                       throw new Error("ID Soal tidak ditemukan");
                  }
                 const questionId = parseInt(questionIdInput.value);
-
+                // Validasi pilihan yang wajib
+                const difficultyVal = form.difficulty.value;
+                const allowedDifficulties = ['Easy','Medium','Hard'];
+                if (!allowedDifficulties.includes(difficultyVal)) {
+                    showError('Silakan pilih tingkat kesulitan yang valid.');
+                    document.getElementById('editDifficulty')?.focus();
+                    return;
+                }
+                const techLevelVal = parseInt(form.technology_level.value, 10);
+                if (!(techLevelVal >= 1 && techLevelVal <= 5)) {
+                    showError('Silakan pilih Stage/Level (L1–L5).');
+                    document.getElementById('editTechnologyLevel')?.focus();
+                    return;
+                }
 
                 const updatedQuestion = {
                     soal: form.soal.value,
                     options: Array.from(document.querySelectorAll('#optionsContainer input')).map(i => i.value),
                     jawaban_benar: form.jawaban_benar.value,
                     explanation: form.explanation.value,
-                    p: parseFloat(form.p.value)
+                    difficulty: difficultyVal,
+                    technology_level: techLevelVal
                 };
 
                 // PERBAIKAN: Gunakan URL lengkap
@@ -2282,7 +2317,8 @@
                               options: result.question.options, // Asumsi server mengembalikan array
                               jawaban_benar: result.question.jawaban_benar,
                               explanation: result.question.explanation,
-                              p: result.question.p,
+                              difficulty: result.question.difficulty,
+                              technology_level: result.question.technology_level,
                               version: result.question.version // Penting untuk versi
                          };
                          // Update versi cache juga

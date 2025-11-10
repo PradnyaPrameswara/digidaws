@@ -980,10 +980,26 @@
     // Reset maps
     lastStageByStudent = {};
     correctPathByStudent = {};
+    // Helper untuk memaksa boolean is_correct dari berbagai tipe (boolean/number/string)
+    const isAnswerCorrect = (val) => {
+      if (val === true) return true;
+      if (val === false) return false;
+      if (val === 1 || val === '1') return true;
+      if (val === 0 || val === '0') return false;
+      if (typeof val === 'string') {
+        const lower = val.toLowerCase();
+        if (lower === 'true' || lower === 'benar' || lower === 'correct') return true;
+        if (lower === 'false' || lower === 'salah' || lower === 'incorrect') return false;
+      }
+      return !!val; // fallback
+    };
             
             questionsData.forEach(question => {
-                const answersForThisQ = allAnswers.filter(a => a.question_id === question.id);
-                const correct = answersForThisQ.filter(a => a.is_correct).length;
+                const answersForThisQ = allAnswers.filter(a => {
+                  const qid = (a.question_id !== undefined && a.question_id !== null) ? a.question_id : a.id_question;
+                  return qid == question.id; // toleransi tipe string/number
+                });
+                const correct = answersForThisQ.filter(a => isAnswerCorrect(a.is_correct)).length;
                 const total = answersForThisQ.length;
                 
                 question.correctCount = correct;
@@ -1020,7 +1036,7 @@
       // Hitung jalur level BENAR per siswa
       const correctSets = {};
       allAnswers.forEach(a => {
-        if (!a || !a.is_correct) return;
+        if (!a || !isAnswerCorrect(a.is_correct)) return;
         const uid = a.user_id ?? a.student_id;
         if (!uid) return;
         let raw = a.stage ?? a.technology_level ?? null;
@@ -1031,8 +1047,9 @@
         let lvl = parseInt(raw, 10);
         if (!lvl || isNaN(lvl)) {
           // fallback ke questionsData
-          if (a.question_id && Array.isArray(questionsData)) {
-            const q = questionsData.find(q => q.id === a.question_id);
+          const qid = (a.question_id !== undefined && a.question_id !== null) ? a.question_id : a.id_question;
+          if (qid && Array.isArray(questionsData)) {
+            const q = questionsData.find(q => q.id == qid);
             if (q && q.technology_level) lvl = parseInt(q.technology_level, 10);
           }
         }
