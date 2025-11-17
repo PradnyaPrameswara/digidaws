@@ -66,7 +66,7 @@ db = SQLAlchemy(app)
 # KONFIGURASI GEMINI AI
 # =========================================
 # Gunakan environment variable untuk API key
-my_api_key_gemini = 'AIzaSyCcx9iCB6oGXUPGoW2Ot3Mk7JjIreeCzRQ' 
+my_api_key_gemini = 'AIzaSyCytiXZ0BlKPxuDeGROq6Gb_hStV1ApyK8' 
 genai.configure(api_key=my_api_key_gemini)
 model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
@@ -110,6 +110,14 @@ def p_value_to_difficulty(p_value):
         return "Medium"
     else:
         return "Hard"
+
+# Weight mapping derived from difficulty without relying on legacy p
+def assign_weight_from_difficulty(difficulty: str) -> int:
+    try:
+        p = difficulty_to_p_value(difficulty)
+        return assign_weight(p)
+    except Exception:
+        return 3
 
 # MST Routing Logic - Simple 5 Stage System with User's Taxonomy  
 # Implements 4 Scenarios: High Ability (L1->L2H->L3H->L4H->L5H), Medium-High (L1->L2H->L3H->L4M->L5M->STOP),
@@ -1673,8 +1681,8 @@ class Question(db.Model):
     jawaban_benar = db.Column(db.Text, nullable=True)
     options = db.Column(db.Text, nullable=True)
     question_type = db.Column(db.String(20), default='multiple_choice')
-    p = db.Column(db.Float, nullable=False)
-    bobot = db.Column(db.Integer, nullable=False)
+    # Removed legacy 'p' column mapping; DB no longer contains it.
+    bobot_soal = db.Column('bobot_soal', db.Integer, nullable=False)
     explanation = db.Column(db.Text)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     version = db.Column(db.Integer, default=1)
@@ -1816,7 +1824,10 @@ class QuestionVersion(db.Model):
     options = db.Column(db.Text)
     jawaban_benar = db.Column(db.Text)
     explanation = db.Column(db.Text)
-    p = db.Column(db.Float)
+    # Legacy 'p' removed from model mapping (column dropped at DB)
+    # New fields for MST-based versioning
+    technology_level = db.Column(db.Integer)  # L1-L5
+    difficulty = db.Column(db.String(10))     # Easy, Medium, Hard
     version = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     
@@ -4059,7 +4070,7 @@ def get_question_analysis():
                 "soal": question.soal,
                 "options": json.loads(question.options) if question.options else [],
                 "jawaban_benar": question.jawaban_benar,
-                "bobot": question.bobot,
+                "bobot": getattr(question, 'bobot_soal', None),
                 "total_answers": total_answers,
                 "correct_answers": correct_answers,
                 "incorrect_answers": incorrect_answers,
@@ -5270,15 +5281,16 @@ def upload_file():
                     continue
                 
                 # Handle both old format (p value) and new format (difficulty)
-                if 'difficulty' in q:
+                if 'difficulty' in q and q.get('difficulty'):
                     difficulty = q.get('difficulty', 'Medium')
+                    # Keep computing p_val only for DB compatibility; do not expose/use externally
                     p_val = difficulty_to_p_value(difficulty)
                 else:
-                    # Backward compatibility: convert old p value to difficulty
-                    p_val = float(q.get("p", 0.75))
+                    # Backward compatibility: accept old p and convert to difficulty
+                    p_val = float(q.get("p", 0.60))
                     difficulty = p_value_to_difficulty(p_val)
-                
-                bobot = assign_weight(p_val)
+
+                bobot = assign_weight_from_difficulty(difficulty)
                 
                 options_str = None
                 if 'options' in q and isinstance(q['options'], list):
@@ -5297,8 +5309,7 @@ def upload_file():
                     jawaban_benar=q.get("jawaban_benar", ""),
                     options=options_str,
                     question_type=question_type,
-                    p=p_val,
-                    bobot=bobot,
+                    bobot_soal=bobot,
                     explanation=q.get("explanation", ""),
                     difficulty=difficulty
                 )
@@ -5333,9 +5344,8 @@ def upload_file():
                 "jawaban_benar": q_db.jawaban_benar,
                 "options": options,
                 "question_type": q_db.question_type,
-                "p": float(q_db.p),
                 "difficulty": q_db.difficulty,
-                "bobot": q_db.bobot,
+                "bobot": q_db.bobot_soal,
                 "explanation": q_db.explanation,
                 "created_at": q_db.created_at.isoformat() if q_db.created_at else None,
                 "version": q_db.version,
@@ -6501,7 +6511,7 @@ def get_question():
             "question": question.soal,  # Frontend mengharapkan field 'question'
             "options": options,
             "question_type": question.question_type or "multiple_choice",
-            "bobot": question.bobot,
+            "bobot": getattr(question, 'bobot_soal', None),
             "explanation": question.explanation,
             "jawaban_benar": question.jawaban_benar if question.question_type == 'multiple_choice' else None
         }
@@ -6838,12 +6848,13 @@ def get_questions():
                 "guru_id": q.guru_id,
                 "collection_id": q.collection_id,
                 "level": q.level,
+                "technology_level": q.technology_level,
                 "soal": q.soal,
                 "jawaban_benar": q.jawaban_benar,
                 "options": options,
                 "question_type": q.question_type,
-                "p": float(q.p),
-                "bobot": q.bobot,
+                "bobot": q.bobot_soal,
+                "difficulty": q.difficulty,
                 "explanation": q.explanation,
                 "created_at": q.created_at.isoformat() if q.created_at else None,
                 "version": q.version,
@@ -7140,9 +7151,9 @@ def get_collection_questions(collection_id):
             'jawaban_benar': q.jawaban_benar,
             'options': options,
             'question_type': q.question_type if hasattr(q, 'question_type') else 'multiple_choice',
-            'p': float(q.p) if q.p else 0.5,
-            'difficulty': q.difficulty if hasattr(q, 'difficulty') and q.difficulty else p_value_to_difficulty(float(q.p) if q.p else 0.5),
-            'bobot': q.bobot or 1,
+            # Stop exposing legacy p; always use difficulty directly
+            'difficulty': q.difficulty,
+            'bobot': q.bobot_soal or 1,
             'explanation': q.explanation or '',
             'is_validated': q.is_validated # NEW: Sertakan status validasi
         })
@@ -8016,13 +8027,14 @@ def get_questions_api():
                 "guru_id": q.guru_id,
                 "collection_id": q.collection_id,
                 "level": q.level,
+                "technology_level": q.technology_level,
                 "soal": q.soal,
                 "jawaban_benar": q.jawaban_benar,
                 "options": options,
                 "question_type": q.question_type,
-                "p": float(q.p),
-                "difficulty": q.difficulty if hasattr(q, 'difficulty') and q.difficulty else p_value_to_difficulty(float(q.p)),
-                "bobot": q.bobot,
+                # Stop exposing legacy 'p'. Always include difficulty directly.
+                "difficulty": q.difficulty,
+                "bobot": q.bobot_soal,
                 "explanation": q.explanation,
                 "created_at": q.created_at.isoformat() if q.created_at else None,
                 "version": q.version,
@@ -8178,7 +8190,9 @@ def update_question(id):
             options=question.options,
             jawaban_benar=question.jawaban_benar,
             explanation=question.explanation,
-            p=question.p,
+            # Do not carry legacy p anymore; keep NULL for historical entries forward
+            technology_level=question.technology_level,
+            difficulty=question.difficulty,
             version=question.version  # Gunakan versi saat ini
         )
         db.session.add(prev_version)
@@ -8188,7 +8202,16 @@ def update_question(id):
         question.options = json.dumps(data.get('options')) if 'options' in data else question.options
         question.jawaban_benar = data.get('jawaban_benar', question.jawaban_benar)
         question.explanation = data.get('explanation', question.explanation)
-        question.p = data.get('p', question.p)
+        # Update MST fields; ignore legacy 'p' from payload
+        if 'difficulty' in data and data['difficulty']:
+            question.difficulty = data['difficulty']
+        if 'technology_level' in data and data['technology_level']:
+            try:
+                tl = int(data['technology_level'])
+                if 1 <= tl <= 5:
+                    question.technology_level = tl
+            except Exception:
+                pass
         
         # Increment versi
         question.version += 1
@@ -8201,7 +8224,9 @@ def update_question(id):
                 'id': question.id,
                 'version': question.version,
                 'soal': question.soal,
-                'options': json.loads(question.options) if question.options else []
+                'options': json.loads(question.options) if question.options else [],
+                'difficulty': question.difficulty,
+                'technology_level': question.technology_level
             }
         })
         
@@ -8226,7 +8251,9 @@ def get_question_versions(id):
                 'options': json.loads(version.options) if version.options else [],
                 'jawaban_benar': version.jawaban_benar,
                 'explanation': version.explanation,
-                'p': version.p,
+                # Do not expose legacy p anymore
+                'difficulty': getattr(version, 'difficulty', None),
+                'technology_level': getattr(version, 'technology_level', None),
                 'version': version.version,
                 'created_at': version.created_at.isoformat()
             })
@@ -8278,8 +8305,8 @@ def get_questions_in_collection():
                     'jawaban_benar': q.jawaban_benar,
                     'options': options,
                     'question_type': q.question_type if hasattr(q, 'question_type') else 'multiple_choice',
-                    'p': float(q.p) if q.p else 0.5,
-                    'bobot': q.bobot or 1,
+                    'difficulty': q.difficulty if hasattr(q, 'difficulty') else None,
+                    'bobot': q.bobot_soal or 1,
                     'explanation': q.explanation or ''
                 })
                 
